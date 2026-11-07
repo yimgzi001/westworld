@@ -1,0 +1,16 @@
+{
+  "upstream": "https://atomgit.com/SC-SPM/SurvivalcraftApi",
+  "tag": "API_1.9.5.1",
+  "commit": "fb1e8aca50aacdfef766518222b20cbae6a805f6",
+  "source_archive_sha256": "2d097b2c5f4f0a8aaaa78528adab6ba941d210e688465b1d5ffaf5dc86706f48",
+  "excluded_signing_files": [
+    "Survivalcraft.Android\\Signing.keystore",
+    "Survivalcraft.IOS\\app.mobileprovision",
+    "Survivalcraft.IOS\\app.p12"
+  ],
+  "removed_credential_properties": [
+    "AndroidSigningStorePass",
+    "AndroidSigningKeyPass"
+  ],
+  "source_files_copied": 2664
+}

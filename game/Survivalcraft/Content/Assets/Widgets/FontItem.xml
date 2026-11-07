@@ -1,0 +1,9 @@
+<StackPanelWidget xmlns="runtime-namespace:Game" Direction="Horizontal" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+  <CanvasWidget Margin="15, 0" VerticalAlignment="Center">
+    <RectangleWidget Name="FontItem.Icon" Subtexture="{Textures/Gui/FontIcon}" FillColor="255, 255, 255" OutlineColor="0, 0, 0, 0" Size="56, 56"/>
+  </CanvasWidget>
+  <StackPanelWidget Direction="Vertical" VerticalAlignment="Center">
+    <LabelWidget Name="FontItem.Text" Color="255, 255, 255" />
+    <LabelWidget Name="FontItem.Details" Color="128, 128, 128" VerticalAlignment="Center" />
+  </StackPanelWidget>
+</StackPanelWidget>

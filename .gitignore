@@ -1,0 +1,45 @@
+# Local archives, downloaded distributions and verification runs
+/archive-local/
+/work/
+/migration-staging/
+/SurvivalcraftAPI-*-Windows/
+
+# Private configuration and signing material
+.env
+.env.*
+*.p12
+*.pfx
+*.pem
+*.key
+*.keystore
+*.jks
+*.snk
+*.mobileprovision
+
+# Build and IDE output
+**/bin/
+**/obj/
+.vs/
+.idea/
+.DS_Store
+game/Survivalcraft/Content.zip
+
+# Local game state
+**/Worlds/
+**/ScreenCapture/
+**/Bugs/
+**/doc/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite.lock
+*.log
+
+# Retired implementation roots
+/cmd/
+/internal/
+/scripts/
+/outputs/
+/go.mod
+/go.sum

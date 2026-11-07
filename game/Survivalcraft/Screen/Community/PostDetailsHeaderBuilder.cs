@@ -1,0 +1,165 @@
+using System.Globalization;
+using Engine;
+
+namespace Game {
+    /// <summary>
+    /// 详情弹窗 header 区构建器：本地结构化数据直接产 widget（不经 HTML 拼接再解析），
+    /// 不进入自动翻译载荷。content 区（服务端 HTML / 纯文本）由对话框负责。
+    /// </summary>
+    static class PostDetailsHeaderBuilder {
+        // 标题/正文/列表项的 label 样式（原 PostDetailsContentBuilder 同源视觉，勿私自调整）
+        static readonly Color HeadingColor = new(255, 230, 140);
+
+        static readonly Color TextColor = new(225, 225, 225);
+
+        const float HeadingFontScale = 0.98f;
+
+        const float TextFontScale = 0.86f;
+
+        const float ListIndentPerDepth = 22f;
+
+        // 更新弹窗通用元信息：可选标题行 + 当前版本 / 最新版本 / 下载文件名。
+        public static void AppendUpdateInfo(StackPanelWidget panel,
+            string title,
+            string currentVersion,
+            string latestVersion,
+            string downloadFileName) {
+            AppendHeading(panel, title);
+            AppendParagraph(
+                panel,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}：{1}",
+                    LanguageControl.Get("PostDetailsHeaderBuilder", "CurrentVersion"),
+                    string.IsNullOrWhiteSpace(currentVersion) ? "-" : currentVersion
+                )
+            );
+            AppendParagraph(
+                panel,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}：{1}",
+                    LanguageControl.Get("PostDetailsHeaderBuilder", "LatestVersion"),
+                    string.IsNullOrWhiteSpace(latestVersion) ? "-" : latestVersion
+                )
+            );
+            AppendParagraph(
+                panel,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}：{1}",
+                    LanguageControl.Get("PostDetailsHeaderBuilder", "DownloadFile"),
+                    string.IsNullOrWhiteSpace(downloadFileName) ? "-" : downloadFileName
+                )
+            );
+        }
+
+        // 「我发布的」帖子详情：下载统计摘要 + 最近下载趋势 + 版本下载量。
+        public static void AppendPublishStats(StackPanelWidget panel, PostDownloadTrendResponse stats, string statsError) {
+            AppendHeading(panel, LanguageControl.Get("PostDetailsHeaderBuilder", "PublishStats"));
+            if (stats == null) {
+                AppendParagraph(
+                    panel,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        LanguageControl.Get("PostDetailsHeaderBuilder", "FailedToLoadStats"),
+                        string.IsNullOrWhiteSpace(statsError) ? LanguageControl.Get("PostDetailsHeaderBuilder", "UnknownError") : statsError
+                    )
+                );
+                return;
+            }
+            AppendParagraph(
+                panel,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    LanguageControl.Get("PostDetailsHeaderBuilder", "Last30DaysTotalVersionsFiles"),
+                    stats.TotalDownloadCount,
+                    stats.Post?.TotalDownloadCount ?? 0,
+                    stats.Post?.VersionCount ?? stats.Versions?.Length ?? 0,
+                    stats.Post?.FileCount ?? 0
+                )
+            );
+            AppendRecentDownloadSeries(panel, stats.Series);
+            AppendVersionDownloadStats(panel, stats.Versions);
+        }
+
+        static void AppendRecentDownloadSeries(StackPanelWidget panel, PostDownloadTrendSeriesItem[] series) {
+            IReadOnlyList<PostDownloadTrendSeriesItem> visibleSeries = series?.Where(item => item is { DownloadCount: > 0 })
+                .TakeLast(7)
+                .ToArray();
+            if (visibleSeries == null
+                || visibleSeries.Count == 0) {
+                AppendParagraph(panel, LanguageControl.Get("PostDetailsHeaderBuilder", "NoDownloadsInTheLast30Days"));
+                return;
+            }
+            AppendHeading(panel, LanguageControl.Get("PostDetailsHeaderBuilder", "RecentDownloads"));
+            foreach (PostDownloadTrendSeriesItem item in visibleSeries) {
+                AppendListItem(
+                    panel,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        LanguageControl.Get("PostDetailsHeaderBuilder", "DailyDownloadsFormat"),
+                        CommunityTimeFormatter.FormatDate(item.BucketStart),
+                        item.DownloadCount
+                    )
+                );
+            }
+        }
+
+        static void AppendVersionDownloadStats(StackPanelWidget panel, PostDownloadTrendVersion[] versions) {
+            if (versions == null
+                || versions.Length == 0) {
+                return;
+            }
+            AppendHeading(panel, LanguageControl.Get("PostDetailsHeaderBuilder", "VersionDownloads"));
+            foreach (PostDownloadTrendVersion version in versions.Where(version => version != null)
+                .OrderByDescending(version => version.RangeDownloadCount)
+                .ThenByDescending(version => version.TotalDownloadCount)
+                .Take(6)) {
+                string name = !string.IsNullOrWhiteSpace(version.Version) ? version.Version.Trim() :
+                    !string.IsNullOrWhiteSpace(version.Title) ? version.Title.Trim() :
+                    LanguageControl.Get("PostDetailsHeaderBuilder", "UnnamedVersion");
+                AppendListItem(
+                    panel,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        LanguageControl.Get("PostDetailsHeaderBuilder", "VersionLast30DaysTotalFiles"),
+                        name,
+                        version.RangeDownloadCount,
+                        version.TotalDownloadCount,
+                        version.FileCount
+                    )
+                );
+            }
+        }
+
+        // —— header 区便捷 widget 产出（原 PostDetailsContentBuilder 静态方法本地化，样式同源）——
+
+        static void AppendHeading(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                AppendStyledLabel(panel, HeadingColor, HeadingFontScale, text, 12f, 0f);
+            }
+        }
+
+        static void AppendParagraph(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                AppendStyledLabel(panel, TextColor, TextFontScale, text, 6f, 0f);
+            }
+        }
+
+        static void AppendListItem(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                AppendStyledLabel(panel, TextColor, TextFontScale, text, 3f, ListIndentPerDepth);
+            }
+        }
+
+        static void AppendStyledLabel(StackPanelWidget panel, Color color, float fontScale, string text, float topSpacing, float indent) {
+            if (topSpacing > 0f) {
+                panel.Children.Add(new CanvasWidget { Size = new Vector2(0f, topSpacing) });
+            }
+            panel.Children.Add(
+                new LabelWidget { Text = text, Color = color, FontScale = fontScale, WordWrap = true, MarginLeft = indent }
+            );
+        }
+    }
+}
