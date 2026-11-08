@@ -1,0 +1,18 @@
+# Keep this research archive source/documentation only.
+.env*
+*.key
+*.pem
+*.pfx
+*.gguf
+*.safetensors
+*.dll
+*.exe
+*.netmod
+*.zip
+*.log
+*.jsonl
+**/bin/
+**/obj/
+**/.dotnet-home/
+**/runtime/
+**/Worlds/

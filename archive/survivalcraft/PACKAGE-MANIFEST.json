@@ -1,0 +1,26 @@
+[
+  {
+    "snapshot": "v10",
+    "package": "survivalcraft-ai-research.zip",
+    "sha256": "4b437e6dfa42815d2019794a1ec8a1f621a8a98948d4fd81c16fcd4d1165cef6",
+    "bytes": 325467
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "package": "reconstructed-vision-native-checkpoint-20261108.zip",
+    "sha256": "b17b11bb5c30485c58c29a56d539500144a6f8c32a26079a64338007771d1b62",
+    "bytes": 61043
+  },
+  {
+    "snapshot": "fixture-failure",
+    "package": "native-vision-fixture-failure-20261108.zip",
+    "sha256": "efb1f5a023c5a8032f16dd9eefb3fd27bde1195ba1a6dd62029d4ca41a35a70e",
+    "bytes": 150635
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "package": "migration-handoff-wip-20261108.zip",
+    "sha256": "8196f53d1d9ad07fc8b4fff275ca4373893dac85a436e532d6c5ecb80c1f757c",
+    "bytes": 11741
+  }
+]

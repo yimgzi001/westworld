@@ -1,0 +1,2498 @@
+[
+  {
+    "snapshot": "v10",
+    "path": "Bridge/AgentBridge.cs",
+    "bytes": 2542,
+    "sha256": "68bca5a082d789a74daf976b03d2b53fd9e5bd25ec75de6f29d70e2ac1f86c46",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "Bridge/BridgeMod.cs",
+    "bytes": 5098,
+    "sha256": "1df2bfdf3b3798273b2e45a8e77f4235280bfdcc34a576d2a975cae0afd9ef87",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "Bridge/Bridge.csproj",
+    "bytes": 550,
+    "sha256": "e357ca2cc697e5f155649fa3e8935ed6f776df421a95a3a0811e20688ac92832",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "Bridge/controller.py",
+    "bytes": 1343,
+    "sha256": "c58fcfca7c03ae454be697919141c44e04d4cc48b0fff30f419ff5590e62696d",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "Bridge/test_protocol.py",
+    "bytes": 769,
+    "sha256": "197725532da0dd92da72d0647af67e5e20adff16c3c4a31967ba1832d17d1e36",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "Bridge/modinfo.json",
+    "bytes": 221,
+    "sha256": "b5a1f22387b6313c9811ec3f283caf5dd297aca944132ac854352e811547183f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "Bridge/README.md",
+    "bytes": 8030,
+    "sha256": "eb973f0ff1ebe2281cf043f5515df2706a1b650f52f74424f8ce7438ec9c8ca8",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "Bridge/MEASUREMENTS.json",
+    "bytes": 1624,
+    "sha256": "6dcbe9acdfa0406228a24584f55b1cb2b453e16a2d609f4691e219e7658c1286",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "BotBridge/BridgeMod.cs",
+    "bytes": 6943,
+    "sha256": "5d764d8189556663f100477c8601b1f3b379a5d99b70d4aaa80d4d4efe075808",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/move-test-v3.json",
+    "bytes": 162,
+    "sha256": "5ffc07b2b163d760c00a7eca1781a9948cbb8e0aca6920d03edf8d47db37b0b1",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/dig-down-test.json",
+    "bytes": 234,
+    "sha256": "ab9fdb745b82296a609b40744f61dfbe292937a3168479280c16cddf64e9e720",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/place-test.json",
+    "bytes": 235,
+    "sha256": "85c04c5d928b694e53b02b6e120d536556170f8d42fa7bbd70b8a093e72b937e",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/single-player-resources.json",
+    "bytes": 3187,
+    "sha256": "edded9d6f4f807b196a76796ac3b16be18eec7fa1305536565ded58366ccf737",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/dual-player-resources.json",
+    "bytes": 5074,
+    "sha256": "26c42bba2f6c4ab9f2953141e907a987215ba00403ff4b0080b10bedd9a14680",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/dual-live-v2.json",
+    "bytes": 675,
+    "sha256": "14e3281c5238aac575870d5a4b38450a8559f405ecd29b4342aa434be2f51962",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/dual-softpipe-resources.json",
+    "bytes": 5079,
+    "sha256": "8e21a8e0f9c10b3916894a4ef11193a461bdc9ed05bf9e75d61458596235b2ef",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/single-softpipe-resources.json",
+    "bytes": 3192,
+    "sha256": "df70bf007cfbe03763705fcf8ec75eb7cfe10ce24d8d3e245994d992c4a6f97c",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/singleprocess-bots-actions.json",
+    "bytes": 553,
+    "sha256": "442baca26b220f97c8627783c0bdc93102a7f601140e6db93cf03109bbd6a2e6",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/singleprocess-isolation-actions.json",
+    "bytes": 569,
+    "sha256": "95469830a04fa079d8501dc70a1b0328ac7bf05daafe9da2f68505a131a466c6",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/singleprocess-two-bots-resources.json",
+    "bytes": 3193,
+    "sha256": "16786f6cc2a5d7c9528cb5d762736d7f0efbe4410245ccc91dfb6512b3d69135",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/singleprocess-speed.json",
+    "bytes": 149,
+    "sha256": "b045e7494bd36270606f7b69d22c0f53ccb4518e13b480be6572b04badaa92e0",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/hidden-two-bots-actions.json",
+    "bytes": 556,
+    "sha256": "57c1665e5dfe5e38f7723205deb091ca257d746350594fa5b28e9d9e0bb1ac25",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/hidden-two-bots-resources.json",
+    "bytes": 5064,
+    "sha256": "e232ccdd41bf09a0408f555a449e4beceb3a9653958f22fca5f2573736752bee",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/hidden-one-bot-resources.json",
+    "bytes": 5077,
+    "sha256": "d522d1ac31ee6ec6db42e04cdf94ccf9b273ab3b344e95c5e88944ee4c290fc6",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "sample_resources.py",
+    "bytes": 690,
+    "sha256": "23d8c2f32fd8ed69c2bf0d4fcc6bdd4385fab507d5b8a4b4a83d46833c9db31a",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "sample_resources_ticks.py",
+    "bytes": 1060,
+    "sha256": "6ce86318a0e1b2b6288e482b07b4b9635598e1e95652b111ea8ac60733d3557c",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "test_dual_live.py",
+    "bytes": 1421,
+    "sha256": "ffdd629911ad2cf4e613f1ef4c08415f015ec134e13423d2bd97efc834d6646c",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "test_singleprocess_bots.py",
+    "bytes": 1050,
+    "sha256": "26f80f7955f0fd4dc18dce3addc7b88140ce47dedf990ddcd037b38ced2f0fcb",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "test_singleprocess_isolation.py",
+    "bytes": 1074,
+    "sha256": "37152fb5f565a1f873ddd53155a4a5a96d6b634833ea3d3de3a8600ce3d829dd",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "LATEST-RESULTS.md",
+    "bytes": 4081,
+    "sha256": "13cec8a555e3619a62cc2deb99b89cb9980117e5ec8412667eebb293bd8f33c4",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/cohort-1-resources.json",
+    "bytes": 19626,
+    "sha256": "f0791e3fb7e80cecf307188b2768a1a179f175d2830c5146ea11c1f3eaabb263",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/cohort-2-resources.json",
+    "bytes": 19690,
+    "sha256": "8af9f24e709425eda685739e48b97db79e04f261298a2711ff9544d2cc757484",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/cohort-4-resources.json",
+    "bytes": 19666,
+    "sha256": "46486215627e0e619f4e419b78b598c815001b64cdc5d5dec906ca9901a52132",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/visible-four-clean-resources.json",
+    "bytes": 6193,
+    "sha256": "037e873ba9bc06c2009b752256c156031a8bae74d48acad0a6fd7a88c6725832",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/reload-before.json",
+    "bytes": 1186,
+    "sha256": "c2dd6af60635a5ecf18198d859722cef53bdf5e432a3202371659218f1b1ab57",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "evidence/reload-after.json",
+    "bytes": 1178,
+    "sha256": "9972a53478c216b028811010563e578e34941e3bbfc1dae08c5d3749696bf2a5",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "ScaleBridge/BridgeMod.cs",
+    "bytes": 8962,
+    "sha256": "238e7d8f2189d957a8347329f94f82c2b826dea4d9f43989613775a1b8c9bb49",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "ScaleBridge/Bridge.csproj",
+    "bytes": 550,
+    "sha256": "e357ca2cc697e5f155649fa3e8935ed6f776df421a95a3a0811e20688ac92832",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scripts/sample_resources_ticks.py",
+    "bytes": 1281,
+    "sha256": "e73698bac9678cb36ad5c60e3082dc85d527b4d90633a69e8a18fb31a1bd5771",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scripts/run_cohort_stages.py",
+    "bytes": 954,
+    "sha256": "ab5b25b01a5f1b87b7aa8e22df6ee4df86eaabf15f6fa0c09816fc2f71162a99",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scripts/run_scale_stages.py",
+    "bytes": 1485,
+    "sha256": "869d516ecc4c93179b04d23f6bb4f7481d580ac7e162e75972b2a48796413eac",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scripts/capture_manifest.py",
+    "bytes": 528,
+    "sha256": "d39b175f3ad349d2d7d40a2e4b03d6c5f57c05b2dfbb372c6a3f2cb8781d0ad9",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/controller.py",
+    "bytes": 4610,
+    "sha256": "ca48d16618807a9c4420ef50141f86c391a2b2864e8023454d8d4ec9f1ff36b8",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/live-results.json",
+    "bytes": 120437,
+    "sha256": "79e6bb72df654a8d9aa7cd8123f29abaa4e2913b7675d361c636d79336440ee0",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/README.md",
+    "bytes": 10756,
+    "sha256": "08e40d82e95fcb68b4a26e36e5de13db47765ff85bec72352f5f3623567b3063",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/test_controller.py",
+    "bytes": 3050,
+    "sha256": "cf0a04f248e161a48dd345960eeb4abeb637dbd27537fd4a45239dcf4fccdb11",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/skill.py",
+    "bytes": 1977,
+    "sha256": "ebfb86f8539ce387743222c4e256d393f82a2157e7f0500b9a4363ab26c5ab5f",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/test_skill.py",
+    "bytes": 1620,
+    "sha256": "cbb2961eb3e7e72889006d893fd836ad13a0952350b64583e91f9a573d860052",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/local_two.py",
+    "bytes": 5733,
+    "sha256": "56a2224d46b62fb7b112cd969aa716190ab7cacf02891a67ec2fa8ef5da8a51f",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/local_skills.py",
+    "bytes": 7359,
+    "sha256": "4afba8ebf1db301d5c63064b0a6cbe1793db8b33297665536cf43ed09a4c89d7",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/local-two-results.json",
+    "bytes": 478969,
+    "sha256": "d77053f8eabf4073a98d8063afc71c90075de356be8a8f1faec39fe9ab60923b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/local-skills-results.json",
+    "bytes": 313060,
+    "sha256": "53212e914416ba06c23fb6a12deb98e96fcb1a2a4153178be3e31776c226cd62",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/skill-test-results.txt",
+    "bytes": 1747,
+    "sha256": "cc31143d9953ea9118e5da3e25c5b66bde3ceb62ea44ad6543236c4df77a5081",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "ScaleBridge/CommandPolicy.cs",
+    "bytes": 584,
+    "sha256": "56f7d0bb0fe22d949b9e862015fe52239673fadef8b185d1812433a664f95a23",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "ProtocolTests/ProtocolTests.csproj",
+    "bytes": 286,
+    "sha256": "cc7c2558e78a24ad5549cc2c8b383119a2236eb74216761a70879c7e669606bf",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "ProtocolTests/Program.cs",
+    "bytes": 864,
+    "sha256": "f1b092e46cfa90dcaa9f919ea8b140ddf8c7de346451d732284cd4d69b2de5ee",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/SCALE-RESULTS.md",
+    "bytes": 930,
+    "sha256": "febed62acb896c1ef35185d18add96f715d3e41a775de0633da7dc0e83f6d0c1",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/scale-summary.json",
+    "bytes": 1362,
+    "sha256": "eaed10728fa0c7ba40478a3e971ac36101a5e9edc933b42345052b094f611e52",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/scale-8-resources.json",
+    "bytes": 24402,
+    "sha256": "c19c683b52f59879084af15ec45495541c0cf264fde8caf92c01ef2cc0dd143b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/scale-16-resources.json",
+    "bytes": 24603,
+    "sha256": "25f852b181696c03f40aa68ca3faa600d5d43e6e6c2852d657a6c395a13d5ed7",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/scale-32-resources.json",
+    "bytes": 24695,
+    "sha256": "0809377e9e324cc83dfbbfc5a82ffd887268985fc3687d29cc64048fc4710ca3",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/scale-50-resources.json",
+    "bytes": 24765,
+    "sha256": "2f5c2f2ffd2ac3c7f973393b7cf1261c080d065753c9b35595df6539c7a0592f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/reload50-before.json",
+    "bytes": 14994,
+    "sha256": "28a6cef4a3d62a8fc93a0b34cacfb1ab4403b0d94d52af71dde36515aba306ab",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/reload50-after.json",
+    "bytes": 14944,
+    "sha256": "982cc59799dec35d0ab7be46b25888f38205623b44ff75d50780640a8de26544",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/continuous-gather-results.json",
+    "bytes": 2845,
+    "sha256": "4bd4da2f640b5d87dc23865e98a305f23970056d352c1a834dbdc6111fc1029c",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/fifty-eight-active-resources.json",
+    "bytes": 6323,
+    "sha256": "9de29a69ad1b2a85942de761fa9e46ef09d6fbdc84168dba6c8aec4de7bff9e2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "scripts/summarize_scale.py",
+    "bytes": 890,
+    "sha256": "72dd6d3552e567c1ece9172f5d7454b49e9dafc1b8579b091d38eedcb16faa58",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scripts/test_continuous_gather.py",
+    "bytes": 2232,
+    "sha256": "338d7da0d7c2903349c306a90db5280dc8b4086c0e971cf7946f1d0c120221cc",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "ScaleBridge/AgentBridge.cs",
+    "bytes": 2785,
+    "sha256": "390e51f545d0d2dd86f942ffc90b3326a27cc8842d3409d6b500895f6a5be3c8",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/local-skills-50world-results.json",
+    "bytes": 97201,
+    "sha256": "631e17aa623a10159b93c93d1d7af18ccd2d894ab5f29c141460b476cfa282e2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/eight-active-results.json",
+    "bytes": 133126,
+    "sha256": "e2973af6257226ff95e37a663ca4a6d24edbba528fe7e3f7f7d9793ec9059682",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "continuous/eight_active.py",
+    "bytes": 4708,
+    "sha256": "da0dccd47f66734961081000b7085817d5e0de7fc74d4768df9cc378b3e4234a",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "scale/injury-attempts.json",
+    "bytes": 23719,
+    "sha256": "f7ffe201f9eb8a9f762ef08026a4e4ef84a7b1f72a0dbf9f352cacb6f30776bb",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "FOOD-RESULTS.md",
+    "bytes": 7258,
+    "sha256": "6fbd024fe3816e60858b6131c52cc8d74e0854ac5648684105a203458096af09",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "ADAPTER-CONTRACT.md",
+    "bytes": 1897,
+    "sha256": "3e50390a9a051273e2b1b98ce441d64f10d4ab03db64a48c5a96b4480b4b8423",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "food-negative-tests.json",
+    "bytes": 440,
+    "sha256": "8333b0d09c575c462543d00fad76d75c90f6df1e13a1ad0f99fa81a54f66371f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "food-fixture-positive.json",
+    "bytes": 556,
+    "sha256": "e0ad5786c35473ad228acc379a67fd0a585307e483ba1cdbd3ffbe3a65ba40d1",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "test_food_fixture.py",
+    "bytes": 1366,
+    "sha256": "c2e8f6ab9dbf9411e72f7f05da88448398b994ba91f39987cf841a98b9f834b2",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "grass-navigation-results.json",
+    "bytes": 4780,
+    "sha256": "76fe4e91be70d39942b30ba5d26cd56d73fefd125126c8e9f7edbc0c247d0616",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "grass-navigation-starvation-stop.json",
+    "bytes": 1403,
+    "sha256": "141bf1c056a3f9fb78304bbee06f51cfe6727b676817671f453f67c7af238a4f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "test_grass_navigation.py",
+    "bytes": 2656,
+    "sha256": "d18d79c06bab8f36e60ec99e92d33e8be1b1ac6a9e0a3ad858cf27a17e2982a2",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "shore-egress-results.json",
+    "bytes": 325,
+    "sha256": "2f1807ba2d16c0862172c7c5eddff29cef37b447ae01001d1f6610014c74c8b1",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "shore-egress-results-v2.json",
+    "bytes": 5418,
+    "sha256": "9b023b9d534073e6977134754321ddca5dee331989db37f0b45379b73c7b6002",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "test_shore_egress.py",
+    "bytes": 2302,
+    "sha256": "8c9b2ce1fb5dfc6f2d78ca6337a218a300d7b59135c5390f4c98eb7750e267ff",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "explore_food_short.py",
+    "bytes": 1614,
+    "sha256": "f8de11b9a6e9493f8c4e154942acdbdbcc00f18e7d909393e7eea223f1265a65",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "food-exploration-2.json",
+    "bytes": 4221,
+    "sha256": "f6d36ef4cfdd25e014337f907204f4ad875d91de3a0773bac797c531ea29f88f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "food-exploration-1.json",
+    "bytes": 4210,
+    "sha256": "580a07489b789d89298a6d5944e173149c6c407f0a518b3dad117526076a0cf6",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "food-exploration-3.json",
+    "bytes": 1762,
+    "sha256": "0b3a21cc6219a95b0445bb03e3ded3e0a50b00cb23519253618a8be2a62f8b38",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "FoodBridge/CommandPolicy.cs",
+    "bytes": 611,
+    "sha256": "66802fc6a6141b58aa27982af747fb108cc433354a9f090ef07b5ee5befb450d",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "FoodBridge/BridgeMod.cs",
+    "bytes": 13576,
+    "sha256": "610a294c5c5282f307bcc8aa4bf2c055b1fd48db29e4b93dd43d8c9030f65d3e",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "FoodBridge/Bridge.csproj",
+    "bytes": 550,
+    "sha256": "e357ca2cc697e5f155649fa3e8935ed6f776df421a95a3a0811e20688ac92832",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "FoodBridge/AgentBridge.cs",
+    "bytes": 3146,
+    "sha256": "643e5958d61606f1607379e43283d33b2f5ddcae5e714130184e84093767c30f",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "FixtureBridge/CommandPolicy.cs",
+    "bytes": 632,
+    "sha256": "e2ae1846ffe7d3de532659b9b9cc18b309187df6b1906fe4e6e5a10ea1ff8dd8",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "FixtureBridge/BridgeMod.cs",
+    "bytes": 12376,
+    "sha256": "3f5771bc820cc0a9747b84cc670644aa4c44352588f79e8b56adfed3119f3930",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "FixtureBridge/Bridge.csproj",
+    "bytes": 550,
+    "sha256": "e357ca2cc697e5f155649fa3e8935ed6f776df421a95a3a0811e20688ac92832",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "FixtureBridge/AgentBridge.cs",
+    "bytes": 3058,
+    "sha256": "46993b8ef6a02cce9f6be49301ef0126357dd5aa5d2b9c0f37a26356cc96dc86",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/README.md",
+    "bytes": 5941,
+    "sha256": "c15bf186bb3d259a861d32bfee13fc37cf68edd5ec18623a9b8805627e25df71",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/test_grid_planner.py",
+    "bytes": 2215,
+    "sha256": "a584714eda1550ac281db35bfb0d74f029b3f967c1ce93a610e7f9326ed90122",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/grass-route.json",
+    "bytes": 1257,
+    "sha256": "2427915eeb284e29edfa1f2dad4685453231581657c718d2bbf9f0c86ac8118b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/grid_planner.py",
+    "bytes": 4114,
+    "sha256": "1be628c213088e2527eeaab8556ae758bb7e10ebcd7ce7d2289978454cd839cf",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/test-results.txt",
+    "bytes": 1853,
+    "sha256": "2640ae63fd399a5cbb93cb5c90d5d2a21d5c60b823452380c61dba1a8ae5886b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/surface_route.py",
+    "bytes": 1781,
+    "sha256": "bb33fa09c600fbdb760eb7e907f01ed7a0c47701b10da7550d2624f98512d97e",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/continuous/FOOD-API-RESEARCH.md",
+    "bytes": 5108,
+    "sha256": "faded341440c20df14cdaa5fa6a0a25812a1df8766f982094fa60b8f1d459378",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "execute_observed_route.py",
+    "bytes": 3417,
+    "sha256": "0f6de66565a7f7fd1edffd014be0cfaf12e623b018ffa42fda51d1887db1d4b5",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "explore_wet_bounded.py",
+    "bytes": 1952,
+    "sha256": "5062187c1e632d0da7f3d70000729325da3972b0235c074f067511bce4cb742f",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "approach_natural_food.py",
+    "bytes": 1974,
+    "sha256": "a322a40283bfe291666eee19f44e28848846489dd671625cf6f7537bd080f181",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "approach_food_groundmap.py",
+    "bytes": 2012,
+    "sha256": "44d8f2c451cb25c63e57244e2697e9a0636c385006aa161a0238df57a5db184b",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "approach_food_known_detour.py",
+    "bytes": 2646,
+    "sha256": "7ae28a5a810f9c531ffc96b506b6290b5928dcd7ac8b48ee172dfcfa62f21330",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "approach_food_detour2.py",
+    "bytes": 2679,
+    "sha256": "fca52a0b17c443e6d19b47a7e9cc3ab3d9bbc4928cc62897b6ad6099f9582767",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "collect_natural_pumpkin.py",
+    "bytes": 3340,
+    "sha256": "704320450062e201b4f9bee7849d049514b9e3bfed0a66840630f147b31d0de6",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "natural-food-chain-results.json",
+    "bytes": 1882,
+    "sha256": "da0fb94ea1f871ec7707fc0b3177e3fde7b47ee4c773fccd5aa83546aa396450",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-world-conditions.json",
+    "bytes": 761,
+    "sha256": "2a54c0ab3ae8645cfad979320170987ea3325abc68894e5501149c0d5d3ea394",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-natural-food-discovery.json",
+    "bytes": 448,
+    "sha256": "cd32a44b1415d932a564f4c1606d8b71211756857ddc688d35f2bef95edc074e",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-streaming-idle-resources.json",
+    "bytes": 6280,
+    "sha256": "56f8f53e4d69009c0ad4a83d85ef5baabeaf6370433043ba2cc30ccb6e9a95ea",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-exploration-summary.json",
+    "bytes": 2425,
+    "sha256": "72d66dd08de02b2831217d82e2cdd1d61a96d57781e18aaba880957d4f23e9dd",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-approach-summary.json",
+    "bytes": 3549,
+    "sha256": "16cd1c39e085f0f36e6e7a5fb755ab9b0ac1a09595300210f43c96b782774d1f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-ground-approach-summary.json",
+    "bytes": 865,
+    "sha256": "ccb278dfc2984e398b413dbcf7f2d156bce853b47862a48d9f663086cf89a03a",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour-approach-summary.json",
+    "bytes": 1280,
+    "sha256": "34bfc48e625c9237c46931da93195c9e0ab70643d20298cac3872b78ddc0d5ce",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour2-approach-summary.json",
+    "bytes": 1037,
+    "sha256": "a9dea9b634e8db583f3de6e66afa25458c871ef87f95e5f9adbddcf29572c4d3",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "inland-navigation-results.json",
+    "bytes": 6582,
+    "sha256": "110d7013f501d75c1457e8e49dd60f073870a43e81f5078a91140968c1a99af8",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour-route-0.json",
+    "bytes": 860,
+    "sha256": "e6e132207f7175680d6b72029312950cd575b53d990f42291d7ba5d5c4a43220",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-7.json",
+    "bytes": 711,
+    "sha256": "d9bf7ce07f0bfe53e49c424593ddbd40a599b6dcaede9e6721205d3eef3db87a",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-3.json",
+    "bytes": 1963,
+    "sha256": "ccab8a14c66ff8fb6d5cc73fc7e8043b1f9d8a7f39be9c26b442d37d236b8f5b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-route-0.json",
+    "bytes": 2034,
+    "sha256": "e72630c1ce17f36bbd6fc537f541546cfb566d9b21b632d7391706cf6817f900",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-ground-route-0.json",
+    "bytes": 1962,
+    "sha256": "18c3f705e4c77025d4bb7c35daa6f4cbc2ad255fd709b044ab4dba0aeb4e14a9",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-route-2.json",
+    "bytes": 2057,
+    "sha256": "7499622d7362cd9d7667efd64f0396591fc7658ff4876bd6f985cf1522476d14",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-route-3.json",
+    "bytes": 2058,
+    "sha256": "7c7b66e3c6b717051960d404fe49799a3f900064808ee6d5c8e268cbf918b99d",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-0.json",
+    "bytes": 1963,
+    "sha256": "0ae61ecefef40eeea12226f9963790125a3decdc7474a2cdaf02562c58493808",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-route-5.json",
+    "bytes": 2045,
+    "sha256": "75451074b0eb6a8c41da2c0849a05422e3e657887610b5bbf238044faad29087",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-5.json",
+    "bytes": 1949,
+    "sha256": "e9cbee97fca9829a6cdcac0085bf2204ee9bd10d1a4f683885690e1d9f4957e4",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour-route-1.json",
+    "bytes": 860,
+    "sha256": "5070f9eec97dc9165de6e6621723cc1ac73245eacaaea24035f3d6455778c0e8",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-4.json",
+    "bytes": 1962,
+    "sha256": "6dd03ed0084125ff36baafe9e74f8f3a39e78434dc510a2cfeb62f178c274899",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-2.json",
+    "bytes": 1962,
+    "sha256": "f4833ded199d6c86ab86ec64108e8628335e3c192998cd929bd4ee981c712410",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour-route-2.json",
+    "bytes": 860,
+    "sha256": "1bc7607bcc3a8d8cf83be2d885571aba7a54f9ad3a6eb83ad9763046f4798e74",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-route-1.json",
+    "bytes": 2037,
+    "sha256": "840b0484ba25c892944dc8dba7d2b409134223bfc30c0d39815358349f3f78e1",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-6.json",
+    "bytes": 1949,
+    "sha256": "d4d2bcc97223d7d2d81bf58ae1670fab7c63823f00a910e39bb0c5bc91e595fc",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour2-route-0.json",
+    "bytes": 860,
+    "sha256": "d7baf8797b08c42133230fab5cdceede7735d1a35fe727f486d7850c7f5502b0",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-route-1.json",
+    "bytes": 1960,
+    "sha256": "5e86caaf2492e532b51137f14914b97227737040e733845dd1309b4a872d5c33",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-route-4.json",
+    "bytes": 2048,
+    "sha256": "6b2d03ea4efb114840f4c9da0055fed2118b9f599e509ee1614fae0521f7ee74",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-ground-route-1.json",
+    "bytes": 887,
+    "sha256": "a2e78f10b4343a1b41ef64e075a55ff3d33b8016419315f5a0928fb49aaceccd",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour2-route-1.json",
+    "bytes": 779,
+    "sha256": "59e4a14a01475170191614acf5d994c0bd81e2cc30936ca4c6577a7d9e0238f8",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-result-0.json",
+    "bytes": 10366,
+    "sha256": "b0f8e3b82b4feeeed36a291189209d149f292c50d036ca09fcb65094e3caeda5",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-ground-result-1.json",
+    "bytes": 2365,
+    "sha256": "e0a5912e7d22569769dbde1bbe28e861bd56081ac2eac7f2ecdfca1dc80afe51",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-result-1.json",
+    "bytes": 9977,
+    "sha256": "d3aeabc018aca8a07f38708ceb3ff26b602011e0f915aa26f1b2a4028b0202c7",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-1.json",
+    "bytes": 8972,
+    "sha256": "b1d88614187943793ab3cc97fcd6d50db671382ea67f9954cc5a84be84e628c3",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-ground-result-0.json",
+    "bytes": 10361,
+    "sha256": "092bf422c7df6166294b8297400d7e4bf9d3756b4a273e651961b336ccaeebd3",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour2-result-0.json",
+    "bytes": 9360,
+    "sha256": "749a8e5f6944a56208a9520460985fb57a4bf9775cba746bc77c7c818f79b6a7",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour-result-2.json",
+    "bytes": 5568,
+    "sha256": "96d4982454dd1ad18266ec449a662ed54b01948a166fb39df8b180a0ffb2c45e",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-2.json",
+    "bytes": 8775,
+    "sha256": "4b1c7aed9960952b6de946de373a453c641e16684606e748b60885723d1c1697",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-4.json",
+    "bytes": 9786,
+    "sha256": "4c033fbe4dd0da01e5fac326252b604b2d861f9be2504b14343313279934afb4",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-0.json",
+    "bytes": 7768,
+    "sha256": "18bd22d922b87175ec449624c0e1d0e67395c6f6f20bd97f271c1805b81c39ac",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-5.json",
+    "bytes": 10371,
+    "sha256": "d10a561dc981919053b7a94fb49e729d7b4535a8e1eb4367efc65ee8a70e6b3d",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-result-2.json",
+    "bytes": 9176,
+    "sha256": "a44c36a6957c294c7e893372cb7b3de0e0691862471efd7c0f2f8416e26077f6",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-6.json",
+    "bytes": 8953,
+    "sha256": "c8325ba1d9550449f3bdf2719881870c783f32b0d362608781423f76d98d6a3d",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-result-4.json",
+    "bytes": 8575,
+    "sha256": "51e1c404bdd43d270d7a30d162d3d48f886c7761adb06acc97f00337442ad08d",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-result-3.json",
+    "bytes": 9570,
+    "sha256": "c69ae3f0e74eea792f6a41970f1b29065e67664176a9edc387e09a9b2ebad305",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-7.json",
+    "bytes": 1442,
+    "sha256": "6ded07d608b40f381b58969a6a3fb5c875722d513ffb1eb9faf8dda1d886ecfc",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-explore-result-5.json",
+    "bytes": 8580,
+    "sha256": "20e7a446a91a5755b614ceaaddcecb48125bca6bf8f0229ab002df39d253c733",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour2-result-1.json",
+    "bytes": 7812,
+    "sha256": "a7fec97ec84e61f7501b9736cfaf37ec2a8d33ac86fcb880abb7ceceb8a80e01",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-food-result-3.json",
+    "bytes": 9170,
+    "sha256": "0f113706e385d48404e4dd737bddea1f4d69c4ef0d0ec7580261ffe5345b1541",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour-result-0.json",
+    "bytes": 8961,
+    "sha256": "cd9a93312f4c83fe307de7761dd51760cf08f8e43076a6c4f8f1791b1c2f3f76",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-detour-result-1.json",
+    "bytes": 10198,
+    "sha256": "c99dc63f48eea805d1a8bcb3f658e8714354f67864038fc3bfcee09f76c6752a",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-navigation-1-results.json",
+    "bytes": 9883,
+    "sha256": "4f7d0d45f688c7eb25ae33be60d65a30273369b4bf53a66e2a9349d1d95a88c9",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "wet-navigation-2-results.json",
+    "bytes": 1237,
+    "sha256": "de973eb8f6f579d9a3fb974e46b64a1b43fa2a021d0dfcf013789dc2340a611d",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/toward_food.py",
+    "bytes": 3371,
+    "sha256": "acd67d630f716ce93fb10a1b0116c443d73253abdc16d0cbbdb0c9b1b2c587d2",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/wet-food-route.json",
+    "bytes": 1956,
+    "sha256": "e04c3f964130bed254ad37829024f014e58cf5442850bac4cd8c62aa1b4e8ec0",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/explore_surface.py",
+    "bytes": 3588,
+    "sha256": "0ec1abf5c14a691f0f94ef120d920e34a2269a6addd501e0f94d3db2078e2ad4",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/test_toward_food.py",
+    "bytes": 1093,
+    "sha256": "02c4b416d308f5ec39b8c14e34187e9ff02eeef8f3541b2486920746c79ca29e",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/canopy-blockage-analysis.json",
+    "bytes": 12721,
+    "sha256": "8403b9464a0ef2a917a044792c9a7717ddb07f145ebf0282ddb13fb00cdd4aa0",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/wet-visited.json",
+    "bytes": 425,
+    "sha256": "be01ab88be9e9f1d3c23a708f136077e45bf4a20678281da3a5654dfe077adaa",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/wet-grass-route.json",
+    "bytes": 125,
+    "sha256": "f8f1b83f5c5c5df8078c537c61e63787d8105ad66abc49194b9989c834946daf",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/inland-grass-route.json",
+    "bytes": 1014,
+    "sha256": "a1baf65527dc909a54cc5f92f87cff8f609cac38119b908f557c8458296e2ee2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/wet-next-route.json",
+    "bytes": 2029,
+    "sha256": "c7a0b6ad5da00a225713792de06ce1d6e6d5ce7d515956d88db477d6b0a401fb",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/wet-inland-route.json",
+    "bytes": 1812,
+    "sha256": "6b99ea81159c6f0887556387a1ef161833210140d534ea76136eb40df35c6f31",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/navigation/test_explore_surface.py",
+    "bytes": 1051,
+    "sha256": "a3b354b4c7cf393f537bab690d5e980b4af28c7b7e4873470fb5041f2091c72e",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "AUTONOMY-RESULTS.md",
+    "bytes": 4475,
+    "sha256": "441960babecff0faea8e9fdba8f9a223fc82cf3be3b9f613ec2b4d90e0fb0a84",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "model_skill_gateway.py",
+    "bytes": 10048,
+    "sha256": "39b5d7ed7a0b69c3a514a7db4d97bfdd233ad772a0ce28b9cced6b9600ff3aa4",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "test_model_skill_gateway.py",
+    "bytes": 765,
+    "sha256": "5c55a618a29488efe2a4ef5201cf73796dad724ad46c0ad09edbebc41c72e28a",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "gateway-test-results.txt",
+    "bytes": 102,
+    "sha256": "e6ec182765cd965f2837d8eeaef5a64af48a104f245cd1a0b7281559194c57c1",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/offline-ab-results.json",
+    "bytes": 17128,
+    "sha256": "78c52ec19b3136874e6771869ad7eeaa15385ae4f1a98342b77c4209a48acb42",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/decision_v2.py",
+    "bytes": 8907,
+    "sha256": "18a1cd08809ed2453a9b1fcc8c6ddb092d67589e1669bb3321c0a743b235958a",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/README.md",
+    "bytes": 7525,
+    "sha256": "c480d9568b07fb55faa57beaf757b11818b365b2155b91d6c0dcacc224fcd7ce",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/run_gateway_v2.py",
+    "bytes": 6101,
+    "sha256": "562855c5e7e5754e1ede9590b1a7358cee6ad07ce5051c74709857c32e6a2529",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/offline_ab.py",
+    "bytes": 4416,
+    "sha256": "5f6d4c82f4df056378bc044f420f0d9e8ddf5f5ab36814f7555c5a3c1c178dde",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/test_decision.py",
+    "bytes": 2253,
+    "sha256": "fddb795835c609feb338e6895bc44ac10ca806ae1242a742070e47a572a670cb",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/qwen-autonomous-20261107-140050.jsonl",
+    "bytes": 33565,
+    "sha256": "3b7747c107358a96337b3ecc0f464e4a37aa64ed88fd87554b33541104e19fdb",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/qwen-autonomous-v2-20261107-140307.summary.json",
+    "bytes": 395,
+    "sha256": "79a8524053daf76b3a7e7a46d9b35645ebeb5be95d9460743890ff22778ddd83",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/qwen-autonomous-20261107-140050.summary.json",
+    "bytes": 386,
+    "sha256": "ec78a9dd947edebc1e682c9eed9b0e6e215067489d5979a99747ac6962a5f640",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/qwen-autonomous-v2-20261107-140307.jsonl",
+    "bytes": 23510,
+    "sha256": "7304fac7afd46759ed24d71cf437bd52f0a5449dfd38f6cc7b7168d2600d2e01",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/offline-c2-results.json",
+    "bytes": 6387,
+    "sha256": "4b78e461069c47b6008699858bc3657e5a0d182997b13fab1dbb91a319318811",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/test-results.txt",
+    "bytes": 979,
+    "sha256": "a8cac9390f5c8ae351c707900202afdc4b8d26727b5ef9d1ae8353508ca0890b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/decision.py",
+    "bytes": 8059,
+    "sha256": "3868db9bb2d0dcd30080a9a40eaa353830fd0e043dc3358ace5f12f9536296b4",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/offline_c2.py",
+    "bytes": 2457,
+    "sha256": "645cff48cf76a823dc9a7ac670e9bb97b18dcf4b87bfc3758b0667fcfebea699",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/run_gateway.py",
+    "bytes": 4493,
+    "sha256": "0263a486233b4723068fac13d6b805af906b67437f34ec3fecaad844edccbaf8",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/offline-c2-runtime.jsonl",
+    "bytes": 383,
+    "sha256": "da2386508c18b6e268d4a7f15f17dd3c48d168d72581a3c93a5648db1d961f8c",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-lab/autonomy/offline-ab-runtime.jsonl",
+    "bytes": 380,
+    "sha256": "a08d6324b2ce2a1f6236143fa20edea9892b61d863868cfd27597298a354f8e9",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-5.json",
+    "bytes": 562,
+    "sha256": "a3770ba4941b3ae4bf8f78b238d7e424cf9c97a74dbeb5420df221e9cab368f5",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-3.json",
+    "bytes": 562,
+    "sha256": "56808e90a0a6c96cf6f8e3f1738eb8567ca6bf03af0a6f2e4dd3ca8a79a9e959",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-1.json",
+    "bytes": 495,
+    "sha256": "202e519f7c87900f5ba702d7e55e26f6f8fe704144e5364bd6d992c0fa1a4458",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-2.json",
+    "bytes": 562,
+    "sha256": "2b7c5b60100578e97f279028b3bf731adb92bcdf8e73fc29eba6abd87b0887be",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-4.json",
+    "bytes": 562,
+    "sha256": "2ca9ec960356a5e6ee703e17823d2cb550b0641aa6d597bd4fbea401b31a9ee2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-10.json",
+    "bytes": 562,
+    "sha256": "aa490f21822be52ea18d35776e22c62ac8b7555ff6f664e870e4cfb50580964e",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-9.json",
+    "bytes": 562,
+    "sha256": "f51bcbd1c970da816c06584d55834926e678dc05afad04de01cd82e08004722b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-7.json",
+    "bytes": 562,
+    "sha256": "01adf4dc7abe9bb8116b5a4f78a27187ff0a5ea6c286b035274d4d2fc9a7cbf9",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-6.json",
+    "bytes": 562,
+    "sha256": "3d1d418b788187f4c1a64d9d97a3c2901e141e7d7b10860d7dd0b10289cb057b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-v2-20261107-140307/result-8.json",
+    "bytes": 562,
+    "sha256": "f4a64ba4aee501af56602b6b487f1c072d83fdd77024b22305e32774ee036c64",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-5.json",
+    "bytes": 2879,
+    "sha256": "5fc68f955928588a44b1c9202083f40220d58b33db1bd755f169f12dc6770bc6",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-3.json",
+    "bytes": 1543,
+    "sha256": "da2ad7ab2d5fa2b8894379e963e1833328e09e013878c2035bd57612c6c1c216",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-1.json",
+    "bytes": 495,
+    "sha256": "9973ddd2a4b891cefaec7bd50b87b52e40e8510f254fec281bd88c50a2452caf",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-2.json",
+    "bytes": 983,
+    "sha256": "3f3ffb6c2c18da00cba5c94f76384e4228c66b88829553f9c6e2d924d6094cf8",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-4.json",
+    "bytes": 2175,
+    "sha256": "918cfcd4e16afeac0bca2a5cd486f8030d2ce9298c056ecfd692526e2daccf3f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-10.json",
+    "bytes": 7479,
+    "sha256": "8c4c75f6cf9927095b0515346cbfb4ec73015e7d448f43905a50f316610889a2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-9.json",
+    "bytes": 6415,
+    "sha256": "265dabcf5c43fe9f91824800f0a4be42508a4768c8aa3c91737790f7422c1039",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-7.json",
+    "bytes": 4503,
+    "sha256": "bb632b8179bf99338c1b4740aa5f14c7e36d737b2c70b60742668b95c435f6e4",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-6.json",
+    "bytes": 3655,
+    "sha256": "ffc36c5975b060244acda811ca28ee7db88c1d46f52bdf352477e0cf90e0e5dd",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "v10",
+    "path": "qwen-autonomous-20261107-140050/result-8.json",
+    "bytes": 5423,
+    "sha256": "25d875b24d2d95b3580fb1cb345441497cb33c3273df2615e66b0f33a2678093",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/VoxelVisibility.cs",
+    "bytes": 2699,
+    "sha256": "fecfffefa81021476a0b2f6b142c3e7a7434c235de886f133f7e03265206c821",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/README.md",
+    "bytes": 2001,
+    "sha256": "8c3a53e3140c62ef13c5fcbed56dfca101489ee2e0633d60deb7067599466b6a",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/VisionCore.csproj",
+    "bytes": 340,
+    "sha256": "72354f40ea008e7f1c4a44404a06b7cbdbf7eda0ccacc62d4a6513f655c08459",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/Directory.Build.props",
+    "bytes": 192,
+    "sha256": "b0ff382dd13705feb3669e74322f741afa8cffbcc70685b1baa590cebd7e9aca",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/VisionCore.cs",
+    "bytes": 2662,
+    "sha256": "dcbbecf7832f7668e46f73b317cf2c13117ef6f9c59967e958d7a4998c116389",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/Tests.cs",
+    "bytes": 4700,
+    "sha256": "9b425fed8ebca08ce5b27a20c32b0ddc14a2972792c7fda398b44c345ccc4828",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/Tests.csproj",
+    "bytes": 371,
+    "sha256": "996408580c14f92d0afd17ed2f2d4b6a9e119f577541aa31a1c34e991dda7219",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403_IsDockerContainer.dotnetUserLevelCache",
+    "bytes": 5,
+    "sha256": "60a33e6cf5151f2d52eddae9685cfa270426aa89d8dbc7dfb854606f1d1a40fe",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403.dotnetFirstUseSentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403.aspNetCertificateSentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403.toolpath.sentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/MachineId.v1.dotnetUserLevelCache",
+    "bytes": 36,
+    "sha256": "e7556476d1d8e95acb5887a40ca84ce9b8b8a445ee8860cf0a37c4d4f0eabe84",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403_MachineId.dotnetUserLevelCache",
+    "bytes": 36,
+    "sha256": "eda760beca60431bc50ad1bddae469cbdf379ec7bf9234e4fa2831100e9b3bce",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.nuget/NuGet/NuGet.Config",
+    "bytes": 205,
+    "sha256": "a93e5528f06204b5e5afecd3fb2db8de0d48cc5e2b5f812728a6ad3f0c7bffc2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040417_66d2edd927dd49dd8e749ef859156b48.trn",
+    "bytes": 1004,
+    "sha256": "fa5751fa2710b9c24086deb9f9671dd1e9f8870148900f606b127d1d66b0dc7f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040417_615ef68cc3ea4c1d9e1a761a359c447c.trn",
+    "bytes": 1152,
+    "sha256": "30f2af3a2c6e695373787fcc10b556f9ddcb2e097d644f3ad1c257723975d720",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040416_cb70bcb0d99640e49aaf3a6168037d3d.trn",
+    "bytes": 1176,
+    "sha256": "b81954a99c10621683f319a5dbdf65329e2168c6f1c004630f57c7dcc7ddb262",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040416_fb830fe67e854034a7f64dc5d43c612d.trn",
+    "bytes": 1172,
+    "sha256": "2290e8c4ef6ba70982c3eec1bb710cccc54d2118715dbbcdb368a4fb66afe7d9",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040323_dbfc614b33e8418b82812c5e843b6fc0.trn",
+    "bytes": 1204,
+    "sha256": "0098e50062ebcab509b16b71867750b13ab62725722632a1bc8fd53cc3dec82f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-game/README.md",
+    "bytes": 1888,
+    "sha256": "51a0e93d090f71343db2b09fc3d09ba6e5c899793a74e56db9101699dc78caf2",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-game/BridgeMod.cs",
+    "bytes": 9056,
+    "sha256": "67d173b01998efb085fb0416aebde4cc379d56f7eed03d04d9424edc44b5a6bd",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "recovery-vision-game/RecoveryVision.csproj",
+    "bytes": 727,
+    "sha256": "6fe33c6589dceca60613053fcda865dca83fc49f8eed0096625653865bd125a3",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/ipc/guard-audit.jsonl",
+    "bytes": 489,
+    "sha256": "3b603a2d204952bbc70ef2181844237d74149cd106ee1ee6db280d844237cd85",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/ipc/state.json",
+    "bytes": 596,
+    "sha256": "eba7473960760325d6f5b39535e2306befc24fb1ecc14c43b3b70273d77b4b66",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/ipc/hide-views",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/ipc/vision.json",
+    "bytes": 172,
+    "sha256": "d09c3888119c31223ed0acfad6e67a8d1c0e84c303f83cca5ec73bfe26fda7bb",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/ipc/recovery-native-smoke.json",
+    "bytes": 8445,
+    "sha256": "65acbf943a48c8f08df648f6fb2de360891d1b9dc153d86d044abc073b8b7849",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/ipc/recovery-native-smoke.claim",
+    "bytes": 101,
+    "sha256": "29aa43f0b6b771a1b215a914f9bc3bb2ed2e34b108d62c0f5db19ae1f4b76fe7",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/runtime/Worlds/World/Project.json",
+    "bytes": 11835,
+    "sha256": "87678a80225017c51e1fb8ef892e7a8306d7ac26e15e70e3f919f47753e9677b",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/runtime/Worlds/World/Project.json.bak",
+    "bytes": 11784,
+    "sha256": "0d2aa66306cd6b1aca005813aa3dd167f70a55100b4c1d551babcf93a0b19fd8",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/runtime/Worlds/World/Regions/Region 4,-1.dat",
+    "bytes": 36230,
+    "sha256": "065adbdf550aeed9e73960fd75fec894ee1624f7ce9fd2e4a09158f65b46f84e",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "RECOVERY.md",
+    "bytes": 4770,
+    "sha256": "dce408f67e243521eeb537915d8d33b65bad6c8fc56cfa46e8d0649ed76f9ea8",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/launch.log",
+    "bytes": 6543,
+    "sha256": "53ad7e312da8281098437297fc105dd1fc5c7145fe3033e00f6d803045a71d71",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "isolated-world-01/launch-01-missing-native.log",
+    "bytes": 1411,
+    "sha256": "4ba791aa430ecbdab58213ddcb600c77e52d1c67b077a8227b1ff281bf255e6c",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "native-checkpoint",
+    "path": "launch-isolated-world-01.sh",
+    "bytes": 549,
+    "sha256": "bfe4960c101f74b6933c2c20318091c88a2d61aa95eb97ebb30ee5fdd63c1534",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/README.md",
+    "bytes": 2910,
+    "sha256": "4de9b5cad20d3ed015205d5ad95b3513f40a97ceb733ef3d1c5fd2e5c2b5c30d",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/RecoveryVisionFixture.csproj",
+    "bytes": 851,
+    "sha256": "6b83cbc46130015feae95c0442985c86f265967b75a15148e7e10ba89f90e88d",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/Fixture.cs",
+    "bytes": 8701,
+    "sha256": "baadd595ea7a48e4efa17451dfdd931af6155516bd319153377d7d554129e91e",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/BridgeMod.cs",
+    "bytes": 10684,
+    "sha256": "53c098c5609df32ec74b1e2543e4db092c56d04116de998a7ef8e1eb888f0529",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/dist/RecoveryVisionFixture.netmod",
+    "bytes": 31317,
+    "sha256": "e83ecbf181b92387a90c4f4eaba8e616fd044513ccb70e96923cb5e039d36e85",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/.dotnet-home/.dotnet/10.0.403.dotnetFirstUseSentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/.dotnet-home/.dotnet/10.0.403.toolpath.sentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-fixture/.dotnet-home/.nuget/NuGet/NuGet.Config",
+    "bytes": 205,
+    "sha256": "a93e5528f06204b5e5afecd3fb2db8de0d48cc5e2b5f812728a6ad3f0c7bffc2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/VoxelVisibility.cs",
+    "bytes": 2699,
+    "sha256": "fecfffefa81021476a0b2f6b142c3e7a7434c235de886f133f7e03265206c821",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/README.md",
+    "bytes": 2001,
+    "sha256": "8c3a53e3140c62ef13c5fcbed56dfca101489ee2e0633d60deb7067599466b6a",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/VisionCore.csproj",
+    "bytes": 340,
+    "sha256": "72354f40ea008e7f1c4a44404a06b7cbdbf7eda0ccacc62d4a6513f655c08459",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/Directory.Build.props",
+    "bytes": 192,
+    "sha256": "b0ff382dd13705feb3669e74322f741afa8cffbcc70685b1baa590cebd7e9aca",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/VisionCore.cs",
+    "bytes": 2662,
+    "sha256": "dcbbecf7832f7668e46f73b317cf2c13117ef6f9c59967e958d7a4998c116389",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/Tests.cs",
+    "bytes": 4700,
+    "sha256": "9b425fed8ebca08ce5b27a20c32b0ddc14a2972792c7fda398b44c345ccc4828",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/Tests.csproj",
+    "bytes": 371,
+    "sha256": "996408580c14f92d0afd17ed2f2d4b6a9e119f577541aa31a1c34e991dda7219",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403_IsDockerContainer.dotnetUserLevelCache",
+    "bytes": 5,
+    "sha256": "60a33e6cf5151f2d52eddae9685cfa270426aa89d8dbc7dfb854606f1d1a40fe",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403.dotnetFirstUseSentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403.aspNetCertificateSentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403.toolpath.sentinel",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/MachineId.v1.dotnetUserLevelCache",
+    "bytes": 36,
+    "sha256": "e7556476d1d8e95acb5887a40ca84ce9b8b8a445ee8860cf0a37c4d4f0eabe84",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/10.0.403_MachineId.dotnetUserLevelCache",
+    "bytes": 36,
+    "sha256": "eda760beca60431bc50ad1bddae469cbdf379ec7bf9234e4fa2831100e9b3bce",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.nuget/NuGet/NuGet.Config",
+    "bytes": 205,
+    "sha256": "a93e5528f06204b5e5afecd3fb2db8de0d48cc5e2b5f812728a6ad3f0c7bffc2",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040417_66d2edd927dd49dd8e749ef859156b48.trn",
+    "bytes": 1004,
+    "sha256": "fa5751fa2710b9c24086deb9f9671dd1e9f8870148900f606b127d1d66b0dc7f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040417_615ef68cc3ea4c1d9e1a761a359c447c.trn",
+    "bytes": 1152,
+    "sha256": "30f2af3a2c6e695373787fcc10b556f9ddcb2e097d644f3ad1c257723975d720",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040416_cb70bcb0d99640e49aaf3a6168037d3d.trn",
+    "bytes": 1176,
+    "sha256": "b81954a99c10621683f319a5dbdf65329e2168c6f1c004630f57c7dcc7ddb262",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040416_fb830fe67e854034a7f64dc5d43c612d.trn",
+    "bytes": 1172,
+    "sha256": "2290e8c4ef6ba70982c3eec1bb710cccc54d2118715dbbcdb368a4fb66afe7d9",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "recovery-vision-core/.dotnet-home/.dotnet/TelemetryStorageService/20261108040323_dbfc614b33e8418b82812c5e843b6fc0.trn",
+    "bytes": 1204,
+    "sha256": "0098e50062ebcab509b16b71867750b13ab62725722632a1bc8fd53cc3dec82f",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-02/ipc/hide-views",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/player-bound.json",
+    "bytes": 127,
+    "sha256": "d48b0375eb527cf4a0d0562973f9e570a042424710f476bb21e0dbcbe223697a",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/fixture-result.json",
+    "bytes": 569,
+    "sha256": "5c546683114b37900d630d0051c3d2cd47cdac84f16cd9fbad3edc27ff5b8dcf",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/fixture-plan.json",
+    "bytes": 1528,
+    "sha256": "1091d016a2122b11cbcb712a4bb714c266723dafab4c281b38d50dcf1457a528",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/fixture-edits.jsonl",
+    "bytes": 1196,
+    "sha256": "de2364bab691ace98a4015d87f1a2358d956796105bc0f4594ae1e90a96e9ed3",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/fixture.claim",
+    "bytes": 32,
+    "sha256": "05462b278656c1547d6a03595f60eb5ae99f5617d5dcd1de8a239fa669019834",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/state.json",
+    "bytes": 565,
+    "sha256": "6d253f11b2005bb01501c53c888a0508d9a9b3d54a5d4fd7cb00b160d1e25347",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/bridge-initialized.json",
+    "bytes": 96,
+    "sha256": "c3be3217406859e3d456e900c960c6c172edba8ca857e575d0f13b8fee89baf6",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/fixture-front.vision.json",
+    "bytes": 171,
+    "sha256": "3576aeddf8a0b92426f921e6f08658ac7a1453f5d7941ef577a38eef38a57dbe",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/hide-views",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/fixture-front_wall.vision.json",
+    "bytes": 171,
+    "sha256": "370bf17bca3cb96aa3812af3b007f54ed6e3a930f4ab360309f13ff04441e6ce",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/vision.json",
+    "bytes": 172,
+    "sha256": "307185585821e002720260d0e978c5fc487014f3bcf4e82db3ec82d56b3c30e9",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/ipc/fixture-restoration.json",
+    "bytes": 447,
+    "sha256": "6fd0ddfa15f24de4eb21c415cd687ef3ee2744eca7046f983d19db6e56985181",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-02/source-world-manifest.json",
+    "bytes": 293,
+    "sha256": "84bb7562369da4fcbd8b172a7bc6b76bd0afabbad863a8e02c8845c34e0fc22e",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-02/EXPERIMENT.md",
+    "bytes": 1051,
+    "sha256": "ba84e3a452697bfba7274fda20e195d3c1a7aecbd7a55f5c861771c1bc325c8b",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-02/OUTCOME.json",
+    "bytes": 386,
+    "sha256": "25350345f665e1824e803069b33b5ae1a54b20ff0d8866f8bd3b7deaff118859",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-02/launch.log",
+    "bytes": 6540,
+    "sha256": "65df85a62d9c805d58af882207b4d6d220b1ee11251ff28a03ac2dd7eefd7f13",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-02/runtime/Bugs/Game.log",
+    "bytes": 652701,
+    "sha256": "413fb767d26a8e0072288664b8fee587e4a9f637cf20a2c1a2b5264de0cb8231",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/OUTCOME.md",
+    "bytes": 934,
+    "sha256": "06c85146e0caa7c42c9e0027009f8d5fa14bdf80ab33363332c3670c3f4cd58c",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/launch.log",
+    "bytes": 6542,
+    "sha256": "a9a277f5672fe82f3aff1a84ec833559b776284cedb887739344ebc0155c2060",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "isolated-mirror-03/runtime/Bugs/Game.log",
+    "bytes": 682056,
+    "sha256": "100a9059ecdd7efe135721e4ab81d14acddc55fecfa063567b488c4f085a2347",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "RECOVERY.md",
+    "bytes": 5704,
+    "sha256": "b6cad0e180e272ebfdfc6e15f7af35977907bc3ed6f33cd4509bad030c9d8e67",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "verify-mirror-isolation.py",
+    "bytes": 480,
+    "sha256": "abd4e2124e4c763bbd6b3760a98d0e1c658392a337a55cea3bbfa60ab5d53492",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "fixture-failure",
+    "path": "launch-isolated-mirror-03.sh",
+    "bytes": 585,
+    "sha256": "08e64c43ee8375e2b18bcc5bc6babccccf905be36668a034052601335af13575",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "recovery-vision-fixture-next/README.md",
+    "bytes": 3274,
+    "sha256": "ffec8d065711a426185b9a3fafcd84719934d71f85222ea7ae301bcb7ca56be2",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "recovery-vision-fixture-next/WIP-STATUS.json",
+    "bytes": 1073,
+    "sha256": "da9db6b4f988073d721b757b72a5e5f337c2d806b30bd724d302c058a8a6f397",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "recovery-vision-fixture-next/Tests.cs",
+    "bytes": 4523,
+    "sha256": "b26b30599d250dd00a329a93fe279064d903714b3326d871b2a594b92f57b28b",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "recovery-vision-fixture-next/Sequencer.cs",
+    "bytes": 5083,
+    "sha256": "f0c0b16b213b7edcc0ad01b174108ec96627483eec9fa3586b83825110b09638",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "recovery-vision-fixture-next/Tests.csproj",
+    "bytes": 210,
+    "sha256": "d6bd68f11cc42639c609457c99ae0b733d16c254fa0ab50a18874d7365644d13",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "MIGRATION-HANDOFF.md",
+    "bytes": 1561,
+    "sha256": "3d83e6a6001ab847b63017e491a1079cd7536ce25500db41796d780fe328de65",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "RECOVERY.md",
+    "bytes": 5704,
+    "sha256": "b6cad0e180e272ebfdfc6e15f7af35977907bc3ed6f33cd4509bad030c9d8e67",
+    "uploaded": true,
+    "exclusion": null
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "checkpoint-library-receipt.json",
+    "bytes": 366,
+    "sha256": "9928d3071064dfa7a6df596d32e19ded4ce1fdf90d43322e6d95ad553c5c7b1e",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "dependencies/verified-downloads.json",
+    "bytes": 619,
+    "sha256": "51cf737f38fc307d6d3fa24edb1e1c05ccce9ff7b3ed930cfe56ece3417f024a",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  },
+  {
+    "snapshot": "cross-tick-wip",
+    "path": "dependencies/verified-model-downloads.json",
+    "bytes": 592,
+    "sha256": "8be723a3aebb4db5d158fdd840e8b7b4ef7777526457e75dd47221259023c692",
+    "uploaded": false,
+    "exclusion": "Local-only raw evidence, game state, cache, package metadata or build output"
+  }
+]
