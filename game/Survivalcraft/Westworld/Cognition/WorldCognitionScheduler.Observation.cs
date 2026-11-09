@@ -1,23 +1,56 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace Game.Westworld {
     public sealed partial class WorldCognitionScheduler {
-        sealed record ObservationRequest(CognitionAttempt Attempt, string TurnId, SelfView Body, Task<ActorModelReply> Task);
+        sealed record ObservationRequest(CognitionAttempt Attempt, string TurnId, SelfView Body) {
+            internal Task<ActorModelReply> Task { get; set; }
+        }
+        sealed record ObservationFollowUp(ObservationRequest Request, CognitionAttempt Settled, string Decision);
+        readonly record struct ObservationReply(ObservationRequest Request, ActorModelReply Reply);
+        readonly record struct ObservationTaskEvent(int ActorId, Guid TaskId, bool Started);
 
         readonly Dictionary<int, ObservationRequest> m_observationRequests = [];
+        readonly Dictionary<int, ObservationFollowUp> m_observationFollowUps = [];
+        readonly Queue<ObservationTaskEvent> m_observationTaskEvents = [];
+        readonly SortedSet<int> m_observationLookAheadReady = [];
         readonly Dictionary<int, DateTimeOffset> m_nextObservationRequest = [];
+        Channel<ObservationReply> m_observationReplies;
         bool m_observing;
         bool m_observationEnded;
         bool m_observationBudgetLimited;
         int m_lastObservationActor;
         int m_observationPeak;
         int m_observationApplied;
+        int m_lookAheadBuffered;
+        int m_lookAheadStarted;
+        int m_observationTaskStarts;
+        int m_observationTaskEnds;
+        int m_observationRepliesHandled;
+        int m_observationSent;
+        int m_observationNetworkActive;
         DateTimeOffset m_observationBackoff;
+        DateTimeOffset m_observationRateBackoff;
 
-        public void StartObservation() {
+        public void StartObservation() => StartObservation(measure: false);
+
+        public void StartObservation(bool measure) {
             Start(resume: false);
             m_observing = true;
+            m_observationData = m_ledger.Data;
+            // A request holds its slot until the game thread consumes the reply, including during pause.
+            m_observationReplies = Channel.CreateBounded<ObservationReply>(new BoundedChannelOptions(m_parallelism) { SingleReader = true });
+            if (measure) {
+                m_observationMetrics = new ObservationMetrics();
+            }
+            foreach ((int actorId, Actor actor) in m_actors) {
+                actor.Tools.CognitiveTaskActivityChanged += OnObservationTaskActivity;
+                if (actor.Tools.CognitiveActiveTaskId is Guid taskId) {
+                    OnObservationTaskActivity(actorId, taskId, started: true);
+                }
+            }
         }
 
         public void StopObservationDispatch() {
@@ -36,7 +69,17 @@ namespace Game.Westworld {
             activeTasks = m_actors.Values.Count(actor => actor.Tools.CognitiveTaskActive),
             peak = m_observationPeak,
             applied = m_observationApplied,
-            requests = m_ledger.Data.Attempts.Length,
+            lookAheadBuffered = m_lookAheadBuffered,
+            lookAheadStarted = m_lookAheadStarted,
+            taskStartEvents = m_observationTaskStarts,
+            taskEndEvents = m_observationTaskEnds,
+            modelReplyEvents = m_observationRepliesHandled,
+            ledgerPending = ObservationLedgerPending,
+            networkInFlight = m_observationNetworkActive,
+            lookAheadRequests = m_observationRequests.Values.Where(request => request.Attempt.PrecedingTask != null
+                && request.Task is { IsCompleted: false })
+                .Select(request => new { request.Attempt.Id, request.Attempt.ActorId, TaskId = request.Attempt.PrecedingTask }),
+            requests = m_observationSent,
             spent = m_ledger.Spent,
             unknown = m_ledger.Unknown,
             reserved = m_observationRequests.Values.Sum(request => request.Attempt.Reserved),
@@ -44,25 +87,61 @@ namespace Game.Westworld {
         }, CognitionRunLedger.Json);
 
         void PumpObservation() {
+            long started = m_observationMetrics != null ? Stopwatch.GetTimestamp() : 0;
+            try {
+                ProcessObservation();
+                if (m_fault == null) {
+                    WriteObservationBatch();
+                }
+            }
+            finally {
+                m_observationMetrics?.Frame(Stopwatch.GetTimestamp() - started);
+            }
+        }
+
+        void ProcessObservation() {
             if (m_fault != null || (m_userPaused && !m_observationEnded)) {
                 return;
             }
-            foreach (ObservationRequest request in m_observationRequests.Values.Where(request => request.Task.IsCompleted).ToArray()) {
-                CompleteObservation(request);
-                m_observationRequests.Remove(request.Attempt.ActorId);
+            ProcessObservationTaskEvents();
+            if (m_observationEnded && m_observationFollowUps.Count > 0) {
+                foreach (ObservationFollowUp followUp in m_observationFollowUps.Values) {
+                    InstallObservationReply(followUp.Request, followUp.Settled, followUp.Decision);
+                }
+                m_observationFollowUps.Clear();
             }
+            while (m_observationReplies.Reader.TryRead(out ObservationReply completed)) {
+                CompleteObservation(completed.Request, completed.Reply);
+                m_observationNetworkActive--;
+                m_observationRepliesHandled++;
+            }
+            ConfirmObservationBatch();
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            if (m_observationEnded || now < m_observationBackoff || m_observationRequests.Count >= m_parallelism) {
+            if (m_observationEnded || now < m_observationBackoff || now < m_observationRateBackoff
+                || m_observationRequests.Count >= m_parallelism) {
                 return;
             }
             m_observationBudgetLimited = false;
+            // Keep idle requests from taking every slot while an actor's current task is still running.
+            int lookAheadLimit = Math.Max(1, m_parallelism / 3);
+            int idleLimit = Math.Max(1, m_parallelism - lookAheadLimit);
+            int lookAheadInFlight = m_observationRequests.Values.Count(request => request.Attempt.PrecedingTask != null);
+            int idleInFlight = m_observationRequests.Count - lookAheadInFlight;
+            if (idleInFlight >= idleLimit && m_observationLookAheadReady.Count == 0) {
+                return;
+            }
             long available = m_ledger.Data.Budget - m_ledger.Spent - m_ledger.Unknown
                 - m_observationRequests.Values.Sum(request => request.Attempt.Reserved);
-            foreach (int actorId in m_actors.Keys.OrderBy(id => id <= m_lastObservationActor).ToArray()) {
+            IEnumerable<int> candidates = idleInFlight < idleLimit ? m_actors.Keys : m_observationLookAheadReady;
+            foreach (int actorId in candidates.OrderBy(id => id <= m_lastObservationActor).ToArray()) {
                 Actor actor = m_actors[actorId];
+                Guid? precedingTask = actor.Tools.CognitiveActiveTaskId;
+                bool lookAhead = precedingTask != null;
                 if (m_observationRequests.ContainsKey(actorId) || m_nextObservationRequest.GetValueOrDefault(actorId) > now
-                    || !actor.Tools.CognitiveWorldIsCurrent || actor.Tools.CognitiveTaskActive
-                    || actor.Cognition.PrepareTurn(cohort: true) is not string input) {
+                    || m_observationFollowUps.ContainsKey(actorId) || !actor.Tools.CognitiveWorldIsCurrent
+                    || (lookAhead ? lookAheadInFlight >= lookAheadLimit : idleInFlight >= idleLimit)
+                    || (lookAhead ? !m_observationLookAheadReady.Contains(actorId) : actor.Tools.CognitiveActionRunning)
+                    || actor.Cognition.PrepareTurn(cohort: true, lookAhead: lookAhead) is not string input) {
                     continue;
                 }
                 string turnId = actor.Cognition.ScheduledInput.Context.Id;
@@ -78,15 +157,20 @@ namespace Game.Westworld {
                 if (!actor.Cognition.TryClaimModelTurn(turnId)) {
                     continue;
                 }
-                CheckStorage();
                 CognitionAttempt attempt = new(Guid.NewGuid().ToString("N"), turnId, actorId, 1,
-                    estimate, "inFlight", DateTimeOffset.UtcNow);
-                m_ledger.Save(m_ledger.Data with { Attempts = [..m_ledger.Data.Attempts, attempt] });
-                CancellationToken token = m_cancel.Token;
+                    estimate, "inFlight", DateTimeOffset.UtcNow, PrecedingTask: precedingTask);
                 SelfView body = actor.Tools.CognitiveBody;
-                Task<ActorModelReply> task = Task.Run(() => m_source.RequestAsync(input, schema, token), token);
-                m_observationRequests.Add(actorId, new ObservationRequest(attempt, turnId, body, task));
-                m_observationPeak = Math.Max(m_observationPeak, m_observationRequests.Count);
+                ObservationRequest request = new(attempt, turnId, body);
+                m_observationRequests.Add(actorId, request);
+                StageObservationLedger(m_observationData with { Attempts = [..m_observationData.Attempts, attempt] },
+                    () => SendObservationRequest(request, input, schema));
+                if (lookAhead) {
+                    m_observationLookAheadReady.Remove(actorId);
+                    lookAheadInFlight++;
+                }
+                else {
+                    idleInFlight++;
+                }
                 m_lastObservationActor = actorId;
                 available -= estimate;
                 if (m_observationRequests.Count >= m_parallelism) {
@@ -95,19 +179,69 @@ namespace Game.Westworld {
             }
         }
 
-        void CompleteObservation(ObservationRequest request) {
+        void SendObservationRequest(ObservationRequest request, string input, string schema) {
+            int actorId = request.Attempt.ActorId;
+            Actor actor = m_actors[actorId];
+            bool rateLimited = DateTimeOffset.UtcNow < m_observationRateBackoff;
+            if (m_observationEnded || !actor.Tools.CognitiveWorldIsCurrent
+                || actor.Tools.CognitiveActiveTaskId != request.Attempt.PrecedingTask
+                || (request.Attempt.PrecedingTask == null && actor.Tools.CognitiveActionRunning) || rateLimited) {
+                actor.Cognition.AbandonTurn(request.TurnId);
+                if (rateLimited && request.Attempt.PrecedingTask is Guid taskId && actor.Tools.CognitiveActiveTaskId == taskId) {
+                    m_observationLookAheadReady.Add(actorId);
+                }
+                SaveObservationAttempt(request.Attempt with {
+                    State = "unsent", Error = rateLimited ? "rate_backoff_before_send" : "invalidated_before_send"
+                },
+                    () => m_observationRequests.Remove(actorId));
+                return;
+            }
+            m_observationMetrics?.Dispatched(actorId, request.Attempt.PrecedingTask);
+            m_observationSent++;
+            m_observationNetworkActive++;
+            m_observationPeak = Math.Max(m_observationPeak, m_observationNetworkActive);
+            CancellationToken token = m_cancel.Token;
+            request.Task = Task.Run(() => m_source.RequestAsync(input, schema, token), token);
+            _ = PublishObservationReply(request, m_observationReplies.Writer);
+        }
+
+        void OnObservationTaskActivity(int actorId, Guid taskId, bool started) {
+            m_observationTaskEvents.Enqueue(new ObservationTaskEvent(actorId, taskId, started));
+            m_observationMetrics?.TaskChanged(actorId, taskId, started);
+        }
+
+        void ProcessObservationTaskEvents() {
+            while (m_observationTaskEvents.TryDequeue(out ObservationTaskEvent task)) {
+                if (task.Started) {
+                    m_observationTaskStarts++;
+                    m_observationLookAheadReady.Add(task.ActorId);
+                    continue;
+                }
+                m_observationTaskEnds++;
+                m_observationLookAheadReady.Remove(task.ActorId);
+                if (m_observationFollowUps.TryGetValue(task.ActorId, out ObservationFollowUp followUp)
+                    && followUp.Request.Attempt.PrecedingTask == task.TaskId) {
+                    InstallObservationReply(followUp.Request, followUp.Settled, followUp.Decision);
+                    m_observationFollowUps.Remove(task.ActorId);
+                }
+            }
+        }
+
+        static async Task PublishObservationReply(ObservationRequest request, ChannelWriter<ObservationReply> writer) {
             ActorModelReply reply;
             try {
-                reply = request.Task.GetAwaiter().GetResult() ?? new ActorModelReply(null, Error: "decision_source_failed");
+                reply = await request.Task.ConfigureAwait(false) ?? new ActorModelReply(null, Error: "decision_source_failed");
             }
             catch (Exception) {
                 reply = new ActorModelReply(null, Error: "decision_source_failed");
             }
-            int actorId = request.Attempt.ActorId;
-            Actor actor = m_actors[actorId];
+            // With one reply per occupied slot, a failed write means the world has closed the channel.
+            writer.TryWrite(new ObservationReply(request, reply));
+        }
+
+        void CompleteObservation(ObservationRequest request, ActorModelReply reply) {
             bool known = reply.InputTokens is >= 0 && reply.OutputTokens is >= 0;
-            string error = reply.Error ?? (!known ? "missing_usage" : m_observationEnded ? "observation_ended" :
-                actor.Cognition.ValidateObservation(request.TurnId, reply.DecisionJson, request.Body));
+            string error = reply.Error ?? (!known ? "missing_usage" : null);
             DateTimeOffset now = DateTimeOffset.UtcNow;
             CognitionAttempt settled = request.Attempt with {
                 State = known ? "completed" : "unknown", ReceivedAt = now,
@@ -116,40 +250,88 @@ namespace Game.Westworld {
                 Model = reply.Model, RequestId = reply.RequestId, InputTokens = reply.InputTokens,
                 OutputTokens = reply.OutputTokens, HttpStatus = reply.Status, Error = error
             };
-            SaveObservationAttempt(settled);
-            if (error == null) {
-                using JsonDocument result = JsonDocument.Parse(actor.Cognition.CommitTurn(request.TurnId, reply.DecisionJson));
-                if (result.RootElement.GetProperty("ok").GetBoolean()) {
-                    m_observationApplied++;
-                    return;
-                }
-                error = result.RootElement.GetProperty("error").GetString();
-                SaveObservationAttempt(settled with { Error = error });
-            }
-            actor.Cognition.AbandonTurn(request.TurnId);
-            m_nextObservationRequest[actorId] = now.AddSeconds(2);
+            SaveObservationAttempt(settled, () => ApplyObservationSettlement(request, reply, settled, now));
             if (reply.Status == 429) {
                 DateTimeOffset retry = now.AddSeconds(Math.Clamp(reply.RetryAfterSeconds ?? 2, 1, 120));
-                if (retry > m_observationBackoff) {
-                    m_observationBackoff = retry;
+                if (retry > m_observationRateBackoff) {
+                    m_observationRateBackoff = retry;
                 }
             }
         }
 
-        void SaveObservationAttempt(CognitionAttempt attempt) =>
-            m_ledger.Save(m_ledger.Data with { Attempts = m_ledger.Data.Attempts
-                .Select(previous => previous.Id == attempt.Id ? attempt : previous).ToArray() });
+        void ApplyObservationSettlement(ObservationRequest request, ActorModelReply reply, CognitionAttempt settled, DateTimeOffset now) {
+            m_observationRequests.Remove(request.Attempt.ActorId);
+            if (settled.Error != null) {
+                RejectObservation(request, now);
+            }
+            else if (!m_observationEnded && AwaitingHandoff(request)) {
+                m_observationFollowUps.Add(request.Attempt.ActorId, new ObservationFollowUp(request, settled, reply.DecisionJson));
+                m_lookAheadBuffered++;
+            }
+            else {
+                InstallObservationReply(request, settled, reply.DecisionJson);
+            }
+        }
+
+        bool AwaitingHandoff(ObservationRequest request) {
+            Actor actor = m_actors[request.Attempt.ActorId];
+            return request.Attempt.PrecedingTask is Guid task && actor.Tools.CognitiveWorldIsCurrent && actor.Tools.CognitiveActiveTaskId == task;
+        }
+
+        void InstallObservationReply(ObservationRequest request, CognitionAttempt settled, string decision) {
+            Actor actor = m_actors[request.Attempt.ActorId];
+            string error = "observation_ended";
+            if (!m_observationEnded) {
+                using JsonDocument result = JsonDocument.Parse(actor.Cognition.CommitObservation(
+                    request.TurnId, decision, request.Body, request.Attempt.PrecedingTask));
+                if (result.RootElement.GetProperty("ok").GetBoolean()) {
+                    m_observationApplied++;
+                    if (request.Attempt.PrecedingTask is Guid task && actor.Tools.CognitiveActiveTaskId is Guid nextTask && nextTask != task) {
+                        m_lookAheadStarted++;
+                    }
+                    return;
+                }
+                error = result.RootElement.GetProperty("error").GetString();
+            }
+            SaveObservationAttempt(settled with { Error = error });
+            RejectObservation(request, DateTimeOffset.UtcNow);
+        }
+
+        void RejectObservation(ObservationRequest request, DateTimeOffset now) {
+            int actorId = request.Attempt.ActorId;
+            m_actors[actorId].Cognition.AbandonTurn(request.TurnId);
+            m_nextObservationRequest[actorId] = now.AddSeconds(2);
+        }
+
+        void SaveObservationAttempt(CognitionAttempt attempt, Action confirmed = null) =>
+            StageObservationLedger(m_observationData with { Attempts = m_observationData.Attempts
+                .Select(previous => previous.Id == attempt.Id ? attempt : previous).ToArray() }, confirmed);
 
         void CloseObservation() {
-            if (m_observationRequests.Count == 0) {
-                return;
+            if (m_observationReplies != null) {
+                foreach (Actor actor in m_actors.Values) {
+                    actor.Tools.CognitiveTaskActivityChanged -= OnObservationTaskActivity;
+                }
+                m_observationReplies.Writer.TryComplete();
+                m_observationTaskEvents.Clear();
+                m_observationLookAheadReady.Clear();
             }
-            foreach (ObservationRequest request in m_observationRequests.Values) {
+            foreach (ObservationRequest request in m_observationRequests.Values.Concat(m_observationFollowUps.Values.Select(reply => reply.Request))) {
                 m_actors[request.Attempt.ActorId].Cognition.AbandonTurn(request.TurnId);
             }
-            m_ledger.Save(m_ledger.Data with { Attempts = m_ledger.Data.Attempts.Select(attempt =>
-                attempt.State == "inFlight" ? attempt with { State = "unknown", Error = "send_outcome_unknown" } : attempt).ToArray() });
+            HashSet<string> discarded = m_observationFollowUps.Values.Select(reply => reply.Settled.Id).ToHashSet();
+            HashSet<string> unsent = m_observationRequests.Values.Where(request => request.Task == null)
+                .Select(request => request.Attempt.Id).ToHashSet();
+            CognitionLedgerData final = ObservationLedgerPending || m_observationRequests.Count != 0 || discarded.Count != 0
+                ? m_observationData with { Attempts = m_observationData.Attempts.Select(attempt =>
+                    attempt.State == "inFlight" ? unsent.Contains(attempt.Id)
+                        ? attempt with { State = "unsent", Error = "observation_ended" }
+                        : attempt with { State = "unknown", Error = "send_outcome_unknown" }
+                    : discarded.Contains(attempt.Id) ? attempt with { Error = "observation_ended" } : attempt).ToArray() }
+                : null;
             m_observationRequests.Clear();
+            m_observationFollowUps.Clear();
+            FinishObservationLedger(m_observationPublication?.Write, final);
         }
     }
 }

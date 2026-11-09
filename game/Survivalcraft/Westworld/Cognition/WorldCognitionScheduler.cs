@@ -54,7 +54,7 @@ namespace Game.Westworld {
         }
 
         public void Start(bool resume) {
-            if (m_project != null || m_disposed || m_actors.Count == 0 || GameManager.Project is not { } project
+            if (m_project != null || m_disposed || m_observationRecovery != null || m_actors.Count == 0 || GameManager.Project is not { } project
                 || m_actors.Values.Any(actor => !actor.Tools.CognitiveWorldIsCurrent) || m_worlds.TryGetValue(project, out _)) {
                 throw new InvalidOperationException("A loaded world and an unbound scheduler are required.");
             }
@@ -77,10 +77,18 @@ namespace Game.Westworld {
         }
 
         public void IncreaseBudget(long total) {
-            if (total <= m_ledger.Data.Budget) {
+            CognitionLedgerData data = m_observing ? m_observationData : m_ledger.Data;
+            if (m_disposed || m_observationRecovery != null) {
+                throw new InvalidOperationException("No active ledger can accept a budget change.");
+            }
+            if (total <= data.Budget) {
                 throw new ArgumentOutOfRangeException(nameof(total));
             }
-            m_ledger.Save(m_ledger.Data with { Budget = total });
+            if (m_observing) {
+                StageObservationLedger(data with { Budget = total });
+                return;
+            }
+            m_ledger.Save(data with { Budget = total });
             if (m_batchStarted != 0) {
                 m_batchStarted = Stopwatch.GetTimestamp();
             }
@@ -275,11 +283,18 @@ namespace Game.Westworld {
             }
             try {
                 m_cancel.Cancel();
-                CloseObservation();
             }
             finally {
                 m_cancel.Dispose();
-                m_ledger.Dispose();
+                if (m_observing) {
+                    CloseObservation();
+                }
+                else if (m_observationRecovery != null) {
+                    FinishObservationLedger(m_observationRecovery);
+                }
+                else {
+                    m_ledger.Dispose();
+                }
             }
         }
     }

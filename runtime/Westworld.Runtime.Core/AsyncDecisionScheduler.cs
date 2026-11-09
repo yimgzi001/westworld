@@ -23,10 +23,14 @@ public sealed class AsyncDecisionScheduler : IDisposable {
     readonly IDecisionProvider provider;
     readonly int owner = Environment.CurrentManagedThreadId, maxConcurrent, capacity;
     readonly TimeSpan deadline;
+    readonly bool allowSurvey;
+    readonly Func<int,bool>? supportedSurveyHarvest;
     readonly Dictionary<Guid, Job> mailboxes = new();
     readonly List<Job> running = new();
     bool disposed;
-    public AsyncDecisionScheduler(IDecisionProvider provider, TimeSpan deadline, int maxConcurrent = 2, int capacity = 64) {
+    public AsyncDecisionScheduler(IDecisionProvider provider, TimeSpan deadline, int maxConcurrent = 2, int capacity = 64, bool allowSurvey = false, Func<int,bool>? supportedSurveyHarvest = null) {
+        if (allowSurvey && supportedSurveyHarvest == null) throw new ArgumentException("Survey requires a trusted supported-harvest predicate");
+        this.allowSurvey = allowSurvey; this.supportedSurveyHarvest = supportedSurveyHarvest;
         this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
         if (deadline <= TimeSpan.Zero || deadline > TimeSpan.FromMinutes(5)) throw new ArgumentOutOfRangeException(nameof(deadline));
         if (maxConcurrent < 1 || maxConcurrent > 2 || capacity < maxConcurrent || capacity > 1024) throw new ArgumentOutOfRangeException(nameof(capacity));
@@ -71,7 +75,15 @@ public sealed class AsyncDecisionScheduler : IDisposable {
             }
         }
     }
-    static bool ValidTarget(HighLevelDecision decision, ActorObservation snapshot) {
+    bool ValidTarget(HighLevelDecision decision, ActorObservation snapshot) {
+        if (decision.Skill == "Survey") {
+            if (!allowSurvey || supportedSurveyHarvest == null || decision.Goal != "FindFood" || decision.Slot != -1 || decision.ExpectedValue != 0 || decision.Target != null
+                || snapshot.Health <= 0 || snapshot.Health > 1 || snapshot.Food < 0 || snapshot.Food >= 0.8f) return false;
+            if (snapshot.Inventory.Any(s => s.CanEat && s.Count > 0)) return false;
+            // Host-supplied pure capability predicate. Unknown cells never reach it.
+            try { return !snapshot.Cells.Any(c => c.Visibility == "known" && c.Value.HasValue && supportedSurveyHarvest(c.Value.Value)); }
+            catch { return false; }
+        }
         if (decision.Skill != "ForageOne") return decision.Target == null;
         if (decision.Goal != "SatisfyHunger" || decision.Target == null || decision.Slot != -1 || decision.ExpectedValue != 0) return false;
         var target = decision.Target;

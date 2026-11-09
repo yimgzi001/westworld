@@ -68,6 +68,45 @@ static class Tests {
   Check(Rejected(()=>BoundedText.ReadAsync(new StringReader("abcde"),4,CancellationToken.None).GetAwaiter().GetResult()),"bounded stream rejects before oversized append");
   using(var cancel=new CancellationTokenSource(TimeSpan.FromMilliseconds(20))){bool canceled=false;try{await BoundedText.ReadAsync(new BlockingReader(),4,cancel.Token);}catch(OperationCanceledException){canceled=true;}Check(canceled,"blocked EOF read canceled by deadline");}
   Check(Rejected(()=>BoundedText.ReadAsync(new StringReader("a"),0,CancellationToken.None).GetAwaiter().GetResult()),"invalid stream limit rejected");
+  var hungryEmpty=Snapshot() with {Inventory=[],Cells=[]};
+  const string surveyJson="{\"skill\":\"Survey\",\"candidate_index\":0}";
+  Check(!LocalDecisionPrompt.Create(hungryEmpty,_=>false).Prompt.Contains("Survey"),"disabled survey preserves old prompt vocabulary");
+  Check(Rejected(()=>LocalDecisionPrompt.Create(hungryEmpty,_=>false).ParseResponse(surveyJson)),"survey disabled by default");
+  var surveyPrompt=LocalDecisionPrompt.Create(hungryEmpty,_=>false,allowSurvey:true);
+  var survey=surveyPrompt.ParseResponse(surveyJson);
+  Check(surveyPrompt.CandidateCount==1&&survey.Skill=="Survey"&&survey.Goal=="FindFood"&&survey.Slot==-1&&survey.ExpectedValue==0&&survey.Target==null,"survey binds bounded food-search goal without coordinates");
+  Check(survey.SessionId==hungryEmpty.SessionId&&survey.ActorId==hungryEmpty.ActorId&&survey.ObservationId==hungryEmpty.ObservationId,"survey retains host scope");
+  Check(surveyPrompt.ParseResponse(surveyJson)==survey,"survey retry idempotent");
+  Check(Rejected(()=>surveyPrompt.ParseResponse("{\"skill\":\"Wait\",\"candidate_index\":-1}")),"resolved survey cannot change decision");
+  Check(Rejected(()=>LocalDecisionPrompt.Create(hungryEmpty,_=>false,allowSurvey:true).ParseResponse("{\"skill\":\"Survey\",\"candidate_index\":-1}")),"survey must match listed index");
+  Check(Rejected(()=>LocalDecisionPrompt.Create(hungryEmpty,_=>false,allowSurvey:true).ParseResponse("{\"skill\":\"Survey\",\"candidate_index\":0,\"target\":[0,0,0]}")),"survey cannot supply arbitrary target");
+  Check(LocalDecisionPrompt.Create(hungryEmpty with {Food=.8f},_=>false,allowSurvey:true).CandidateCount==0,"survey not offered at fullness boundary");
+  Check(LocalDecisionPrompt.Create(hungryEmpty with {Health=0},_=>false,allowSurvey:true).CandidateCount==0,"dead actor cannot survey");
+  Check(Rejected(()=>LocalDecisionPrompt.Create(Snapshot(),v=>v==777,allowSurvey:true).ParseResponse(surveyJson)),"survey cannot skip known food");
+  Check(Rejected(()=>LocalDecisionPrompt.Create(hungryEmpty with {Cells=[new(0,64,1,"known",777)]},v=>v==777,allowSurvey:true).ParseResponse(surveyJson)),"survey cannot skip visible harvest");
+  Check(LocalDecisionPrompt.Create(hungryEmpty with {Cells=[new(0,64,1,"unknown",777)]},v=>v==777,allowSurvey:true).ParseResponse(surveyJson).Skill=="Survey","unknown resource does not suppress survey");
+  Check(LocalDecisionPrompt.Create(hungryEmpty,_=>false,allowSurvey:true).ParseResponse("{\"skill\":\"Wait\",\"candidate_index\":-1}").Skill=="Wait","enabled survey does not force model action");
+  static (string Skill,int Index)[] SchemaPairs(LocalDecisionPrompt source) {
+   using var schema=JsonDocument.Parse(source.ResponseSchema);
+   var branches=schema.RootElement.GetProperty("oneOf").EnumerateArray().ToArray();
+   foreach(var branch in branches){
+    Check(branch.GetProperty("type").GetString()=="object"&&!branch.GetProperty("additionalProperties").GetBoolean(),"schema branch forbids extra fields");
+    Check(branch.GetProperty("required").EnumerateArray().Select(x=>x.GetString()).SequenceEqual(new[]{"skill","candidate_index"}),"schema requires exact fields");
+    var properties=branch.GetProperty("properties");Check(properties.EnumerateObject().Count()==2&&properties.GetProperty("skill").GetProperty("type").GetString()=="string"&&properties.GetProperty("candidate_index").GetProperty("type").GetString()=="integer","schema field types bounded");
+   }
+   return branches.Select(b=>(b.GetProperty("properties").GetProperty("skill").GetProperty("const").GetString()!,b.GetProperty("properties").GetProperty("candidate_index").GetProperty("const").GetInt32())).ToArray();
+  }
+  var surveyPairs=SchemaPairs(LocalDecisionPrompt.Create(hungryEmpty,_=>false,allowSurvey:true));
+  Check(surveyPairs.SequenceEqual(new[]{("Survey",0),("Wait",-1)}),"Survey-only grammar excludes nonexistent EatOne and wrong index");
+  var noFoodPairs=SchemaPairs(LocalDecisionPrompt.Create(hungryEmpty,_=>false));
+  Check(noFoodPairs.SequenceEqual(new[]{("Wait",-1)}),"empty legacy grammar only permits Wait minus one");
+  var foodPairs=SchemaPairs(LocalDecisionPrompt.Create(Snapshot(),v=>v==777,allowSurvey:true));
+  Check(foodPairs.SequenceEqual(new[]{("EatOne",0),("ForageOne",1),("Wait",-1)}),"food grammar preserves paired indices and suppresses Survey");
+  Check(!foodPairs.Contains(("EatOne",1))&&!foodPairs.Contains(("ForageOne",0))&&!foodPairs.Contains(("Wait",0)),"grammar rejects cross-product skill-index mismatches");
+  var limitedPairs=SchemaPairs(LocalDecisionPrompt.Create(Snapshot(),v=>v==777,1,allowSurvey:true));
+  Check(limitedPairs.SequenceEqual(new[]{("EatOne",0),("Wait",-1)}),"grammar follows candidate truncation");
+  Check(SchemaPairs(LocalDecisionPrompt.Create(hungryEmpty with {Food=.8f},_=>false,allowSurvey:true)).SequenceEqual(new[]{("Wait",-1)}),"full actor grammar contains no Survey");
+  Check(Rejected(()=>LocalDecisionPrompt.Create(hungryEmpty,_=>false,allowSurvey:true).ParseResponse("{\"skill\":\"EatOne\",\"candidate_index\":0}")),"parser still rejects observed invalid EatOne output instead of rewriting it");
   Console.WriteLine($"{count}/{count} checks passed; JSON mapping and bounded streams only, no CLI/model/native game executed.");
  }
  sealed class BlockingReader:TextReader {

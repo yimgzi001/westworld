@@ -72,15 +72,19 @@ namespace Game.Westworld {
             m_completed, m_stepViews.Length, m_lastProgressTime, m_failure, Array.AsReadOnly(m_stepViews.ToArray())) { TaskId = m_taskId };
 
         internal bool IsActive => m_status is ActorTaskStatus.Waiting or ActorTaskStatus.Running or ActorTaskStatus.Blocked;
+        internal Guid? ActiveTaskId => IsActive ? m_taskId : null;
         internal int ActorId => m_actor.Id;
         internal ActorTaskView LastTerminal { get; private set; }
+        internal event Action<int, Guid, bool> TaskActivityChanged;
         internal bool IsActionRunning => m_actions.IsActionRunning;
         internal bool OwnsRunningAction => m_run?.Result.Status == AtomicActionStatus.Running;
         internal bool CanCaptureCheckpoint => m_actions.IsTaskActorAvailable && m_scheduler.CanCheckpoint(this);
         internal bool CanRestoreCheckpoint => m_time.GameTime == 0 && CanCaptureCheckpoint;
         internal IReadOnlyList<InventorySlotView> ReceivedItems(int step) => m_stepViews[step].ReceivedItems;
 
-        public bool Submit(IReadOnlyList<ActorTaskStep> steps) {
+        public bool Submit(IReadOnlyList<ActorTaskStep> steps) => Submit(steps, Guid.NewGuid());
+
+        bool Submit(IReadOnlyList<ActorTaskStep> steps, Guid taskId) {
             if (IsActive || m_detached || !m_actions.IsTaskActorAvailable || steps == null || steps.Count is < 1 or > MaxSteps) {
                 return false;
             }
@@ -98,9 +102,10 @@ namespace Game.Westworld {
             m_version++;
             m_completed = 0;
             m_current = 0;
-            m_taskId = Guid.NewGuid();
+            m_taskId = taskId;
             m_lastProgressTime = null;
             m_lastStepTime = m_time.GameTime;
+            TaskActivityChanged?.Invoke(ActorId, m_taskId, true);
             return true;
         }
 
@@ -114,10 +119,9 @@ namespace Game.Westworld {
 
         internal bool Restore(ActorTaskStep[] steps, ActorTaskSnapshot snapshot) {
             ActorTaskView view = snapshot.View;
-            if (!Submit(steps)) {
+            if (!Submit(steps, view.TaskId)) {
                 return false;
             }
-            m_taskId = view.TaskId;
             m_version = view.Version;
             m_current = view.CurrentStep.Value;
             m_completed = view.CompletedSteps;
@@ -293,6 +297,7 @@ namespace Game.Westworld {
             m_retryMove = null;
             m_cancelRequested = false;
             LastTerminal = Status;
+            TaskActivityChanged?.Invoke(ActorId, m_taskId, false);
         }
 
         void OnActorAdded(object sender, EventArgs args) {

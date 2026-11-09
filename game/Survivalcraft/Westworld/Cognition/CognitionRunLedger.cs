@@ -7,7 +7,7 @@ namespace Game.Westworld {
     internal sealed record CognitionBatch(string Id, double Time, CognitionMember[] Members, bool Reserved = false, string Fault = null);
     internal sealed record CognitionAttempt(string Id, string BatchId, int ActorId, int Number, long Reserved, string State,
         DateTimeOffset SentAt, DateTimeOffset? ReceivedAt = null, long Charge = 0, string Model = null, string RequestId = null,
-        int? InputTokens = null, int? OutputTokens = null, string Error = null, int? HttpStatus = null);
+        int? InputTokens = null, int? OutputTokens = null, string Error = null, int? HttpStatus = null, Guid? PrecedingTask = null);
     internal sealed record CognitionLedgerData(int Format, string ExperimentId, long Budget, long InputPrice, long OutputPrice,
         string PriceVersion, string SourceIdentity, int Parallelism, CognitionBatch Batch, CognitionAttempt[] Attempts);
 
@@ -43,14 +43,21 @@ namespace Game.Westworld {
         }
 
         internal void Save(CognitionLedgerData data) {
+            WriteSnapshot(data);
+            Publish(data);
+        }
+
+        // Observation writes on one worker and publishes the acknowledged snapshot on the game thread.
+        internal void WriteSnapshot(CognitionLedgerData data) {
             string temporary = m_path + ".tmp";
             using (FileStream file = new(temporary, FileMode.Create, FileAccess.Write, FileShare.None)) {
                 JsonSerializer.Serialize(file, data, Json);
                 file.Flush(flushToDisk: true);
             }
             File.Move(temporary, m_path, overwrite: true);
-            Data = data;
         }
+
+        internal void Publish(CognitionLedgerData data) => Data = data;
 
         internal long Spent => Data.Attempts.Where(a => a.State == "completed").Sum(a => a.Charge);
         internal long Unknown => Data.Attempts.Where(a => a.State == "unknown").Sum(a => a.Reserved);

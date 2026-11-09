@@ -65,7 +65,7 @@ namespace Game.Westworld {
 
         public string PrepareTurn() => PrepareTurn(cohort: false);
 
-        internal string PrepareTurn(bool cohort) {
+        internal string PrepareTurn(bool cohort, bool lookAhead = false) {
             CollectInbox();
             if (m_pending != null) {
                 return m_pending.Input;
@@ -79,6 +79,9 @@ namespace Game.Westworld {
             ActorTaskView task = AtCognitiveTime(m_tools.CognitiveTask);
             ActorTaskView outcome = LatestOutcome();
             List<string> reasons = [];
+            if (lookAhead) {
+                reasons.Add("nextTask");
+            }
             if (m_version == 0) {
                 reasons.Add("initial");
             }
@@ -100,7 +103,7 @@ namespace Game.Westworld {
                 return null;
             }
 
-            ActorTaskView earlierOutcome = outcome?.TaskId != task.TaskId && reasons.Contains("taskEnded") ? outcome : null;
+            ActorTaskView earlierOutcome = outcome?.TaskId != task.TaskId && (lookAhead || reasons.Contains("taskEnded")) ? outcome : null;
             CognitiveContext context = ActorCognitiveContext.Assemble(m_tools, m_version, now, reasons.ToArray(), m_profile,
                 m_goal, body, task, earlierOutcome, m_inbox, m_commitments, m_memory);
             if (cohort) {
@@ -108,7 +111,12 @@ namespace Game.Westworld {
             }
             string input = JsonSerializer.Serialize(new { context.Id, context.Version, context.GameTime, context.Reasons,
                 context.Profile, context.Goal, context.Body, context.Task, context.LastOutcome, context.Commitments, context.Observation,
-                context.Inventory, context.Environment, context.Messages, context.Memories, context.Actions, droppedMessages = m_droppedMessages }, m_json);
+                context.Inventory, context.Environment, context.Messages, context.Memories, context.Actions,
+                nextTaskInstruction = lookAhead
+                    ? "Use start for a separate follow-up after the current task succeeds, or keep if there is no useful follow-up. "
+                        + "Do not repeat the current task. The game will recheck the follow-up before starting it."
+                    : null,
+                droppedMessages = m_droppedMessages }, m_json);
             m_pending = new Pending(context, input, m_droppedMessages);
             return input;
         }
@@ -135,26 +143,47 @@ namespace Game.Westworld {
             return error ?? m_tools.ValidateCognitiveTask(decision.Task, decision.Steps);
         }
 
-        internal string ValidateObservation(string id, string response, SelfView observedBody) {
+        internal string CommitObservation(string id, string response, SelfView observedBody, Guid? precedingTask) {
             if (m_pending?.Context is not { } context || context.Id != id) {
-                return "unknown_turn";
+                return Result("unknown_turn");
             }
             SelfView current = m_tools.CognitiveBody;
-            if (!m_tools.CognitiveWorldIsCurrent || !CanThink(current) || context.Version != m_version
-                || CognitiveBody.From(current) != context.Body || !SameTask(m_tools.CognitiveTask, context.Task)) {
-                return "stale_turn";
+            if (!m_tools.CognitiveWorldIsCurrent || !CanThink(current) || context.Version != m_version) {
+                return Result("stale_turn");
+            }
+            ActorTaskView task = m_tools.CognitiveTask;
+            CognitiveBody body = CognitiveBody.From(current);
+            if (precedingTask is Guid taskId) {
+                if (context.Task?.TaskId != taskId || task.TaskId != taskId) {
+                    return Result("task_changed");
+                }
+                if (task.Status != ActorTaskStatus.Succeeded) {
+                    return Result("preceding_task_unsuccessful");
+                }
+                if (body.Condition != context.Body.Condition) {
+                    return Result("stale_turn");
+                }
+            }
+            else if (body != context.Body || !SameTask(task, context.Task)) {
+                return Result("stale_turn");
             }
             Decision decision = DecodeDecision(response);
-            string error = ValidateDecision(decision, context) ?? m_tools.ValidateCognitiveTask(decision.Task, decision.Steps);
-            return error ?? (decision.Task is "start" or "replace"
-                ? m_tools.RecheckObservationPlan(decision.Steps, observedBody, current) : null);
+            string error = ValidateDecision(decision, context);
+            if (error == null && precedingTask != null && decision.Task is not ("start" or "keep")) {
+                error = "invalid_follow_up";
+            }
+            error ??= m_tools.ValidateCognitiveTask(decision.Task, decision.Steps);
+            if (error == null && decision.Task is "start" or "replace") {
+                error = m_tools.RecheckObservationPlan(decision.Steps, observedBody, current);
+            }
+            return error != null ? Result(error) : InstallTurn(id, response, scheduled: false, continuation: precedingTask != null);
         }
 
         public string CommitTurn(string id, string response) => InstallTurn(id, response, scheduled: false);
 
         internal string InstallScheduled(string id, string response) => InstallTurn(id, response, scheduled: true);
 
-        string InstallTurn(string id, string response, bool scheduled) {
+        string InstallTurn(string id, string response, bool scheduled, bool continuation = false) {
             if (m_pending == null || id != m_pending.Context.Id) {
                 return Result("unknown_turn");
             }
@@ -162,7 +191,7 @@ namespace Game.Westworld {
             SelfView self = m_tools.CognitiveBody;
             ActorTaskView task = m_tools.CognitiveTask;
             if (!CanThink(self) || context.Version != m_version
-                || (!scheduled && (CognitiveBody.From(self) != context.Body || !SameTask(task, context.Task)))) {
+                || (!scheduled && !continuation && (CognitiveBody.From(self) != context.Body || !SameTask(task, context.Task)))) {
                 m_pending = null;
                 return Result("stale_turn");
             }
@@ -188,7 +217,8 @@ namespace Game.Westworld {
             if (context.LastOutcome != null) {
                 m_seenTask = context.LastOutcome.TaskId;
             }
-            if (context.Task != null && (IsTerminal(context.Task) || rejected == null && decision.Task is "cancel" or "replace")) {
+            if (context.Task != null && (continuation || IsTerminal(context.Task)
+                || rejected == null && decision.Task is "cancel" or "replace")) {
                 m_seenTask = context.Task.TaskId;
             }
             if (decision.ResolveCommitment != null) {
@@ -215,6 +245,7 @@ namespace Game.Westworld {
             m_droppedMessages -= m_pending.DroppedMessages;
             LastDecisionJson = JsonSerializer.Serialize(new {
                 input = JsonSerializer.Deserialize<JsonElement>(m_pending.Input), decision = JsonSerializer.Deserialize<JsonElement>(response),
+                precedingTaskOutcome = continuation ? AtCognitiveTime(task) : null,
                 taskId = m_tools.CognitiveTask.TaskId, version = m_version, handled = handled.Count,
                 remembered = decision.Remember != null, reviewAt = m_reviewAt, actionError = rejected
             }, m_json);

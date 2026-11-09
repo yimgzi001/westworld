@@ -11,25 +11,42 @@ public sealed class LocalDecisionPrompt {
     readonly object gate = new();
     HighLevelDecision? accepted;
     public string Prompt { get; }
+    // Generation grammar is narrowed to this immutable request, not a global skill enum.
+    public string ResponseSchema { get; }
     public int CandidateCount => candidates.Length;
     LocalDecisionPrompt(ActorObservation source, Candidate[] candidates) {
         session = source.SessionId; actor = source.ActorId; observation = source.ObservationId;
         this.candidates = candidates;
+        object Branch(string skill, int index) => new {
+            type = "object",
+            properties = new {
+                skill = new { type = "string", @const = skill },
+                candidate_index = new { type = "integer", @const = index }
+            },
+            required = new[] { "skill", "candidate_index" },
+            additionalProperties = false
+        };
+        ResponseSchema = JsonSerializer.Serialize(new {
+            oneOf = candidates.Select((candidate, index) => Branch(candidate.Skill, index))
+                .Append(Branch("Wait", -1)).ToArray()
+        });
         var compact = new {
             health = source.Health, food = source.Food,
             candidates = candidates.Select((c, i) => (object)(c.Skill == "EatOne"
                 ? new { candidate_index = i, skill = c.Skill, resource = "edible_inventory_item", nutrition = Math.Round(c.Nutrition, 3) }
-                : (object)new { candidate_index = i, skill = c.Skill, resource = "supported_visible_harvest", distance = Math.Round(c.Distance, 2) })).ToArray()
+                : c.Skill == "Survey" ? (object)new { candidate_index = i, skill = c.Skill, resource = "bounded_local_search_for_food" } : (object)new { candidate_index = i, skill = c.Skill, resource = "supported_visible_harvest", distance = Math.Round(c.Distance, 2) })).ToArray()
         };
+        bool offersSurvey = candidates.Any(c => c.Skill == "Survey");
         Prompt = "Choose one survival action using only the listed candidates. Food is fullness (0 hungry, 1 full). " +
             "EatOne consumes one supported inventory item. ForageOne approaches, harvests, collects and eats one supported visible resource. " +
+            (offersSurvey ? "Your active goal is FindFood before hunger becomes critical. No edible inventory or harvest target is available. Survey advances this goal through bounded local observation and safe skills; it does not grant knowledge of hidden resources. Prefer Survey now instead of waiting without progress. " : "") +
             "Wait does nothing. Prefer a useful achievable action when hungry; wait when no action is needed or available. " +
-            "Return exactly one JSON object with exactly two keys, for example {\"skill\":\"Wait\",\"candidate_index\":-1}. " +
-            "The skill must be EatOne, ForageOne, or Wait; candidate_index must be an integer. " +
-            "For EatOne/ForageOne copy a matching listed index and skill. For Wait use candidate_index=-1. " +
+            (offersSurvey ? "Return exactly one JSON object with exactly two keys, for example {\"skill\":\"Survey\",\"candidate_index\":0}. " : "Return exactly one JSON object with exactly two keys, for example {\"skill\":\"Wait\",\"candidate_index\":-1}. ") +
+            (offersSurvey ? "The skill must be a listed candidate skill or Wait; candidate_index must be an integer. " : "The skill must be EatOne, ForageOne, or Wait; candidate_index must be an integer. ") +
+            (offersSurvey ? "For EatOne/ForageOne/Survey copy a matching listed index and skill. For Wait use candidate_index=-1. " : "For EatOne/ForageOne copy a matching listed index and skill. For Wait use candidate_index=-1. ") +
             "No explanation, markdown, extra fields, commands or code.\n" + JsonSerializer.Serialize(compact);
     }
-    public static LocalDecisionPrompt Create(ActorObservation source, Func<int, bool> isSupportedHarvestValue, int maxCandidates = 24) {
+    public static LocalDecisionPrompt Create(ActorObservation source, Func<int, bool> isSupportedHarvestValue, int maxCandidates = 24, bool allowSurvey = false) {
         ArgumentNullException.ThrowIfNull(source); ArgumentNullException.ThrowIfNull(isSupportedHarvestValue);
         if (maxCandidates < 1 || maxCandidates > 64) throw new ArgumentOutOfRangeException(nameof(maxCandidates));
         if (source.SessionId == Guid.Empty || source.ActorId == Guid.Empty || source.ObservationId == Guid.Empty ||
@@ -52,6 +69,8 @@ public sealed class LocalDecisionPrompt {
             double dx = c.X + 0.5 - source.Position.X, dy = c.Y + 0.5 - source.Position.Y, dz = c.Z + 0.5 - source.Position.Z;
             choices.Add(new("ForageOne", -1, 0, target, 0, Math.Sqrt(dx * dx + dy * dy + dz * dz)));
         }
+        if (allowSurvey && source.Health > 0 && source.Food < 0.8f && choices.Count == 0)
+            choices.Add(new("Survey", -1, 0, null, 0, 0));
         var bounded = choices.OrderBy(c => c.Skill == "EatOne" ? 0 : 1).ThenBy(c => c.Distance)
             .ThenBy(c => c.Slot).ThenBy(c => c.Target?.X).ThenBy(c => c.Target?.Y).ThenBy(c => c.Target?.Z).Take(maxCandidates).ToArray();
         return new LocalDecisionPrompt(source, bounded);
@@ -71,9 +90,9 @@ public sealed class LocalDecisionPrompt {
         HighLevelDecision result;
         if (skill == "Wait" && index == -1) result = new(session, actor, observation, decision, "Observe", "Wait", -1, 0);
         else {
-            if (skill is not ("EatOne" or "ForageOne") || index < 0 || index >= candidates.Length || candidates[index].Skill != skill) throw new FormatException("Unknown or mismatched candidate");
+            if (skill is not ("EatOne" or "ForageOne" or "Survey") || index < 0 || index >= candidates.Length || candidates[index].Skill != skill) throw new FormatException("Unknown or mismatched candidate");
             var c = candidates[index];
-            result = new(session, actor, observation, decision, "SatisfyHunger", c.Skill, c.Slot, c.Value, c.Target);
+            result = new(session, actor, observation, decision, c.Skill == "Survey" ? "FindFood" : "SatisfyHunger", c.Skill, c.Slot, c.Value, c.Target);
         }
         lock (gate) {
             if (accepted != null && accepted != result) throw new InvalidOperationException("Prompt already resolved to another decision");

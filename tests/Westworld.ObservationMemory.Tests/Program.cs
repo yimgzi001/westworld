@@ -1,0 +1,30 @@
+using Westworld.Runtime.Core;
+using Westworld.Scapi.Adapter;
+int n=0;void Check(bool b,string label){n++;if(!b)throw new Exception(label);}
+void Reject(Action a,string label){bool fail=false;try{a();}catch(ArgumentException){fail=true;}Check(fail,label);}
+var s=Guid.NewGuid();var a=Guid.NewGuid();
+ActorObservation O(double t,params CellObservation[] cells)=>new(s,a,Guid.NewGuid(),t,new(.5,64,.5),1,.5f,[],cells);
+var mem=new LocalObservationMemory(s,a);
+var first=O(1,new CellObservation(0,63,0,"known",2));var w=mem.Observe(first);
+Check(w.Cells.Single().IsCurrent,"current");Check(w.Cells.Single().SourceObservationId==first.ObservationId,"source");
+w=mem.Observe(O(2,new CellObservation(0,63,0,"unknown",null)));
+Check(!w.Cells.Single().IsCurrent&&w.Cells.Single().Age==1,"unknown is historical");Check(w.Cells.Single().ObservedAt==1,"unknown no refresh");
+var newer=O(3,new CellObservation(0,63,0,"known",3));w=mem.Observe(newer);Check(w.Cells.Single().Value==3&&w.Cells.Single().SourceObservationId==newer.ObservationId,"new replaces conflict");
+Check(mem.Observe(O(6)).Cells.Count==1,"ttl inclusive");Check(mem.Observe(O(6.001)).Cells.Count==0,"ttl expired");
+Reject(()=>mem.Observe(O(5)),"time monotonic");Reject(()=>mem.Observe(O(7) with{ActorId=Guid.NewGuid()}),"actor scope");Reject(()=>mem.Observe(O(7) with{SessionId=Guid.NewGuid()}),"session scope");
+Reject(()=>mem.Observe(O(7,new CellObservation(0,63,0,"unknown",2))),"no unknown value");Reject(()=>mem.Observe(O(7,new CellObservation(0,63,0,"known",2),new CellObservation(0,63,0,"known",2))),"duplicate");
+Check(mem.Observe(O(6.002)).Time==6.002,"invalid input atomic");
+var replay=O(7);mem.Observe(replay);Reject(()=>mem.Observe(replay),"replay");
+var other=new LocalObservationMemory(s,Guid.NewGuid());Check(other.Count==0,"private map");
+var small=new LocalObservationMemory(s,a,2);Check(small.Observe(O(1,new CellObservation(0,63,0,"known",2),new CellObservation(1,63,0,"known",2),new CellObservation(2,63,0,"known",2))).Cells.Count==2,"budget");
+var radius=new LocalObservationMemory(s,a);Check(radius.Observe(O(1,new CellObservation(5,64,0,"known",0),new CellObservation(0,64,0,"known",0))).Cells.Count==1,"radius centre");Check(radius.Observe(O(2) with{Position=new(20,64,20)}).Cells.Count==0,"position eviction");
+var all=new List<CellObservation>();for(int x=-2;x<=2;x++)for(int z=-2;z<=2;z++)for(int y=63;y<=65;y++)all.Add(new(x,y,z,"known",y==63?2:0));
+var back=O(10,all.Where(c=>c.Z<=0).ToArray());var front=O(11,all.Where(c=>c.Z>0).ToArray());
+Check(LocalRouteCandidates.Project(front).Candidates.Count==0,"single view insufficient");
+var merged=new LocalObservationMemory(s,a);merged.Observe(back);w=merged.Observe(front);var projection=LocalRouteCandidates.Project(w);
+Check(projection.Candidates.Count==8,"merged views eight");Check(projection.MaximumAge==1,"maximum age");Check(projection.Provenance.Values.SelectMany(v=>v).Any(c=>!c.IsCurrent&&c.SourceObservationId==back.ObservationId),"historical provenance");
+Check(projection.Evidence.Values.SelectMany(v=>v).Any(c=>c.Visibility=="historical"),"never relabel history known");
+var frozen=w.Cells.Count;merged.Observe(O(14.01));Check(w.Cells.Count==frozen,"immutable window");Check(LocalRouteCandidates.Project(merged.Observe(O(14.02))).Candidates.Count==0,"expired route");
+var block=new LocalObservationMemory(s,a);block.Observe(O(20,all.ToArray()));var changed=block.Observe(O(21,new CellObservation(0,64,0,"known",3)));Check(LocalRouteCandidates.Project(changed).Candidates.Count==0,"new obstacle invalidates all corridors");
+var current=LocalRouteCandidates.Project(O(30,all.ToArray()));Check(current.MaximumAge==0&&current.Provenance.Values.SelectMany(v=>v).All(c=>c.IsCurrent&&c.Age==0),"legacy current proof");
+Console.WriteLine($"PASS {n}/{n}");

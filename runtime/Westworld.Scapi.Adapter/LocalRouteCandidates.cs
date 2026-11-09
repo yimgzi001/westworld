@@ -13,7 +13,10 @@ public enum RouteGroundPolicy {
 /// <summary>Evidence belongs to one observation, not a durable permission to move.</summary>
 public sealed record LocalRouteProjection(Guid SessionId, Guid ActorId, Guid ObservationId,
     IReadOnlyList<ExplorationCandidate> Candidates,
-    IReadOnlyDictionary<Guid, IReadOnlyList<CellObservation>> Evidence, RouteGroundPolicy GroundPolicy);
+    IReadOnlyDictionary<Guid, IReadOnlyList<CellObservation>> Evidence, RouteGroundPolicy GroundPolicy) {
+    public IReadOnlyDictionary<Guid,IReadOnlyList<LocalObservedCell>> Provenance {get;init;} = new Dictionary<Guid,IReadOnlyList<LocalObservedCell>>();
+    public double MaximumAge {get;init;}
+}
 
 /// <summary>
 /// Conservative snapshot-only projection for the ordinary 0.5 x 1.77 player body.
@@ -28,6 +31,23 @@ public static class LocalRouteCandidates {
     public const double ContactEpsilon = 1e-5;
     static readonly (int X, int Z)[] Directions = [(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1),(-1,0),(-1,1)];
 
+    // Historical evidence remains historical in Evidence and carries per-cell sources.
+    // Use immediately at window.Time; callers must obtain a fresh window before execution.
+    public static LocalRouteProjection Project(LocalObservationWindow window,double distance=1,
+        RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable) {
+        ArgumentNullException.ThrowIfNull(window);
+        var source=window.Cells.ToDictionary(c=>(c.X,c.Y,c.Z));
+        // Internal geometry normalization only; not exposed as a visual observation.
+        var snapshot=new ActorObservation(window.SessionId,window.ActorId,window.ObservationId,window.Time,window.Position,window.Health,0,[],
+            window.Cells.Select(c=>new CellObservation(c.X,c.Y,c.Z,"known",c.Value)).ToArray());
+        var result=Project(snapshot,distance,groundPolicy);
+        var provenance=result.Evidence.ToDictionary(kv=>kv.Key,kv=>(IReadOnlyList<LocalObservedCell>)Array.AsReadOnly(kv.Value.Select(c=>source[(c.X,c.Y,c.Z)]).ToArray()));
+        var evidence=provenance.ToDictionary(kv=>kv.Key,kv=>(IReadOnlyList<CellObservation>)Array.AsReadOnly(kv.Value.Select(c=>new CellObservation(c.X,c.Y,c.Z,c.IsCurrent?"known":"historical",c.Value)).ToArray()));
+        return result with {Evidence=new System.Collections.ObjectModel.ReadOnlyDictionary<Guid,IReadOnlyList<CellObservation>>(evidence),
+            Provenance=new System.Collections.ObjectModel.ReadOnlyDictionary<Guid,IReadOnlyList<LocalObservedCell>>(provenance),
+            MaximumAge=provenance.Values.SelectMany(v=>v).Select(c=>c.Age).DefaultIfEmpty(0).Max()};
+    }
+
     // One metre first; caller may explicitly request a two metre straight corridor.
     public static LocalRouteProjection Project(ActorObservation observation, double distance = 1,
         RouteGroundPolicy groundPolicy = RouteGroundPolicy.StrictStable) {
@@ -38,7 +58,10 @@ public static class LocalRouteCandidates {
         var candidates = new List<ExplorationCandidate>();
         var evidence = new Dictionary<Guid, IReadOnlyList<CellObservation>>();
         LocalRouteProjection Result() => new(observation.SessionId, observation.ActorId, observation.ObservationId,
-            candidates.AsReadOnly(), new System.Collections.ObjectModel.ReadOnlyDictionary<Guid,IReadOnlyList<CellObservation>>(evidence), groundPolicy);
+            candidates.AsReadOnly(), new System.Collections.ObjectModel.ReadOnlyDictionary<Guid,IReadOnlyList<CellObservation>>(evidence), groundPolicy) {
+                Provenance=new System.Collections.ObjectModel.ReadOnlyDictionary<Guid,IReadOnlyList<LocalObservedCell>>(
+                    evidence.ToDictionary(kv=>kv.Key,kv=>(IReadOnlyList<LocalObservedCell>)Array.AsReadOnly(kv.Value.Select(c=>new LocalObservedCell(c.X,c.Y,c.Z,c.Value!.Value,observation.ObservationId,observation.Time,0,true)).ToArray())))
+            };
         var p = observation.Position;
         if (observation.SessionId == Guid.Empty || observation.ActorId == Guid.Empty || observation.ObservationId == Guid.Empty
             || !double.IsFinite(observation.Time) || observation.Time < 0

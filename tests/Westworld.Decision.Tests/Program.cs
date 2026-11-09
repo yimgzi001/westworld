@@ -79,6 +79,27 @@ static class Tests {
    bool rejected=false;try{target.Validate();}catch(ArgumentOutOfRangeException){rejected=true;}Check(rejected,"target coordinate bounds "+target);
   }
   new CellTarget(-10_000_000,0,10_000_000,int.MinValue).Validate();Check(true,"coordinate boundary allowed; encoded values retain all native bits");
+  var hungry=Snapshot() with {Food=.4f,Inventory=[],Cells=[]};
+  static HighLevelDecision Survey(ActorObservation x)=>new(x.SessionId,x.ActorId,x.ObservationId,Guid.NewGuid(),"FindFood","Survey",-1,0);
+  void SurveyCase(string name,ActorObservation input,Func<ActorObservation,HighLevelDecision> make,bool enabled,bool valid,Func<int,bool>? capability=null){
+   using var scheduler=new AsyncDecisionScheduler(new Provider((x,ct)=>Task.FromResult(make(x))),TimeSpan.FromSeconds(2),allowSurvey:enabled,supportedSurveyHarvest:capability??(_=>false));
+   scheduler.Request(input,out _);var result=Take(scheduler,input.ActorId);Check(valid?result.Decision!=null&&result.Error==null:result.Error=="invalid_decision_target",name);
+  }
+  SurveyCase("unauthorized survey rejected",hungry,Survey,false,false);
+  SurveyCase("authorized hungry resource-free survey accepted",hungry,Survey,true,true);
+  SurveyCase("survey fullness boundary rejected",hungry with {Food=.8f},Survey,true,false);
+  SurveyCase("survey dead actor rejected",hungry with {Health=0},Survey,true,false);
+  SurveyCase("survey negative food rejected",hungry with {Food=-.1f},Survey,true,false);
+  SurveyCase("survey cannot bypass edible inventory",hungry with {Inventory=[new(0,1,1,.2f,true)]},Survey,true,false);
+  SurveyCase("survey cannot bypass known harvest",hungry with {Cells=[new(0,64,1,"known",777)]},Survey,true,false,v=>v==777);
+  SurveyCase("unknown harvest not treated as known",hungry with {Cells=[new(0,64,1,"unknown",777)]},Survey,true,true,_=>throw new Exception("unknown must not reach predicate"));
+  SurveyCase("survey wrong goal rejected",hungry,x=>Survey(x) with {Goal="SatisfyHunger"},true,false);
+  SurveyCase("survey slot rejected",hungry,x=>Survey(x) with {Slot=0},true,false);
+  SurveyCase("survey value rejected",hungry,x=>Survey(x) with {ExpectedValue=1},true,false);
+  SurveyCase("survey target rejected",hungry,x=>Survey(x) with {Target=new(0,64,1,1)},true,false);
+  SurveyCase("capability errors fail closed",hungry with {Cells=[new(0,64,1,"known",777)]},Survey,true,false,_=>throw new Exception("bad capability"));
+  SurveyCase("provider cannot erase food evidence",hungry with {Inventory=[new(0,1,1,.2f,true)]},x=>{x.Inventory[0]=new(0,0,0);return Survey(x);},true,false);
+  bool missingCapability=false;try{using var bad=new AsyncDecisionScheduler(new Provider((x,ct)=>Task.FromResult(Survey(x))),TimeSpan.FromSeconds(2),allowSurvey:true);}catch(ArgumentException){missingCapability=true;}Check(missingCapability,"survey requires trusted capability predicate");
   Console.WriteLine($"{checks}/{checks} checks passed; deterministic providers only, no native game or network.");
  }
  sealed class Provider(Func<ActorObservation,CancellationToken,Task<HighLevelDecision>> decide):IDecisionProvider { public Task<HighLevelDecision> DecideAsync(ActorObservation o,CancellationToken ct)=>decide(o,ct); }
