@@ -1,0 +1,21 @@
+{
+  "model": "Qwen3.5-4B",
+  "quantization": "Q4_K_M",
+  "base_source": "https://huggingface.co/Qwen/Qwen3.5-4B",
+  "quantized_source": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF",
+  "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+  "filename": "Qwen3.5-4B-Q4_K_M.gguf",
+  "bytes": 2740937888,
+  "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+  "runtime_source": "https://github.com/ggml-org/llama.cpp/releases/download/b12211/llama-b12211-bin-ubuntu-x64.tar.gz",
+  "runtime_sha256": "962924b5431bc1237a9e5d26ba072d37b6fe05f79b495206e7ff6134887624c5",
+  "runtime_build": "12211",
+  "runtime_commit": "7d7f02875",
+  "context": 2048,
+  "threads": 4,
+  "reasoning": "off",
+  "max_output_tokens": 96,
+  "model_slots": 1,
+  "external_api_calls": 0,
+  "artifacts_committed": false
+}

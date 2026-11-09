@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Westworld.Runtime.Core;
 using Westworld.Scapi.Adapter;
+using Westworld.Decisions.Local;
 
 internal static class ForageGate {
  static readonly string root=AppContext.BaseDirectory;static readonly Stopwatch clock=Stopwatch.StartNew();
@@ -11,8 +12,8 @@ internal static class ForageGate {
  static void Log(object value){string s=JsonSerializer.Serialize(value);Console.WriteLine(s);File.AppendAllText(Path.Combine(root,"forage.jsonl"),s+Environment.NewLine);}
  static int Main(string[] args){
   if(args.Length<1||args.Length>2||args[0]!="--new-disposable-world"||!root.Contains(Path.DirectorySeparatorChar+"work"+Path.DirectorySeparatorChar)||Directory.Exists(Path.Combine(root,"doc"))||Directory.Exists(Path.Combine(root,"Mods")))return 2;
-  Mode=args.Length==2?args[1]:"normal";if(Mode is not ("normal" or "cancel" or "disappeared"))return 2;
-  Log(new{kind="start",scripted=true,models=0,mode=Mode});Window.Created+=()=>Window.Frame+=Frame;
+  Mode=args.Length==2?args[1]:"normal";if(Mode is not ("normal" or "cancel" or "disappeared" or "model"))return 2;
+  Log(new{kind="start",scripted=Mode!="model",models=Mode=="model"?1:0,mode=Mode});Window.Created+=()=>Window.Frame+=Frame;
   try{Game.Program.EntryPoint();}catch(Exception e){Log(new{kind="fatal",error=e.ToString()});return 1;}return passed?0:1;
  }
  static void Frame(){try{
@@ -39,13 +40,16 @@ internal sealed class ForagePolicy:IDecisionProvider {
 }
 internal sealed class Scenario:IUpdateable,IDisposable {
  public float FloatUpdateOrder=>-14;readonly NativeActorSession session;readonly Guid actor;readonly ComponentPlayer native;readonly Action<object> log;readonly ScapiInterestBackend backend;readonly InterestCoordinator interests;readonly SubsystemTerrain terrain;
- readonly AsyncDecisionScheduler scheduler=new(new ForagePolicy(),TimeSpan.FromSeconds(2));
- int stage;double elapsed;int x,y,z;string lastStage="";HighLevelDecision decision;ForageResult done;long eatenBefore;
+ readonly AsyncDecisionScheduler scheduler;readonly LlamaProcessProvider model;int pendingTicks;float requestedFood;
+ int stage;double elapsed;int x,y,z;string lastStage="";HighLevelDecision decision;Guid? executionObservation;ForageResult done;long eatenBefore;
  public bool Done{get;private set;}public bool Passed{get;private set;}
- public Scenario(NativeActorSession s,Guid id,ComponentPlayer p,Action<object> log){session=s;actor=id;native=p;this.log=log;var project=p.Project;terrain=project.FindSubsystem<SubsystemTerrain>(true);backend=new ScapiInterestBackend(terrain,project.FindSubsystem<SubsystemSpawn>(true));interests=new InterestCoordinator(s.Registry,backend,new InterestRadii(16,32));interests.Sync();terrain.TerrainUpdater.RemoveUpdateLocation(p.PlayerData.PlayerIndex);}
+ public Scenario(NativeActorSession s,Guid id,ComponentPlayer p,Action<object> log){session=s;actor=id;native=p;this.log=log;var project=p.Project;terrain=project.FindSubsystem<SubsystemTerrain>(true);backend=new ScapiInterestBackend(terrain,project.FindSubsystem<SubsystemSpawn>(true));interests=new InterestCoordinator(s.Registry,backend,new InterestRadii(16,32));interests.Sync();terrain.TerrainUpdater.RemoveUpdateLocation(p.PlayerData.PlayerIndex);
+  if(ForageGate.Mode=="model"){var local=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"..","local-model"));model=new LlamaProcessProvider(Path.Combine(local,"llama-b12211","llama-completion"),Path.Combine(local,"Qwen3.5-4B-Q4_K_M.gguf"),value=>Terrain.ExtractContents(value)==PumpkinBlock.Index&&BasePumpkinBlock.GetSize(Terrain.ExtractData(value))==7);scheduler=new(model,TimeSpan.FromSeconds(65),1);}
+  else scheduler=new(new ForagePolicy(),TimeSpan.FromSeconds(2));
+ }
  static void Require(bool condition,string why){if(!condition)throw new InvalidOperationException(why);}
  public void Update(float dt){if(Done)return;try{
-  elapsed+=dt;interests.Sync();Require(native.GameWidget is null,"AI unexpectedly has viewport");
+  elapsed+=dt;if(stage==2)pendingTicks++;interests.Sync();Require(native.GameWidget is null,"AI unexpectedly has viewport");
   if(stage==0&&elapsed>=3){
    var pos=native.ComponentBody.Position;int px=Terrain.ToCell(pos.X),pz=Terrain.ToCell(pos.Z);y=Terrain.ToCell(pos.Y);
    // Explicit native-world fixture: level support and one ripe plant; not natural discovery.
@@ -53,19 +57,19 @@ internal sealed class Scenario:IUpdateable,IDisposable {
    native.ComponentBody.Position=new Vector3(px+0.5f,y,pz+0.5f);native.ComponentBody.Velocity=Vector3.Zero;
    var f=native.ComponentBody.Matrix.Forward;x=px+(MathF.Abs(f.X)>MathF.Abs(f.Z)?Math.Sign(f.X)*3:0);z=pz+(MathF.Abs(f.X)>MathF.Abs(f.Z)?0:Math.Sign(f.Z)*3);terrain.ChangeCell(x,y,z,Terrain.MakeBlockValue(PumpkinBlock.Index));
    var inventory=native.ComponentMiner.Inventory;for(int i=0;i<inventory.SlotsCount;i++)inventory.RemoveSlotItems(i,inventory.GetSlotCount(i));
-   eatenBefore=native.PlayerStats.FoodItemsEaten;log(new{kind="fixture",artificial=true,inventoryCleared=true,plant=new{x,y,z},models=0});stage=1;
+   eatenBefore=native.PlayerStats.FoodItemsEaten;log(new{kind="fixture",artificial=true,inventoryCleared=true,plant=new{x,y,z},models=ForageGate.Mode=="model"?1:0});stage=1;
   }else if(stage==1&&elapsed>=4){
-   var o=session.Observe(session.SessionId,actor);Require(o.Cells.Any(c=>c.X==x&&c.Y==y&&c.Z==z&&c.Visibility=="known"),"Fixture target is not actually visible");Require(scheduler.Request(o,out var error),"decision rejected: "+error);log(new{kind="observation",o.ObservationId,o.Position,o.Food,knownPlants=o.Cells.Where(c=>c.Value.HasValue&&Terrain.ExtractContents(c.Value.Value)==PumpkinBlock.Index).ToArray()});stage=2;
+   var o=session.Observe(session.SessionId,actor);Require(o.Cells.Any(c=>c.X==x&&c.Y==y&&c.Z==z&&c.Visibility=="known"),"Fixture target is not actually visible");requestedFood=o.Food;Require(scheduler.Request(o,out var error),"decision rejected: "+error);log(new{kind="observation",o.ObservationId,o.Position,o.Food,knownPlants=o.Cells.Where(c=>c.Value.HasValue&&Terrain.ExtractContents(c.Value.Value)==PumpkinBlock.Index).ToArray()});stage=2;
   }else if(stage==2&&scheduler.TryTake(actor,out var d,out var error)){
-   Require(error is null&&d is not null,"policy failed: "+error);decision=d;var accepted=session.ApplyForageDecision(d);Require(session.ApplyForageDecision(d)==accepted,"duplicate acceptance unstable");log(new{kind="goal_accepted",accepted});if(ForageGate.Mode=="cancel")session.CancelForage(session.SessionId,actor,d.DecisionId);else if(ForageGate.Mode=="disappeared")terrain.ChangeCell(x,y,z,0);stage=3;
+   Require(error is null&&d is not null,"policy failed: "+error);decision=d;var fresh=ForageGate.Mode=="model"?session.Observe(session.SessionId,actor):null;executionObservation=fresh?.ObservationId;var accepted=session.ApplyForageDecision(d,executionObservation);Require(session.ApplyForageDecision(d,fresh?.ObservationId)==accepted,"duplicate acceptance unstable");log(new{kind="goal_accepted",accepted,planningObservation=d.ObservationId,revalidatedObservation=fresh?.ObservationId,inference=model?.LastMetrics,pendingTicks,foodDuringInference=native.ComponentVitalStats.Food-requestedFood});if(ForageGate.Mode=="cancel")session.CancelForage(session.SessionId,actor,d.DecisionId);else if(ForageGate.Mode=="disappeared")terrain.ChangeCell(x,y,z,0);stage=3;
   }else if(stage==3){
    var result=session.ReadForage(session.SessionId,actor,decision.DecisionId);if(result.Stage!=lastStage){log(new{kind="stage",result});lastStage=result.Stage;}
    if(result.Status is "Succeeded" or "Blocked" or "Failed" or "Uncertain" or "Canceled"){
     log(new{kind="goal_terminal",result,blocks=native.PlayerStats.BlocksDug,itemsEaten=native.PlayerStats.FoodItemsEaten-eatenBefore});
-    if(ForageGate.Mode=="normal")Require(result.Status=="Succeeded"&&result.Harvested&&result.Collected>=1&&result.FoodAfter>result.FoodBefore,"forage failed: "+result);else Require(result.Status==(ForageGate.Mode=="cancel"?"Canceled":"Blocked")&&!result.Harvested&&result.Collected==0&&native.PlayerStats.BlocksDug==0,"Interrupted goal changed world or wrong outcome");
-    if(ForageGate.Mode=="normal")Require(Terrain.ExtractContents(terrain.Terrain.GetCellValue(x,y,z))==0&&native.PlayerStats.FoodItemsEaten==eatenBefore+1,"world/food postconditions missing");done=result;Require(session.ApplyForageDecision(decision)==result,"completed replay changed result");elapsed=0;stage=4;
+    if(ForageGate.Mode is "normal" or "model")Require(result.Status=="Succeeded"&&result.Harvested&&result.Collected>=1&&result.FoodAfter>result.FoodBefore,"forage failed: "+result);else Require(result.Status==(ForageGate.Mode=="cancel"?"Canceled":"Blocked")&&!result.Harvested&&result.Collected==0&&native.PlayerStats.BlocksDug==0,"Interrupted goal changed world or wrong outcome");
+    if(ForageGate.Mode is "normal" or "model")Require(Terrain.ExtractContents(terrain.Terrain.GetCellValue(x,y,z))==0&&native.PlayerStats.FoodItemsEaten==eatenBefore+1,"world/food postconditions missing");done=result;Require(session.ApplyForageDecision(decision,executionObservation)==result,"completed replay changed result");elapsed=0;stage=4;
    }
-  }else if(stage==4&&elapsed>0.5){Require(native.PlayerStats.FoodItemsEaten==eatenBefore+(ForageGate.Mode=="normal"?1:0),"duplicate consumed twice");log(new{kind="verified",replayStable=true,health=native.ComponentHealth.Health,final=done});Done=true;Passed=true;}
+  }else if(stage==4&&elapsed>0.5){Require(native.PlayerStats.FoodItemsEaten==eatenBefore+(ForageGate.Mode is "normal" or "model"?1:0),"duplicate consumed twice");log(new{kind="verified",replayStable=true,health=native.ComponentHealth.Health,final=done});Done=true;Passed=true;}
  }catch(Exception e){Done=true;Passed=false;log(new{kind="scenario_error",error=e.ToString()});}}
  public void Dispose(){scheduler.Dispose();interests.Release();backend.Dispose();}
 }

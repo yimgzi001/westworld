@@ -17,9 +17,11 @@ public sealed partial class NativeActorSession {
  static bool ForageTerminal(string status)=>status is "Succeeded" or "Blocked" or "Canceled" or "Failed" or "Uncertain";
  static bool MaturePumpkin(int value)=>Terrain.ExtractContents(value)==PumpkinBlock.Index&&BasePumpkinBlock.GetSize(Terrain.ExtractData(value))==7&&BlocksManager.Blocks[PumpkinBlock.Index].GetNutritionalValue(value)>0;
  static int InventoryCount(ComponentPlayer p,int value)=>Enumerable.Range(0,p.ComponentMiner.Inventory.SlotsCount).Where(i=>p.ComponentMiner.Inventory.GetSlotValue(i)==value).Sum(i=>p.ComponentMiner.Inventory.GetSlotCount(i));
- public ForageResult ApplyForageDecision(HighLevelDecision d){
+ // A slow model keeps its planning observation unchanged; host may supply a NEW
+ // observation for native revalidation. Both IDs must be recorded by the caller.
+ public ForageResult ApplyForageDecision(HighLevelDecision d,Guid? currentObservationId=null){
   if(d.Goal!="SatisfyHunger"||d.Skill!="ForageOne"||d.Target is null||d.Slot!=-1||d.ExpectedValue!=0)throw new InvalidOperationException("Unsupported forage decision");
-  return SubmitForage(new(d.SessionId,d.ActorId,d.DecisionId,d.ObservationId,d.Target));
+  return SubmitForage(new(d.SessionId,d.ActorId,d.DecisionId,currentObservationId??d.ObservationId,d.Target));
  }
  public ForageResult SubmitForage(ForageIntent intent){
   Owner();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
