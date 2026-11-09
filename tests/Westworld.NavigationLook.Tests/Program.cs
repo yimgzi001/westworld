@@ -1,0 +1,26 @@
+using Westworld.Runtime.Core;
+using Westworld.Scapi.Adapter;
+int n=0;void Check(bool v,string name){n++;if(!v)throw new Exception(name);}
+var sid=Guid.NewGuid();var aid=Guid.NewGuid();var p=new Position(.5,64,.5);var eye=new Position(.5,65.6,.5);
+LocalObservationWindow Window(double time=1,CellObservation[]? cells=null,Position? pos=null,Guid? actor=null)=>new LocalObservationMemory(sid,actor??aid).Observe(new(sid,actor??aid,Guid.NewGuid(),time,pos??p,1,.5f,[],cells??[]));
+NavigationMissingCell[] gaps=[new(1,66,0,NavigationLookStage.HeadClearance),new(1,63,0,NavigationLookStage.ForwardSupport),new(0,64,-1,NavigationLookStage.CurrentBody),new(0,63,0,NavigationLookStage.CurrentSupport)];
+var planner=new NavigationLookPlan();var w=Window();var a=planner.Next(w,eye,gaps);
+Check(a.Look?.Cell.Stage==NavigationLookStage.CurrentSupport,"support priority");Check(a.Look!.PitchRadians<0,"look down");
+Check(Math.Abs(a.Look.Direction.Y+1)<1e-9,"vertical direction");Check(a.Look.ObservationId==w.ObservationId,"bound observation");
+Check(planner.Next(w,eye,gaps).Reason=="fresh_observation_required","no stale scan");
+Check(planner.Next(Window(1.1),eye,gaps).Look?.Cell.Stage==NavigationLookStage.CurrentBody,"rear body next");
+Check(planner.Next(Window(1.2),eye,gaps).Look?.Cell.Stage==NavigationLookStage.ForwardSupport,"forward next");
+Check(planner.Next(Window(1.3),eye,gaps).Look?.Cell.Stage==NavigationLookStage.HeadClearance,"clearance next");
+Check(planner.Next(Window(100),eye,gaps).Reason=="no_untried_missing_cells","time no reset");
+Check(planner.Next(Window(99),eye,gaps).Reason=="time_regressed","clock regression");
+Check(planner.Next(Window(101,actor:Guid.NewGuid()),eye,gaps).Reason=="wrong_actor_session","actor isolation");
+var moved=new Position(1.1,64,.5);Check(planner.Next(Window(102,pos:moved),new(1.1,65.6,.5),gaps).Look!=null,"actual relocation resets");
+var limited=new NavigationLookPlan(1);limited.Next(Window(),eye,gaps);Check(limited.Next(Window(2),eye,gaps).Reason=="scan_budget_exhausted","finite budget");
+var known=gaps.Select(c=>new CellObservation(c.X,c.Y,c.Z,"known",0)).ToArray();Check(new NavigationLookPlan().Next(Window(cells:known),eye,gaps).Look==null,"known cells not scanned");
+var mem=new LocalObservationMemory(sid,aid,ttlSeconds:3);mem.Observe(new(sid,aid,Guid.NewGuid(),1,p,1,.5f,[],known));
+var old=mem.Observe(new(sid,aid,Guid.NewGuid(),4.1,p,1,.5f,[],[]));Check(new NavigationLookPlan().Next(old,eye,gaps).Look!=null,"planner enforces three second ttl");
+Check(new NavigationLookPlan().Next(Window(),new(double.NaN,0,0),gaps).Reason=="invalid_input","nan eye");
+Check(new NavigationLookPlan().Next(Window(),eye,[new(99,64,0,NavigationLookStage.CurrentBody)]).Reason=="invalid_missing_cells","local bounds");
+Check(new NavigationLookPlan().Next(Window(),eye,[]).Reason=="no_untried_missing_cells","empty no default circles");
+Check(new NavigationLookPlan().Next(Window(),eye,[gaps[0],gaps[0]]).Look!=null,"duplicates bounded");
+Console.WriteLine($"{n}/{n} passed");

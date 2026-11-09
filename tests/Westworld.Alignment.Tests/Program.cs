@@ -1,0 +1,33 @@
+using Westworld.Runtime.Core;
+using Westworld.Scapi.Adapter;
+int checks=0;void Check(bool value,string name){checks++;if(!value)throw new Exception(name);Console.WriteLine("PASS "+name);}
+var session=Guid.NewGuid();var actor=Guid.NewGuid();
+ActorObservation Scene(Position p){var cells=new List<CellObservation>();for(int x=-2;x<=2;x++)for(int z=-2;z<=2;z++)for(int y=63;y<=66;y++)cells.Add(new(x,y,z,"known",y==63?3:0));return new(session,actor,Guid.NewGuid(),1,p,1,.4f,[],cells.ToArray());}
+LocalObservationWindow Window(ActorObservation o)=>new LocalObservationMemory(session,actor).Observe(o);
+ObservedAlignmentRoute? Project(ActorObservation o)=>LocalNavigationAlignment.Project(Window(o));
+var scene=Scene(new(.2,64,.3));var route=Project(scene)!;
+Check(route is not null,"off-centre standing actor can align");
+Check(route!.Destination==new Position(.5,64,.5),"destination is occupied cell centre on same layer");
+Check(route.Origin==scene.Position&&route.SessionId==session&&route.ActorId==actor&&route.ObservationId==scene.ObservationId&&route.ObservedAt==1,"scope and source retained");
+Check(route.Evidence.All(c=>scene.Cells.Any(s=>s.X==c.X&&s.Y==c.Y&&s.Z==c.Z&&s.Value==c.Value)),"only supplied evidence used");
+Check(route.Evidence.Any(c=>c.X==-1),"full source body footprint checks adjoining column");
+Check(route.MaximumAge==0&&route.Evidence.All(c=>c.IsCurrent),"fresh provenance retained");
+Check(Project(Scene(new(.5,64,.5))) is null,"already aligned emits no micro-action");
+Check(Project(Scene(new(.46,64,.5))) is null,"sub-five-centimetre centering refused");
+Check(Project(Scene(new(.45,64,.5))) is not null,"five-centimetre boundary permitted");
+Check(Project(Scene(new(0,64,0))) is null,"over-seven-tenths diagonal refused");
+Check(Project(Scene(new(.01,64,.01))) is not null,"bounded diagonal supported");
+Check(Project(Scene(new(-.8,64,-.7)))!.Destination==new Position(-.5,64,-.5),"negative grid floor semantics correct");
+Check(Project(Scene(new(.2,64.2,.3))) is null,"airborne alignment refused");
+Check(Project(scene with{Health=0}) is null,"dead actor refused");
+Check(Project(scene with{Cells=scene.Cells.Where(c=>c.Y!=65).ToArray()}) is null,"missing headroom evidence refused");
+Check(Project(scene with{Cells=scene.Cells.Select(c=>c.X==-1&&c.Y==63?c with{Visibility="unknown",Value=null}:c).ToArray()}) is null,"unknown side support refused");
+Check(Project(scene with{Cells=scene.Cells.Select(c=>c.X==-1&&c.Y==64?c with{Value=3}:c).ToArray()}) is null,"source body overlap obstacle refused");
+Check(Project(scene with{Cells=scene.Cells.Select(c=>c.Y==63?c with{Value=18}:c).ToArray()}) is null,"water support refused");
+Check(Project(scene with{Cells=scene.Cells.Select(c=>c.Y==63?c with{Value=7}:c).ToArray()}) is null,"falling sand support refused");
+var memory=new LocalObservationMemory(session,actor);memory.Observe(scene);
+var blind=scene with{ObservationId=Guid.NewGuid(),Time=2,Cells=scene.Cells.Select(c=>c with{Visibility="unknown",Value=null}).ToArray()};
+var historical=LocalNavigationAlignment.Project(memory.Observe(blind));
+Check(historical is not null&&historical.MaximumAge==1&&historical.Evidence.All(c=>!c.IsCurrent),"recent history explicitly labelled, not new sight");
+Check(LocalNavigationAlignment.Project(memory.Observe(blind with{ObservationId=Guid.NewGuid(),Time=5})) is null,"expired evidence cannot authorize alignment");
+Console.WriteLine($"{checks}/{checks} synthetic alignment checks passed; no native movement or live perception tested.");
