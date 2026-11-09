@@ -30,7 +30,7 @@ internal static class ProductionGate {
  static void Finish(bool ok,string reason){if(finished)return;finished=true;passed=ok;Log(new{kind="result",passed,reason,seconds=clock.Elapsed.TotalSeconds,updateFailures=updates?.UpdateFailureCount});try{scenario?.Dispose();}finally{Window.Close();}}
 }
 internal sealed class ProductionScenario:IUpdateable,IDisposable {
- public float FloatUpdateOrder=>-14;public bool Done{get;private set;}
+ public float FloatUpdateOrder=>-14;public bool Done{get;private set;} public Point3 EarnedWorkbench=>tableCell; public AtomicActions SharedActions=>actions; public ActorTools SharedTools=>tools; bool disposed;
  readonly ComponentPlayer p;readonly AtomicActions actions;readonly ActorTools tools;readonly SubsystemTerrain terrain;
  readonly NativeActorSession senses;readonly ScapiInterestBackend backend;readonly InterestCoordinator interests;
  Point3 logCell;readonly Point3 tableCell;readonly Vector3 fixtureOrigin;int harvested;readonly long initialDug;AtomicActionRun face;int stage;double elapsed;readonly int baseline;readonly Dictionary<int,int> baselineItems;
@@ -77,5 +77,5 @@ internal sealed class ProductionScenario:IUpdateable,IDisposable {
 
  }
  static void Require(bool value,string reason){if(!value)throw new InvalidOperationException(reason);}
- public void Dispose(){try{Call("cancel_task");Call("cancel_action");if(face?.Result.Status==AtomicActionStatus.Running)actions.Cancel(face);}finally{var u=p.Project.FindSubsystem<SubsystemUpdate>(true);u.RemoveUpdateable(this);u.RemoveUpdateable(senses);senses.Dispose();interests.Release();backend.Dispose();}}
+ public void Dispose(){if(disposed)return;disposed=true;try{Call("cancel_task");Call("cancel_action");if(face?.Result.Status==AtomicActionStatus.Running)actions.Cancel(face);}finally{var u=p.Project.FindSubsystem<SubsystemUpdate>(true);u.RemoveUpdateable(this);u.RemoveUpdateable(senses);senses.Dispose();interests.Release();backend.Dispose();}}
 }

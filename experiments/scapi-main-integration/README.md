@@ -46,3 +46,13 @@ dotnet IntegrationGate.dll reload
 失败动作/对齐后使用 NavigationSettling 确认真实驻留，再允许规划。路径输出累计实际水平段及净位移，剔除准备摆位，不把命令次数当距离。缺格观察和执行前证据刷新都有限，不能偷延长TTL。
 
 当前食物执行有已有库存优先与可见植物采集；环境日志增加真实可见动物和掉落，用于后续环境驱动策略。武器制作/狩猎/熔炉烹饪尚未接入此runner，不因原子动作存在而宣称已支持。详见连续导航整链实测与环境驱动食物策略设计。
+
+## Environment food selection (2026-11-09, current source)
+
+The native runner now uses `NativeActorSession.ObserveFood` and `FoodSituationPrompt` for actual local 4B selection, rather than hard-selecting a plant-only decision path. The same actor's real inventory, local 5m terrain and native eye/LOS-limited 16m entities/drops are captured; semantic range does not prove navigability. EatInventory, GatherPlant and Search are registered; diagnostic hunting/cooking facts do not enable unwired executors. Search remains an alternative even with other resources, and fullness is a model input rather than a blanket host ban on preparation. The model may select wait, which the finite experiment reports honestly rather than silently overriding.
+
+After slow inference the host obtains a NEW observation and rechecks inventory version and selected route semantics. It does not extend the old evidence TTL. This exact matching currently applies only to inventory/plant/search; later dynamic animal or drop routes require private native target identity revalidation, not position equality. A new `inventory` mode retains all native starting inventory and places no resource fixtures, enabling explicit testing of the native starting-food route. Existing `natural` baselines intentionally remove starter inventory as a declared experimental initial condition; they do not inject replacement items and are not untouched native-start survival claims.
+
+`LlamaProcessProvider.CompleteStructuredAsync` shares the bounded, no-shell local inference implementation and records sampled CPU/RSS/token diagnostics. It refuses overlapping calls on the same instance. The runner cancels and waits briefly for inference cleanup on shutdown. It still uses process-per-request Qwen3.5-4B Q4_K_M, not a resident multi-agent inference pool.
+
+Run `summarize-food-batch.py WORKDIR OUTPUT_JSON` for the named `food-strategy-{inventory,terraced,a,b,wall,obstacle}-01` deployments. It preserves terminal failures, actual sampled paths, model choices and source-log hashes; missing runs stay missing. The stage report contains the final native results, not this implementation description.

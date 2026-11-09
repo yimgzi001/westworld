@@ -107,6 +107,16 @@ static class Tests {
   Check(limitedPairs.SequenceEqual(new[]{("EatOne",0),("Wait",-1)}),"grammar follows candidate truncation");
   Check(SchemaPairs(LocalDecisionPrompt.Create(hungryEmpty with {Food=.8f},_=>false,allowSurvey:true)).SequenceEqual(new[]{("Wait",-1)}),"full actor grammar contains no Survey");
   Check(Rejected(()=>LocalDecisionPrompt.Create(hungryEmpty,_=>false,allowSurvey:true).ParseResponse("{\"skill\":\"EatOne\",\"candidate_index\":0}")),"parser still rejects observed invalid EatOne output instead of rewriting it");
+  // Existing managed assembly paths only satisfy construction; all inputs below fail
+  // preflight BEFORE Process.Start. This never executes a fake runtime or model.
+  var existing=typeof(Tests).Assembly.Location;var provider=new LlamaProcessProvider(existing,existing,_=>false);
+  foreach(var bad in new[]{("", "{}"),("hello", ""),(new string('x',32769),"{}"),("hello",new string('x',32769))}){
+   bool rejected=false;try{await provider.CompleteStructuredAsync(bad.Item1,bad.Item2,x=>x,CancellationToken.None);}catch(ArgumentException){rejected=true;}
+   Check(rejected,"structured local request preflight rejects invalid budget");
+   Check(provider.LastMetrics is null&&provider.LastResponse is null&&provider.LastFailure is not null,"preflight performs no inference and records failure; gate reusable");
+  }
+  bool nullParser=false;try{await provider.CompleteStructuredAsync<string>("hello","{}",null!,CancellationToken.None);}catch(ArgumentNullException){nullParser=true;}
+  Check(nullParser,"structured parser required before process creation");
   Console.WriteLine($"{count}/{count} checks passed; JSON mapping and bounded streams only, no CLI/model/native game executed.");
  }
  sealed class BlockingReader:TextReader {

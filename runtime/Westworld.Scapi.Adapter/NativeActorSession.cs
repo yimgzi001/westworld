@@ -87,7 +87,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  static bool Terminal(string status)=>status is "Succeeded" or "Blocked" or "Canceled" or "Failed";
  public void Update(float dt){Owner();
   if(!float.IsFinite(dt)||dt<0||dt>0.25f){FailAll("invalid game timestep");return;}
-  foreach(var (id,p) in actors){if(retiredBindings.Contains(id))continue;if(!p.Entity.IsAddedToProject){if(ActionsEnabled)Stop(p);Registry.Remove(id);retiredBindings.Add(id);continue;}var a=Registry.Read(id);Registry.Update(SessionId,id,a.Revision,PositionOf(p),p.ComponentHealth.Health>0&&p.PlayerData.IsReadyForPlaying);}
+  foreach(var (id,p) in actors){if(retiredBindings.Contains(id))continue;if(!p.Entity.IsAddedToProject){if(ActionsEnabled)Stop(p);Registry.Remove(id);retiredBindings.Add(id);foodInventoryVersions.Remove(id);continue;}var a=Registry.Read(id);Registry.Update(SessionId,id,a.Revision,PositionOf(p),p.ComponentHealth.Health>0&&p.PlayerData.IsReadyForPlaying);}
   foreach(var t in tickets.Values.Where(t=>!Terminal(t.Result.Status)).ToArray()){
    var p=actors[t.Intent.ActorId];var now=PositionOf(p);double previousElapsed=t.Elapsed;t.Elapsed+=dt;
    if(retiredBindings.Contains(t.Intent.ActorId)||!p.Entity.IsAddedToProject||!p.PlayerData.IsReadyForPlaying||p.ComponentHealth.Health<=0||p.ComponentSleep.SleepFactor>0||clock.Elapsed.TotalSeconds-t.AcceptedAt>4){Stop(p);t.Result=t.Result with {Status="Failed",End=now,HorizontalDistance=Distance(t.Result.Start,now),ForwardProgress=Vector2.Dot(new Vector2((float)(now.X-t.Result.Start.X),(float)(now.Z-t.Result.Start.Z)),t.Direction),Reason="native availability/deadline"};continue;}
@@ -102,5 +102,5 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  }
  static void Stop(ComponentPlayer p){if(p.PlayerData.IsExternalActor)p.ComponentInput.ClearExternalMovement();}
  void FailAll(string reason){FailForaging(reason);FailEating(reason);foreach(var t in tickets.Values.Where(t=>!Terminal(t.Result.Status))){Stop(actors[t.Intent.ActorId]);t.Result=t.Result with {Status="Failed",Reason=reason};}}
- public void Dispose(){if(disposed)return;Owner();FailAll("session disposed");disposed=true;}
+ public void Dispose(){if(disposed)return;Owner();FailAll("session disposed");foodInventoryVersions.Clear();disposed=true;}
 }

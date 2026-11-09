@@ -1039,31 +1039,50 @@ namespace Game {
 
         public virtual void SpawnRandomCreature() {
             if (CountCreatures(false) < m_totalLimit) {
-                foreach (GameWidget gameWidget in m_subsystemViews.GameWidgets) {
-                    Vector2 v = new(gameWidget.ActiveCamera.ViewPosition.X, gameWidget.ActiveCamera.ViewPosition.Z);
-                    if (CountCreaturesInArea(v - new Vector2(68f), v + new Vector2(68f), false) >= 52) {
-                        break;
+                // Provider presence is authoritative, including an explicitly empty set.
+                // Keep the legacy Camera virtual overload for ordinary worlds/mods.
+                if (m_subsystemSpawn.SimulationCentersProvider is not null) {
+                    foreach (Vector3 center in m_subsystemSpawn.GetSimulationCenters().Distinct()) {
+                        if (!IsValidSpawnCenter(center)) continue;
+                        if (!TrySpawnRandomCreature(center, null)) break;
                     }
-                    SpawnLocationType spawnLocationType = GetRandomSpawnLocationType();
-                    Point3? spawnPoint = GetRandomSpawnPoint(gameWidget.ActiveCamera, spawnLocationType);
-                    if (spawnPoint.HasValue) {
-                        Vector2 c2 = new Vector2(spawnPoint.Value.X, spawnPoint.Value.Z) - new Vector2(16f);
-                        Vector2 c3 = new Vector2(spawnPoint.Value.X, spawnPoint.Value.Z) + new Vector2(16f);
-                        if (CountCreaturesInArea(c2, c3, false) >= 3) {
-                            break;
-                        }
-                        IEnumerable<CreatureType> source = m_creatureTypes.Where(c => c.SpawnLocationType == spawnLocationType && c.RandomSpawn);
-                        IEnumerable<CreatureType> creatureTypes = source as CreatureType[] ?? source.ToArray();
-                        IEnumerable<float> items = creatureTypes.Select(c => CalculateSpawnSuitability(c, spawnPoint.Value));
-                        int randomWeightedItem = GetRandomWeightedItem(items);
-                        if (randomWeightedItem >= 0) {
-                            CreatureType creatureType = creatureTypes.ElementAt(randomWeightedItem);
-                            creatureType.SpawnFunction(creatureType, spawnPoint.Value);
-                        }
+                }
+                else {
+                    foreach (GameWidget gameWidget in m_subsystemViews.GameWidgets) {
+                        Camera camera = gameWidget.ActiveCamera;
+                        if (!TrySpawnRandomCreature(camera.ViewPosition, camera)) break;
                     }
                 }
             }
         }
+
+        // false preserves the original loop's break on saturated regions.
+        bool TrySpawnRandomCreature(Vector3 center, Camera legacyCamera) {
+            Vector2 v = center.XZ;
+            if (CountCreaturesInArea(v - new Vector2(68f), v + new Vector2(68f), false) >= 52) return false;
+            SpawnLocationType spawnLocationType = GetRandomSpawnLocationType();
+            Point3? spawnPoint = legacyCamera is null
+                ? GetRandomSpawnPoint(center, spawnLocationType)
+                : GetRandomSpawnPoint(legacyCamera, spawnLocationType);
+            if (spawnPoint.HasValue) {
+                Vector2 c2 = new Vector2(spawnPoint.Value.X, spawnPoint.Value.Z) - new Vector2(16f);
+                Vector2 c3 = new Vector2(spawnPoint.Value.X, spawnPoint.Value.Z) + new Vector2(16f);
+                if (CountCreaturesInArea(c2, c3, false) >= 3) return false;
+                IEnumerable<CreatureType> source = m_creatureTypes.Where(c => c.SpawnLocationType == spawnLocationType && c.RandomSpawn);
+                CreatureType[] creatureTypes = source.ToArray();
+                IEnumerable<float> items = creatureTypes.Select(c => CalculateSpawnSuitability(c, spawnPoint.Value));
+                int randomWeightedItem = GetRandomWeightedItem(items);
+                if (randomWeightedItem >= 0) {
+                    CreatureType creatureType = creatureTypes[randomWeightedItem];
+                    creatureType.SpawnFunction(creatureType, spawnPoint.Value);
+                }
+            }
+            return true;
+        }
+
+        static bool IsValidSpawnCenter(Vector3 center) => float.IsFinite(center.X) && float.IsFinite(center.Y)
+            && float.IsFinite(center.Z) && MathF.Abs(center.X) <= 10_000_000 && MathF.Abs(center.Z) <= 10_000_000
+            && center.Y >= 0 && center.Y <= 256;
 
         public virtual void SpawnChunkCreatures(SpawnChunk chunk, int maxAttempts, bool constantSpawn) {
             int num = constantSpawn
@@ -1162,11 +1181,15 @@ namespace Game {
             return null;
         }
 
-        public virtual Point3? GetRandomSpawnPoint(Camera camera, SpawnLocationType spawnLocationType) {
+        public virtual Point3? GetRandomSpawnPoint(Camera camera, SpawnLocationType spawnLocationType) =>
+            GetRandomSpawnPoint(camera.ViewPosition, spawnLocationType);
+
+        public virtual Point3? GetRandomSpawnPoint(Vector3 center, SpawnLocationType spawnLocationType) {
+            if (!IsValidSpawnCenter(center)) return null;
             for (int i = 0; i < 10; i++) {
-                int x = Terrain.ToCell(camera.ViewPosition.X) + m_random.Sign() * m_random.Int(24, 48);
-                int y = Math.Clamp(Terrain.ToCell(camera.ViewPosition.Y) + m_random.Int(-30, 30), 2, 254);
-                int z = Terrain.ToCell(camera.ViewPosition.Z) + m_random.Sign() * m_random.Int(24, 48);
+                int x = Terrain.ToCell(center.X) + m_random.Sign() * m_random.Int(24, 48);
+                int y = Math.Clamp(Terrain.ToCell(center.Y) + m_random.Int(-30, 30), 2, 254);
+                int z = Terrain.ToCell(center.Z) + m_random.Sign() * m_random.Int(24, 48);
                 Point3? result = ProcessSpawnPoint(new Point3(x, y, z), spawnLocationType);
                 if (result.HasValue) {
                     return result;

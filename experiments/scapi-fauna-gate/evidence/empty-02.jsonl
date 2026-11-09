@@ -1,0 +1,5 @@
+{"kind":"start","mode":"empty","models":0,"diagnosticOnly":true,"changesSpawnOutcome":false}
+{"kind":"bound","views":0,"gameTime":0.003290615975856781,"fullPlayer":true}
+{"kind":"native_periodic_entry","gameTime":2.000996868009679,"centers":0,"views":0,"season":"Summer","totalNonconstant":1}
+{"kind":"native_periodic_entry","gameTime":62.00032951007597,"centers":0,"views":0,"season":"Summer","totalNonconstant":1}
+{"kind":"result","passed":true,"reason":"empty centers periodic branch verified","periodicCalls":2,"candidateTrials":0,"spawnCalls":0,"seconds":67.3724098,"meaning":"candidate attempts are not animal generation or actor sightings"}

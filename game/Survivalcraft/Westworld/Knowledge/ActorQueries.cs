@@ -53,7 +53,7 @@ namespace Game.Westworld {
 
             internal ActorQueries(AtomicActions port) => m_port = port;
 
-            internal bool IsBoundTo(Entity actor) => ReferenceEquals(actor, m_port.m_actor);
+            public bool IsBoundTo(Entity actor) => ReferenceEquals(actor, m_port.m_actor);
 
             internal double GameTime => m_port.m_time.GameTime;
 
