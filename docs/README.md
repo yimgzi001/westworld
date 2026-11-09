@@ -48,6 +48,8 @@
 
 [无图形宿主边界核查](research/2026-11-09-headless-boundaries.md)：Bootstrap、时钟、内容与呈现的实际耦合及下一步改造路线。
 
-[SCAPI活动中心与区块/实体适配边界](../runtime/Westworld.Scapi.Adapter/README.md)：70项纯核心与7项编译原生钩子检查；真实地形/生存actor运行仍待验收，命令shell与整台云桌面能力分开核查。
+[SCAPI活动中心与区块/实体适配边界](../runtime/Westworld.Scapi.Adapter/README.md)：70项纯核心与7项编译原生钩子检查；真实远端区块处理已验证（见下），五生存actor仍待验收，命令shell与整台云桌面能力分开核查。
 
 [云桌面原生启动核验与环境结论修正](research/2026-11-09-cloud-desktop-launch.md)：正常云桌面启动 SCAPI 至主菜单，退出码 0；未创建世界，不代表零图形宿主或五角色验收。
+
+[云世界真实活动中心验收](../experiments/scapi-interest-smoke/README.md)：五个远端中心块到 Valid，负键正常释放；这些中心不是五个真实生存角色。
