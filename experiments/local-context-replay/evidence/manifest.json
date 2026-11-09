@@ -1,0 +1,21 @@
+{
+  "kind": "historical_context_inference_replay",
+  "historicalRound": 2,
+  "gameActionsDispatched": 0,
+  "liveObservation": false,
+  "goalCompletionClaimed": false,
+  "originalPromptChars": 13333,
+  "compactedPromptChars": 10342,
+  "originalContextChars": 8817,
+  "compactedContextChars": 5826,
+  "originalPromptSha256": "16a412b59aca5b4cfd0b3b9ced098e88ec91f0ff225915d77bd310e2afefd080",
+  "compactedPromptSha256": "9531931a7f32c2aae18dfb846e49363f6dbd229be2e1bd250a9c9b1675f89ec0",
+  "unchangedSchemaSha256": "03b989acae75940639d9279c38c5997e887573e830a3ee5c41336bb4b6455102",
+  "contextTokens": 8192,
+  "maxOutputTokens": 512,
+  "timeoutWallSeconds": 120,
+  "threads": 4,
+  "gpuLayers": 0,
+  "seed": 42,
+  "temperature": 0
+}

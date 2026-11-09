@@ -26,7 +26,9 @@ namespace Game.Westworld {
         public ActorQueries Queries { get; }
 
         internal Entity BoundActor => m_actor;
-        internal bool IsActionRunning => m_active != null;
+        /// <summary>Read on the game update thread. Includes runs started directly by skills,
+        /// not only ActorTools direct commands. This is status, not an execution lease.</summary>
+        public bool IsActionRunning => m_active != null;
 
         public AtomicActions(Entity actor) {
             ArgumentNullException.ThrowIfNull(actor);
