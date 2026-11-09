@@ -27,6 +27,9 @@ namespace Game.Westworld {
 
         internal Entity BoundActor => m_actor;
         internal bool IsActionRunning => m_active != null;
+#if WINDOWS
+        internal AtomicAction PanelAction => m_active?.Action;
+#endif
 
         public AtomicActions(Entity actor) {
             ArgumentNullException.ThrowIfNull(actor);
@@ -93,6 +96,14 @@ namespace Game.Westworld {
             m_handlers.TryGetValue(type, out Handler handler) && (handler.Available?.Invoke() ?? true);
 
         public AtomicActionRun Start(AtomicAction action) {
+            AtomicActionRun run = StartCore(action);
+#if WINDOWS
+            WorldPanel.RecordAction(m_actor, run);
+#endif
+            return run;
+        }
+
+        AtomicActionRun StartCore(AtomicAction action) {
             ArgumentNullException.ThrowIfNull(action);
             if (!IsSupported(action.GetType())) {
                 return Reject(action, AtomicActionFailure.UnsupportedAction);
@@ -269,7 +280,8 @@ namespace Game.Westworld {
 
         void Finish(AtomicActionResult result) {
             Action cleanup = m_cleanup;
-            m_active.Result = result;
+            AtomicActionRun run = m_active;
+            run.Result = result;
             m_active = null;
             m_advance = null;
             m_cleanup = null;
@@ -279,6 +291,9 @@ namespace Game.Westworld {
             catch (Exception error) {
                 Log.Error($"Atomic action cleanup: {error}");
             }
+#if WINDOWS
+            WorldPanel.RecordAction(m_actor, run);
+#endif
         }
 
         bool IsLiveEntity(Entity entity) => entity != null && entity.Project == m_actor.Project

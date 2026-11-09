@@ -10,9 +10,11 @@ namespace Game.Westworld {
     internal sealed record CognitiveNoteView(string Id, string Source, string Kind, string Text, double At);
     internal sealed record CognitiveBody(string Hunger, string Energy, string Condition) {
         internal static CognitiveBody From(SelfView view) => new(
-            Band(view.Food, "hungry", "peckish", "fed"),
+            HungerBand(view.Food),
             Band(view.Stamina, "exhausted", "tired", "rested"),
             Band(view.Health, "critical", "hurt", "well"));
+
+        internal static string HungerBand(float? food) => Band(food, "hungry", "peckish", "fed");
 
         static string Band(float? level, string low, string mid, string high) =>
             !level.HasValue ? "unknown" : level < .3f ? low : level < .65f ? mid : high;

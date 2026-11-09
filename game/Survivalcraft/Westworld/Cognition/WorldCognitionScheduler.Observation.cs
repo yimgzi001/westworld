@@ -70,7 +70,9 @@ namespace Game.Westworld {
             m_observationEnded = true;
         }
 
-        string ObservationStatusJson() => JsonSerializer.Serialize(new {
+        string ObservationStatusJson() => JsonSerializer.Serialize(ReadObservationStatus(), CognitionRunLedger.Json);
+
+        object ReadObservationStatus() => new {
             state = m_fault != null ? "faulted" : m_userPaused ? "userPaused"
                 : m_observationEnded ? "draining" : m_observationBudgetLimited ? "budgetLimited" : "running",
             fault = m_fault,
@@ -96,7 +98,32 @@ namespace Game.Westworld {
             unknown = m_ledger.Unknown,
             reserved = m_observationRequests.Values.Sum(request => request.Attempt.Reserved),
             budget = m_ledger.Data.Budget
-        }, CognitionRunLedger.Json);
+        };
+
+#if WINDOWS
+        internal static WorldCognitionScheduler ForPanel(Project project) =>
+            m_worlds.TryGetValue(project, out WorldCognitionScheduler scheduler) ? scheduler : null;
+
+        internal IEnumerable<(ActorTools Tools, ActorCognition Cognition)> PanelActors =>
+            m_actors.Values.Select(actor => (actor.Tools, actor.Cognition));
+
+        internal string PanelRequestState(int actorId) {
+            if (m_observationFollowUps.ContainsKey(actorId)) return "ready";
+            if (!m_observationRequests.TryGetValue(actorId, out ObservationRequest request)) return null;
+            return request.Task == null ? "reserved" : request.Task.IsCompleted ? "received" : "inFlight";
+        }
+
+        internal object ReadPanelState() => new {
+            status = ReadObservationStatus(), experimentId = m_ledger.Data.ExperimentId,
+            parallelism = m_parallelism, priceVersion = m_ledger.Data.PriceVersion,
+            preparingCheckpoint = m_checkpointTime == null || m_recoveryLedgerPending,
+            rateLimitedUntil = DateTimeOffset.UtcNow < m_observationRateBackoff ? m_observationRateBackoff : (DateTimeOffset?)null,
+            recentAttempts = m_ledger.Data.Attempts.TakeLast(32).Select(attempt => new {
+                attempt.ActorId, attempt.Id, attempt.State, attempt.SentAt, attempt.ReceivedAt, attempt.Model,
+                attempt.InputTokens, attempt.OutputTokens, attempt.Charge, attempt.Reserved, attempt.HttpStatus
+            }).ToArray()
+        };
+#endif
 
         void PumpObservation() {
             long started = m_observationMetrics != null ? Stopwatch.GetTimestamp() : 0;

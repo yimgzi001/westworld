@@ -52,6 +52,16 @@ namespace Game.Westworld {
         }
 
         public string LastDecisionJson { get; private set; }
+#if WINDOWS
+        internal object ReadPanelState() => new {
+            profile = m_profile, goal = m_goal, version = m_version,
+            reviewAt = m_version == 0 ? (double?)null : m_reviewAt,
+            memories = m_memory.Select(note => note.View()).ToArray(),
+            commitments = m_commitments.Select(note => note.View()).ToArray(),
+            decision = LastDecisionJson is { Length: <= 32768 } ? LastDecisionJson : null,
+            decisionTruncated = LastDecisionJson is { Length: > 32768 }
+        };
+#endif
 
         public ActorCognition(ActorTools tools, string profile) {
             ArgumentNullException.ThrowIfNull(tools);
@@ -60,6 +70,9 @@ namespace Game.Westworld {
             }
             m_tools = tools;
             tools.BindCognition(PeekInbox);
+#if WINDOWS
+            WorldPanel.Register(m_tools.PanelActor, m_tools, this);
+#endif
             m_profile = profile.Trim();
         }
 

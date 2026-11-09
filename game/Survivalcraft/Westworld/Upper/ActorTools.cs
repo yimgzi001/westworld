@@ -45,6 +45,9 @@ namespace Game.Westworld {
             m_memory = new ActorWorldMemory(actions.BoundActor, actions);
             m_tasks = new ActorTaskExecutor(actions.BoundActor, actions);
             Knowledge = new ActorKnowledge(publicGuide);
+#if WINDOWS
+            WorldPanel.Register(actions.BoundActor, this);
+#endif
         }
 
         public IReadOnlyList<ActorToolDefinition> GetTools() {

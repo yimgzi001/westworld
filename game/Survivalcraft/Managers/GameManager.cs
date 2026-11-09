@@ -106,6 +106,9 @@ namespace Game {
                 m_subsystemUpdate = m_project.FindSubsystem<SubsystemUpdate>(true);
             }
             m_worldInfo = worldInfo;
+#if WINDOWS
+            Westworld.WorldPanel.OpenWorld(m_project);
+#endif
             Log.Information(
                 LanguageControl.Get(fName, "1"),
                 LanguageControl.Get("GameMode", worldInfo.WorldSettings.GameMode.ToString()),
@@ -159,6 +162,9 @@ namespace Game {
                 using (Stream stream = Storage.OpenFile(projectFileName, OpenFileMode.Create)) {
                     XmlUtils.SaveXmlToStream(xElement, stream, null, true);
                 }
+#if WINDOWS
+                Westworld.WorldPanel.NativeSaveCompleted(directoryName);
+#endif
             }
             catch (Exception ex) {
                 if (showErrorDialog) {
@@ -186,6 +192,9 @@ namespace Game {
 
         public static void UpdateProject() {
             if (m_project != null && !Westworld.WorldCognitionScheduler.PumpWorld(m_project)) {
+#if WINDOWS
+                Westworld.WorldPanel.Capture(m_project, canAdvance: false);
+#endif
                 return;
             }
             if (SyncDispatcher.Count > 0
@@ -194,11 +203,17 @@ namespace Game {
             }
             if (m_project != null) {
                 m_subsystemUpdate.Update();
+#if WINDOWS
+                Westworld.WorldPanel.Capture(m_project, canAdvance: true);
+#endif
             }
         }
 
         public static void DisposeProject() {
             if (m_project != null) {
+#if WINDOWS
+                Westworld.WorldPanel.CloseWorld(m_project);
+#endif
                 Westworld.WorldCognitionScheduler.CloseWorld(m_project);
                 ProjectDisposed?.Invoke(m_project);
                 m_project.Dispose();

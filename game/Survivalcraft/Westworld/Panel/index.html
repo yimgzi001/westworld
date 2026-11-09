@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>西部世界 · 世界观察</title>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #fff; --surface: #f7f6f3; --line: #e9e7e3;
+    --ink: #2d2c29; --muted: #6d6a64; --accent: #246485; --selected: #edf4f7;
+    font: 14px/1.6 "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  }
+  * { box-sizing: border-box }
+  [hidden] { display: none !important }
+  body { margin: 0; background: var(--paper); color: var(--ink) }
+  h1, h2, h3, p, dl, dd { margin: 0 }
+  button, input, select { font: inherit; color: inherit }
+  button, summary { cursor: pointer }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+  .frame { width: min(1180px, 100%); margin: auto; padding-inline: clamp(14px, 4vw, 48px) }
+  header { border-bottom: 1px solid var(--line); font-size: 12px }
+  header .frame { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px }
+  h1 { font-size: clamp(26px, 4vw, 38px); line-height: 1.2; letter-spacing: -.04em; margin: 20px 0 8px }
+  h2 { font-size: 16px }
+  h3 { font-size: 13px; margin-bottom: 4px }
+  .meta, .sub { color: var(--muted); font-size: 11px }
+  .sub { display: block; line-height: 1.45 }
+  #connection { color: var(--accent) }
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; padding: 10px 0; margin: 13px 0 5px; border-block: 1px solid var(--line) }
+  .metrics dt { color: var(--muted); font-size: 11px }
+  .metrics dd { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums }
+  .tabs { display: flex; align-items: center; gap: clamp(10px, 3vw, 28px); overflow: auto; border-bottom: 1px solid var(--line); white-space: nowrap }
+  .tabs button, .link { border: 0; background: transparent; padding: 7px 0; font-size: 12px; color: var(--muted) }
+  .tabs button { border-bottom: 2px solid transparent }
+  .tabs button[aria-pressed=true] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 700 }
+  .link { color: var(--accent); padding: 0; text-align: left }
+  .link:hover { text-decoration: underline }
+  .view { padding: 13px 0 30px }
+  .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 34%); gap: 18px; align-items: start }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 22px }
+  .toolbar { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap }
+  input, select, .control { border: 1px solid var(--line); border-radius: 7px; background: var(--paper); padding: 5px 8px; font-size: 12px }
+  input { background: var(--surface); min-width: 120px; flex: 1 }
+  .control[aria-pressed=true] { color: var(--accent); background: var(--selected); border-color: var(--accent) }
+  .table { max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: 11px }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; table-layout: fixed; font-size: 12px }
+  th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere }
+  th { position: sticky; top: 0; z-index: 1; background: var(--surface); font-size: 11px; color: var(--muted) }
+  tbody tr:last-child td { border-bottom: 0 }
+  tr.selected { background: var(--selected) }
+  .attention { color: var(--accent); font-weight: 650 }
+  .number, time { font: 11px Consolas, monospace }
+  aside, dialog { border: 1px solid var(--line); border-radius: 11px; padding: 13px 15px; min-width: 0 }
+  dialog { width: min(500px, calc(100% - 24px)); max-height: calc(100% - 24px); background: var(--paper); color: var(--ink) }
+  dialog::backdrop { background: #2d2c2940 }
+  dialog form { float: right }
+  .group { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); overflow-wrap: anywhere }
+  .group p + p { margin-top: 5px }
+  .fact { display: grid; grid-template-columns: minmax(82px, 34%) minmax(0, 1fr); gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12px }
+  .fact dt, time { color: var(--muted) }
+  .fact dd { overflow-wrap: anywhere }
+  .entry { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere }
+  .entry:focus, .entry[data-highlight=true] { background: var(--selected) }
+  details { margin-top: 6px }
+  pre { margin: 4px 0; padding: 8px; max-height: 210px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); border-radius: 7px; font-size: 11px }
+  .empty { padding: 9px 0; color: var(--muted); font-size: 12px }
+  .compact { display: none }
+  @media (max-width: 760px) {
+    .columns, .grid { grid-template-columns: minmax(0, 1fr) }
+    aside { display: none }
+    .compact { display: inline-block }
+  }
+  @media (max-width: 440px) {
+    .inventory-col { display: none }
+    th, td { padding-inline: 5px }
+    .entry { grid-template-columns: 64px minmax(0, 1fr) }
+  }
+</style>
+<header><div class="frame"><strong>西部世界 / <span id="world-name">世界观察</span></strong><span id="connection" role="status">连接中</span></div></header>
+<main class="frame">
+  <h1>世界观察</h1>
+  <p class="meta" id="run-state">正在读取当前世界</p>
+  <p class="meta" id="snapshot-time"></p>
+  <p class="meta" id="stream-gap" hidden></p>
+  <dl class="metrics" id="metrics" aria-label="世界摘要"></dl>
+  <nav class="tabs" aria-label="观察视图">
+    <button data-view="people" aria-pressed="true">人物</button>
+    <button data-view="dialogue" aria-pressed="false">对话</button>
+    <button data-view="world" aria-pressed="false">世界</button>
+    <button data-view="events" aria-pressed="false">事件</button>
+    <button data-view="model" aria-pressed="false">模型与费用</button>
+  </nav>
+  <section id="people" class="view"><div class="columns">
+    <section aria-label="人物名册">
+      <h2>人物名册 <span id="roster-count" class="meta"></span></h2>
+      <div class="toolbar"><input id="search" type="search" placeholder="搜索姓名或编号" aria-label="搜索人物"><button class="control" id="hungry" aria-pressed="false">饱食度 &lt;35%</button><button id="inspect-current" class="control compact" hidden>查看人物</button></div>
+      <div class="table"><table><thead><tr><th>人物</th><th>位置 X / Z</th><th>身体</th><th>行动 / 请求</th><th class="inventory-col">背包</th></tr></thead><tbody id="roster"></tbody></table></div>
+    </section><aside id="inspector" aria-label="人物详情"></aside>
+  </div></section>
+  <section id="dialogue" class="view" hidden><h2>近期对话</h2><div class="toolbar"><input id="speech-search" type="search" placeholder="搜索说话人、听众或原话" aria-label="搜索对话"></div><div id="speech-list"></div></section>
+  <section id="world" class="view grid" hidden></section>
+  <section id="events" class="view" hidden><h2>近期事件</h2><div class="toolbar"><select id="event-filter" aria-label="事件类型"><option value="all">全部类型</option><option value="action">动作</option><option value="body">身体变化</option><option value="transfer">交接</option></select></div><div id="timeline"></div></section>
+  <section id="model" class="view grid" hidden></section>
+</main>
+<dialog id="detail-dialog" aria-label="人物详情"><form method="dialog"><button class="control">关闭</button></form><div id="dialog-content"></div></dialog>
+<script src="/panel.js" defer></script>
+</html>

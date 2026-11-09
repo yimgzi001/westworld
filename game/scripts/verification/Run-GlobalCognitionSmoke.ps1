@@ -4,6 +4,7 @@ param(
         'observe-world-interrupt','observe-world-resume','live','live-session','live-forage','live-observe')][string]$Mode = 'observe-ahead',
     [ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')][string]$ResumeFrom,
     [ValidateRange(15,120)][int]$ObservationFrameRate,
+    [ValidateRange(1,65535)][int]$PanelPort,
     [ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')][string]$ObservationBaselineRun
 )
 $ErrorActionPreference = 'Stop'
@@ -15,6 +16,7 @@ $environment = @{
     WENMING_MODEL = 'gpt-6-luna'
     WENMING_MODEL_ENDPOINT = 'http://127.0.0.1:18759/global'
 }
+if ($PanelPort) { $environment.WENMING_PANEL_PORT = [string]$PanelPort }
 $timeout = switch ($Mode) {
     'live-forage' { 420 }
     'live-observe' { 160 }

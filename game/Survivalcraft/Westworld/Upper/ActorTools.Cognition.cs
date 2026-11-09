@@ -20,12 +20,16 @@ namespace Game.Westworld {
         internal SelfView CognitiveBody => m_actions.Queries.ReadSelf();
         internal ActorTaskView CognitiveTask => m_tasks.Status;
         internal ActorTaskView CognitiveLastTerminal => m_tasks.LastTerminal;
+#if WINDOWS
+        internal AtomicAction PanelAction => m_actions.PanelAction;
+        internal GameEntitySystem.Entity PanelActor => m_actions.BoundActor;
+#endif
         internal void RestoreCognitiveLastTerminal(ActorTaskView terminal) => m_tasks.RestoreLastTerminal(terminal);
         internal string[] CognitiveActions(bool checkpointable = false) => m_actions.GetCapabilities().Select(action => "act_" + action.Name)
             .Where(tool => !checkpointable || IsAvailableRestorableTool(tool)).ToArray();
 
         bool IsAvailableRestorableTool(string tool) => HasActorNutrition
-            ? tool is "act_MoveTo" or "act_FaceTowards" or "act_PickUp" or "act_Eat" or "act_Wait"
+            ? tool is "act_MoveTo" or "act_FaceTowards" or "act_PickUp" or "act_Eat" or "act_Wait" or "act_Speak"
             : IsRestorableTool(tool);
         internal ActorSocialView[] CognitiveInbox() => DrainSocialViews();
         internal JsonElement CognitiveObservation() {
@@ -61,6 +65,8 @@ namespace Game.Westworld {
                 Number("bearing", "Relative bearing from -180 to 180 degrees."), Timeout(5)]),
             "act_PickUp" => Describe(tool.Name, "Pick up food whose observation shows inReach=true, using its exact observed value.", [
                 Int("food_value", "Exact integer value of the observed food."), Count()]),
+            "act_Speak" => Describe(tool.Name, "Speak to nearby listeners without a target. Use zero retries and no minimum_affected.", [
+                Text("text", "Short words to speak."), Choice("mode", "Speech volume.", true, "whisper", "normal", "shout")]),
             _ => tool
         };
         internal InventoryView CognitiveInventory() => ReadInventory();

@@ -12,6 +12,8 @@
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="..\EntitySystem.Windows\EntitySystem.Windows.csproj" />
+        <EmbeddedResource Include="..\Survivalcraft\Westworld\Panel\index.html" LogicalName="Westworld.Panel.index.html" />
+        <EmbeddedResource Include="..\Survivalcraft\Westworld\Panel\panel.js" LogicalName="Westworld.Panel.panel.js" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="TextCopy" Version="6.2.1" />

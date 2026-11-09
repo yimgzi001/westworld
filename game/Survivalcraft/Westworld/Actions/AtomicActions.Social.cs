@@ -100,6 +100,9 @@ namespace Game.Westworld {
             int delivered = 0;
             Guid speechId = Guid.NewGuid();
             int chunkNumber = 0;
+#if WINDOWS
+            bool speechCompleted = false;
+#endif
             double chunkEnd = m_time.GameTime + end / SpeechUnitsPerSecond;
             HashSet<Entity> listeners = FindListeners(radius);
             return StartRunning(speak, () => {
@@ -118,6 +121,11 @@ namespace Game.Westworld {
                     PublishSocialEvent(listener, heard);
                     delivered++;
                 }
+#if WINDOWS
+                speechCompleted = end == starts.Length;
+                WorldPanel.RecordSpeech(m_actor, speechId, chunkNumber - 1, speak.Mode, chunk, listeners,
+                    speechCompleted ? "completed" : "speaking");
+#endif
                 if (end == starts.Length) {
                     return Completed(delivered);
                 }
@@ -126,7 +134,15 @@ namespace Game.Westworld {
                 chunkEnd = m_time.GameTime + (end - start) / SpeechUnitsPerSecond;
                 listeners = FindListeners(radius);
                 return null;
-            });
+            }
+#if WINDOWS
+            , () => {
+                if (chunkNumber > 0 && !speechCompleted) {
+                    WorldPanel.RecordSpeech(m_actor, speechId, chunkNumber, speak.Mode, null, [], "interrupted");
+                }
+            }
+#endif
+            );
         }
 
         HashSet<Entity> FindListeners(float radius) =>
@@ -170,6 +186,9 @@ namespace Game.Westworld {
             m_social.Offers.Add(id, new PendingItemOffer(id, m_actor, action.Recipient, action.Item, action.Count, now + OfferLifetime));
             PublishSocialEvent(action.Recipient, new AtomicSocialEvent(
                 AtomicSocialEventKind.ItemOffered, now, m_actor, OfferId: id, ItemValue: action.Item.ExpectedValue, Count: action.Count));
+#if WINDOWS
+            WorldPanel.RecordTransfer(m_actor, action.Recipient, id, "offered", action.Item.ExpectedValue, action.Count);
+#endif
             return Succeed(action, offerId: id);
         }
 
@@ -188,6 +207,9 @@ namespace Game.Westworld {
             if (!action.Accept) {
                 m_social.Offers.Remove(offer.Id);
                 PublishSocialEvent(offer.Sender, new AtomicSocialEvent(AtomicSocialEventKind.OfferDeclined, now, m_actor, OfferId: offer.Id));
+#if WINDOWS
+                WorldPanel.RecordTransfer(offer.Sender, m_actor, offer.Id, "declined", offer.Item.ExpectedValue, offer.Count);
+#endif
                 return Succeed(action);
             }
             if (!HasOfferItems(source, offer.Item, offer.Count)) {
@@ -208,6 +230,9 @@ namespace Game.Westworld {
                 AtomicSocialEventKind.ItemsTransferred, now, m_actor, OfferId: offer.Id, ItemValue: offer.Item.ExpectedValue, Count: moved));
             PublishSocialEvent(m_actor, new AtomicSocialEvent(
                 AtomicSocialEventKind.ItemsTransferred, now, offer.Sender, OfferId: offer.Id, ItemValue: offer.Item.ExpectedValue, Count: moved));
+#if WINDOWS
+            WorldPanel.RecordTransfer(offer.Sender, m_actor, offer.Id, "transferred", offer.Item.ExpectedValue, moved);
+#endif
             return Succeed(action, moved, offer.Id);
         }
 
