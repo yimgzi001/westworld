@@ -6,7 +6,8 @@ try {
     $projects = @(
         "archive/survivalcraft/snapshots/native-checkpoint/recovery-vision-core/Tests.csproj",
         "archive/survivalcraft/snapshots/cross-tick-wip/recovery-vision-fixture-next/Tests.csproj",
-        "experiments/scapi-fixture-sequencing/Tests.csproj"
+        "experiments/scapi-fixture-sequencing/Tests.csproj",
+        "experiments/scapi-dual-smoke/QueueTests.csproj"
     )
     foreach ($project in $projects) {
         & $Dotnet run --project $project --configuration Release

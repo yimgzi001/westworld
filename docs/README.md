@@ -33,3 +33,5 @@
 [2026-11-09 cjh 接续验证](research/2026-11-09-cjh-resume.md)：SCAPI构建、旧实验回归、新跨tick状态机修复及单角色接入里程碑。尚未完成游戏内AI验证。
 
 [SCAPI 原生单角色短移动与保存重载（2026-11-09）](../experiments/scapi-native-smoke/README.md)：源码游戏内实测，固定脚本，尚无模型接入。
+
+[SCAPI 双角色、局部感知与异步动作队列（2026-11-09）](../experiments/scapi-dual-smoke/README.md)：真实双角色隔离短移动、原生第一命中感知及42项纯协议测试；尚未接模型。
