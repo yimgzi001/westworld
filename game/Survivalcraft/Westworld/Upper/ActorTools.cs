@@ -129,7 +129,7 @@ namespace Game.Westworld {
             return new ActorActionView(m_direct.Action.GetType().Name, result.Status, result.Failure, result.AffectedCount);
         }
 
-        ActorObservation Observe(float lookDistance, float objectDistance, int limit) => m_memory.Capture(lookDistance, objectDistance, limit);
+        ActorObservation Observe(float lookDistance, float objectDistance, int limit, int blockLimit = 32) => m_memory.Capture(lookDistance, objectDistance, limit, blockLimit);
 
         InventoryView ReadInventory() {
             InventoryView view = m_actions.Queries.ReadInventory();

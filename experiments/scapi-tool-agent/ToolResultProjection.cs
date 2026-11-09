@@ -5,6 +5,19 @@ using System.Text.Json.Nodes;
 /// <summary>Model-only view. Caller retains raw receipts for audit and reference revalidation.
 /// Omissions are not native failures or proof that more native pages exist.</summary>
 public static class ToolResultProjection {
+ // Extract inventory from the same atomic native observation. Only duplicate
+ // inventory representations are removed; no visible refs or coverage are trimmed.
+ public static (JsonElement Observation,JsonElement Inventory) SplitObservation(JsonElement raw){
+  if(raw.ValueKind!=JsonValueKind.Object||!raw.TryGetProperty("inventory",out var inventory)
+   ||inventory.ValueKind!=JsonValueKind.Object||!inventory.TryGetProperty("slots",out var slots)
+   ||slots.ValueKind!=JsonValueKind.Array||slots.GetArrayLength()>4096
+   ||!inventory.TryGetProperty("selectedSlot",out var selected)
+   ||selected.ValueKind is not(JsonValueKind.Number or JsonValueKind.Null))throw new ArgumentException("Atomic observation inventory is required");
+  foreach(var slot in slots.EnumerateArray())foreach(var key in new[]{"slot","value","count"})
+   if(slot.ValueKind!=JsonValueKind.Object||!slot.TryGetProperty(key,out var v)||v.ValueKind!=JsonValueKind.Number||!v.TryGetInt32(out int n)||n<0)throw new ArgumentException("Invalid native inventory slot");
+  var view=JsonNode.Parse(raw.GetRawText())!.AsObject();view.Remove("inventory");view.Remove("inventorySummary");
+  return(JsonSerializer.SerializeToElement(view),inventory.Clone());
+ }
  public static JsonElement Project(string tool,JsonElement raw,int maxChars=3000,int maxUtf8Bytes=6000){
   Bounds(maxChars,maxUtf8Bytes);
   var data=raw;bool? hasMore=null;
@@ -61,6 +74,34 @@ public static class ToolResultProjection {
    if(!Fits(Wrap("projected"),maxChars,maxUtf8Bytes)){list.RemoveAt(0);kept--;break;}
   }
   return Wrap("projected");
+ }
+ // Authority candidates must be derived from the FINAL model-visible context, never raw audit receipts.
+ public static IReadOnlyList<JsonElement> VisibleOfferFacts(JsonElement context){
+  if(context.ValueKind!=JsonValueKind.Object||!context.TryGetProperty("projectionStatus",out var status)||status.GetString()!="projected"
+   ||!context.TryGetProperty("facts",out var facts)||facts.ValueKind!=JsonValueKind.Object
+   ||!context.TryGetProperty("recentResults",out var recent)||recent.ValueKind!=JsonValueKind.Array)throw new ArgumentException("Final projected context required");
+  var result=new List<JsonElement>();
+  foreach(var receipt in recent.EnumerateArray()){
+   if(receipt.ValueKind!=JsonValueKind.Object||!receipt.TryGetProperty("ok",out var ok)||ok.ValueKind!=JsonValueKind.True
+    ||!receipt.TryGetProperty("tool",out var tool)||tool.ValueKind!=JsonValueKind.String
+    ||!receipt.TryGetProperty("data",out var projection)||projection.ValueKind!=JsonValueKind.Object
+    ||!projection.TryGetProperty("projectionStatus",out var projected)||projected.ValueKind!=JsonValueKind.String||projected.GetString()!="projected"
+    ||!projection.TryGetProperty("data",out var data)||data.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)continue;
+   var copy=JsonNode.Parse(receipt.GetRawText())!.AsObject();
+   var view=JsonNode.Parse(data.GetRawText());
+   // CompactBounded encodes exact empty slots. Expand only that explicit representation for the existing offer builder.
+   if(tool.GetString()=="read_storage"&&view is JsonObject storage&&storage["inventory"] is JsonObject inv
+    &&inv["slots"] is JsonArray slots&&inv["emptySlotIds"] is JsonArray ids
+    &&inv["emptySlotEncoding"]?.GetValue<string>()=="Listed ids encode exactly {slot:id,value:0,count:0}; unlisted slots are not inferred."){
+    var seen=new HashSet<int>();foreach(var slot in slots){if(slot is not JsonObject obj||obj["slot"] is not JsonValue sv||!sv.TryGetValue<int>(out var n)||!seen.Add(n))throw new ArgumentException("Invalid compact slot evidence");}
+    foreach(var id in ids){if(id is not JsonValue iv||!iv.TryGetValue<int>(out var n)||n<0||n>4095||!seen.Add(n))throw new ArgumentException("Invalid compact empty slot evidence");slots.Add(JsonSerializer.SerializeToNode(new{slot=n,value=0,count=0}));}
+   }
+   copy["data"]=view;result.Add(JsonSerializer.SerializeToElement(copy));
+  }
+  // The memory layer may replace recent recipe details by references to this retained, complete source.
+  if(facts.TryGetProperty("learnedRecipes",out var recipes)&&recipes.ValueKind==JsonValueKind.Array)
+   result.Add(JsonSerializer.SerializeToElement(new{tool="find_recipes",ok=true,data=recipes}));
+  return result;
  }
  internal static bool ValidNavigationStatus(JsonElement e){
   if(e.ValueKind!=JsonValueKind.Object||!e.TryGetProperty("busy",out var busy)||busy.ValueKind is not(JsonValueKind.True or JsonValueKind.False)

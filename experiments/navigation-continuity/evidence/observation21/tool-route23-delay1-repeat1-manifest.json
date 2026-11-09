@@ -1,0 +1,137 @@
+{
+  "exit": 0,
+  "logs": {
+    "tool-agent.jsonl": "evidence-file-d0683cb321078e1ae4c5",
+    "console.log": "evidence-file-3e9aa5ecd0aff7e3e2cc",
+    "exit.txt": "evidence-file-06b169cbfe65ea576349",
+    "run.sh": "evidence-file-6706f183737ec5a7f66a",
+    "driver.py": "evidence-file-a5ddd740ea3d0375aa72",
+    "driver.log": "evidence-file-d4c2e71985b600419521",
+    "driver-exit.txt": "evidence-file-06b169cbfe65ea576349",
+    "continuity-driver-result.json": "evidence-file-810c484de3b86bd62189",
+    "continuity-driver-started.json": "evidence-file-adfcf83c6665003a71e7",
+    "stage.json": "evidence-file-9ec79723fe48d70bec49",
+    "installed-hashes.json": "evidence-file-abe831bb8b2b47f9559d"
+  },
+  "sourceDelta": "source-delta-f077fde1fe165d7355fb",
+  "sourceCount": 73,
+  "changedSourceCount": 14,
+  "checkpoint": {
+    "case": "route23-delay1-repeat1",
+    "environment": "dot-cloud",
+    "finishedUtc": "2026-11-09T17:59:57.464515+00:00",
+    "results": {
+      "work/tool-route23-delay1-repeat1/driver-exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "work/tool-route23-delay1-repeat1/exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "work/tool-route23-delay1-repeat1/tool-agent.jsonl": "8779cc95e015d8bf5c5684b1da88090d49f56c46902a0d0094c6cb8f50d482bc"
+    },
+    "retrospective": false,
+    "schema": "westworld-batch-checkpoint-v1",
+    "sources": {
+      "work/tool-route23-delay1-repeat1/Survivalcraft.dll": "383d39a5030abf1de596429b4b79a16ec2269cd6f3b7ed8a5abbf23e7342133c",
+      "work/tool-route23-delay1-repeat1/ToolAgentGate.dll": "a195f348db7e63c78147da6271a96021466fbe5035aa72afa739453aa9f1a10f",
+      "work/tool-route23-delay1-repeat1/installed-hashes.json": "c97fcdf6865f7b588c165a1de8146a1bc8168c63bcf1f4b094bb709cc265f721"
+    },
+    "stage": "unified-observation",
+    "startedUtc": "2026-11-09T17:58:29.817231+00:00",
+    "state": "passed"
+  },
+  "result": {
+    "kind": "result",
+    "passed": true,
+    "reason": "controlled_prefetch_lifecycle_verified",
+    "seconds": 10.7907577,
+    "updateFailures": 0
+  },
+  "strictRouteValidation": {
+    "schema": "westworld-strict-route-v1",
+    "verdict": "pass",
+    "checks": [
+      {
+        "check": "exactly_two_navigation_dispatches",
+        "status": "pass"
+      },
+      {
+        "check": "first_command_distance_3m",
+        "status": "pass"
+      },
+      {
+        "check": "first_unique_receipt_and_terminal",
+        "status": "pass"
+      },
+      {
+        "check": "first_arrived_single_segment",
+        "status": "pass"
+      },
+      {
+        "check": "first_actual_progress",
+        "status": "pass"
+      },
+      {
+        "check": "one_complete_route",
+        "status": "pass"
+      },
+      {
+        "check": "unique_local_and_bounded_binding",
+        "status": "pass"
+      },
+      {
+        "check": "geometry_present",
+        "status": "pass"
+      },
+      {
+        "check": "full_authorized_3m_endpoint",
+        "status": "pass"
+      },
+      {
+        "check": "single_sample_owner",
+        "status": "pass"
+      },
+      {
+        "check": "moving_samples_present",
+        "status": "pass"
+      },
+      {
+        "check": "no_internal_nonmoving_state",
+        "status": "pass"
+      },
+      {
+        "check": "continuous_sample_times",
+        "status": "pass"
+      },
+      {
+        "check": "actual_lease_while_moving",
+        "status": "pass"
+      },
+      {
+        "check": "waypoint_0_both_sides_sampled",
+        "status": "pass"
+      },
+      {
+        "check": "waypoint_0_no_sampled_low_speed",
+        "status": "pass"
+      },
+      {
+        "check": "waypoint_1_both_sides_sampled",
+        "status": "pass"
+      },
+      {
+        "check": "waypoint_1_no_sampled_low_speed",
+        "status": "pass"
+      },
+      {
+        "check": "second_command_1m",
+        "status": "pass"
+      },
+      {
+        "check": "second_actual_arrived",
+        "status": "pass"
+      },
+      {
+        "check": "overall_native_pass",
+        "status": "pass"
+      }
+    ],
+    "binding": "unique serial single-actor log intervals + explicit bounded/local IDs; samples lack routeId; not cryptographic identity proof"
+  }
+}

@@ -142,10 +142,10 @@ namespace Game.Westworld {
         ];
 
         static readonly ToolSpec[] QueryTools = [
-            Query("observe", "Read current self, forward view, visible objects and target references.", (a, p) =>
-                a.Observe(p.Number("look_distance", 12f), p.Number("object_distance", 8f), p.Int("limit", 24)),
+            Query("observe", "Read one current snapshot: self, visible terrain blocks, forward focus, visible objects, inventory summary and coverage.", (a, p) =>
+                a.Observe(p.Number("look_distance", 12f), p.Number("object_distance", 8f), p.Int("limit", 24), p.Int("block_limit", 32)),
                 Number("look_distance", "Forward ray length up to 16 blocks.", true),
-                Number("object_distance", "Visible object radius up to 16 blocks.", true), Int("limit", "Object limit per group. Default 24.", true)),
+                Number("object_distance", "Visible object radius up to 16 blocks.", true), Int("limit", "Object limit per group. Default 24.", true), Int("block_limit", "Visible non-air block output limit 1..128, default 32; terrain scan radius is 5. Omission is reported.", true)),
             Query("read_self", "Read your own body and location.", (a, _) => a.m_actions.Queries.ReadSelf()),
             Query("read_environment", "Read local light, weather and time.", (a, _) => a.m_actions.Queries.ReadEnvironment()),
             Query("read_inventory", "Read your own inventory and selected slot.", (a, _) => a.ReadInventory()),

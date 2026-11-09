@@ -36,7 +36,7 @@ def stage(root,label,delay,repeat,content,case="early"):
   if native_library_name(p.name) or p.name=='init.js' or p.name.endswith(('.runtimeconfig.json','.deps.json')):
    files.append((p,rel))
  sources=[]
- for folder in ['runtime/Westworld.Runtime.Core','runtime/Westworld.Scapi.Adapter','experiments/scapi-tool-agent','game/Survivalcraft/Westworld/Actions']:
+ for folder in ['runtime/Westworld.Runtime.Core','runtime/Westworld.Scapi.Adapter','experiments/scapi-tool-agent','game/Survivalcraft/Westworld/Actions','game/Survivalcraft/Westworld/Knowledge','game/Survivalcraft/Westworld/Upper']:
   sources.extend(p for p in (root/folder).glob('*.cs') if safe(p).is_file())
  sources.extend([root/'experiments/navigation-continuity/driver.py',root/'experiments/navigation-continuity/stage.py'])
  dest.mkdir(parents=True)

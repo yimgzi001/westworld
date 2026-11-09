@@ -31,6 +31,13 @@ public static class NativeToolOffers {
    // A visible storage is not assumed to be a crafting table. Personal grid is
    // always available; external workspaces are added only after read_storage preview.
   }
+  // One current observation may expose several genuinely visible blocks. These
+  // are host-issued live refs, not coordinates mined from map/history summaries.
+  foreach(var item in Array(observation,"visibleBlocks").Take(128)){
+   if(item.ValueKind!=JsonValueKind.Object||!item.TryGetProperty("value",out var blockValue)
+    ||blockValue.ValueKind!=JsonValueKind.Number||!blockValue.TryGetInt32(out int value)||value<0||(value&1023)==0)continue;
+   Ref(item,"reference",blocks,positions);Ref(item,"storageReference",storage);
+  }
   foreach(var item in Array(observation,"entities"))Ref(item,"reference",entities,positions);
   foreach(var item in Array(observation,"pickables")){
    Ref(item,"reference",drops,positions);
@@ -105,7 +112,7 @@ public static class NativeToolOffers {
      HashSet<int>? ints=key=="slot"?slots:key=="value"&&tool.Name.StartsWith("act_",StringComparison.Ordinal)?values:
       key is "source_slot" or "destination_slot"?allSlots:key is "source_value" or "destination_value"?allValues:key=="food_value"?foodValues:null;
      if(ints is not null){if(ints.Count==0){if(needed){skip=true;break;}props.Remove(key);continue;}field["enum"]=JsonSerializer.SerializeToNode(ints.Order().Take(128));}
-     else {field["minimum"]=key is "count" or "limit"?1:0;field["maximum"]=key=="count"?64:key=="limit"?4:key=="offset"?(tool.Name=="read_map"?128:4096):int.MaxValue;}
+     else {field["minimum"]=key is "count" or "limit" or "block_limit"?1:0;field["maximum"]=key=="count"?64:key=="block_limit"?128:key=="limit"?4:key=="offset"?(tool.Name=="read_map"?128:4096):int.MaxValue;}
     }else if(type=="number"){
      (double low,double high)=key switch{"bearing"=>(-180,180),"pitch"=>(-82,82),"distance"=>(1,4),"range"=>(.1,1),"duration"=>(.1,tool.Name=="act_Wait"?10:4),"timeout"=>(.1,tool.Name=="act_Dig"?30:4),"look_distance" or "object_distance"=>(1,16),_=>(0,4)};
      field["minimum"]=low;field["maximum"]=high;

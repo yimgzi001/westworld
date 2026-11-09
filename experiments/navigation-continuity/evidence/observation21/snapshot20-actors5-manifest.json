@@ -1,0 +1,45 @@
+{
+  "exit": 1,
+  "logs": {
+    "snapshot.jsonl": "evidence-file-ce0f58b215b8aecc1eb8",
+    "console.log": "evidence-file-4dbdfec7cc8d5feec7e5",
+    "exit.txt": "evidence-file-b927b496cc6b8581e9ed",
+    "run.sh": "evidence-file-f163e4210bac092d004e",
+    "stage.json": "evidence-file-ec5a06d8879df860a3aa",
+    "source-hashes.json": "evidence-file-ea9deb44f702629ab75a",
+    "installed-hashes.json": "evidence-file-92c6bbe4f309eb88d020"
+  },
+  "sourceDelta": "source-delta-b36c8c528b7d00ac38dd",
+  "sourceCount": 1751,
+  "changedSourceCount": 12,
+  "checkpoint": {
+    "case": "snapshot20-actors5",
+    "environment": "dot-cloud",
+    "finishedUtc": "2026-11-09T17:51:40.884420+00:00",
+    "results": {
+      "work/snapshot20-actors5/exit.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "work/snapshot20-actors5/snapshot.jsonl": "e84ed08ef74fa52a73043e2f648ba3b8903cdb57879d20725a279090c0c5589b"
+    },
+    "retrospective": false,
+    "schema": "westworld-batch-checkpoint-v1",
+    "sources": {
+      "work/snapshot20-actors5/ObservationSnapshotGate.dll": "67d6b1afa2fea71f0214228242b942bdf54add2d0bc688d2dc17a8a028fc6039",
+      "work/snapshot20-actors5/Survivalcraft.dll": "383d39a5030abf1de596429b4b79a16ec2269cd6f3b7ed8a5abbf23e7342133c",
+      "work/snapshot20-actors5/installed-hashes.json": "646f19a4732915c48b3af2e5429671a543d5dc5277039b949730329730342562",
+      "work/snapshot20-actors5/source-hashes.json": "964e94c6ecd61353eabd7e46681d05b9a7f1865b09d33000548eb5c10edf2f17"
+    },
+    "stage": "unified-observation",
+    "startedUtc": "2026-11-09T17:46:02.377608+00:00",
+    "state": "failed"
+  },
+  "result": {
+    "kind": "result",
+    "passed": false,
+    "reason": "scenario_failed",
+    "seconds": 13.9635049,
+    "actors": 5,
+    "cleanupVerified": true,
+    "cleanupMeaning": "Dispose completed without exception, not independent resource-release audit",
+    "updateFailures": 0
+  }
+}

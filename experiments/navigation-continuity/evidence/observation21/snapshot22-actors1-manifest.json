@@ -1,0 +1,47 @@
+{
+  "exit": 0,
+  "logs": {
+    "snapshot.jsonl": "evidence-file-b0fc098931155aedaa3f",
+    "console.log": "evidence-file-bae3c8d45f97dc84705b",
+    "exit.txt": "evidence-file-06b169cbfe65ea576349",
+    "run.sh": "evidence-file-dbcad2a7b24502ee51ea",
+    "stage.json": "evidence-file-d01a4dcbcbb644c414dc",
+    "source-hashes.json": "evidence-file-c147646de43b4ca80339",
+    "installed-hashes.json": "evidence-file-5d3e02449b0fddac5611"
+  },
+  "sourceDelta": "source-delta-a87cf291bb65ea97ff4a",
+  "sourceCount": 1751,
+  "changedSourceCount": 12,
+  "checkpoint": {
+    "case": "snapshot22-actors1",
+    "environment": "dot-cloud",
+    "finishedUtc": "2026-11-09T17:57:15.364497+00:00",
+    "results": {
+      "work/snapshot22-actors1/exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "work/snapshot22-actors1/snapshot.jsonl": "0c476b47258e8c53b4014cbf167b27fed640c70af4611dd215c4c26179de053f"
+    },
+    "retrospective": false,
+    "schema": "westworld-batch-checkpoint-v1",
+    "sources": {
+      "work/snapshot22-actors1/ObservationSnapshotGate.dll": "57c6b5b5196fdd563927808f2960c0a2cde3efc783ecb6d573d0815c9a9fd286",
+      "work/snapshot22-actors1/Survivalcraft.dll": "383d39a5030abf1de596429b4b79a16ec2269cd6f3b7ed8a5abbf23e7342133c",
+      "work/snapshot22-actors1/installed-hashes.json": "e40959c0bfa37ac97c7fde633035ee901d82193d55361bb28761d11a6c0e7ae8",
+      "work/snapshot22-actors1/source-hashes.json": "9ddb935b3e16277baeb75c1d7fa49d6337cd750cc87ed21f52ab02516b5a1418"
+    },
+    "stage": "unified-observation",
+    "startedUtc": "2026-11-09T17:56:00.710550+00:00",
+    "state": "passed"
+  },
+  "result": {
+    "kind": "result",
+    "passed": true,
+    "reason": "snapshot_fixture_verified",
+    "seconds": 10.501267,
+    "actors": 1,
+    "cleanupVerified": true,
+    "cleanupMeaning": "Dispose completed without exception, not independent resource-release audit",
+    "updateFailures": 0
+  },
+  "performanceValidity": "valid nonzero scanning workload; controlled short benchmark, not long-running resource capacity",
+  "performanceSamples": 10
+}

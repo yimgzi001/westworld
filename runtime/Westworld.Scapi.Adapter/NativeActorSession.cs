@@ -30,18 +30,8 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  public void Bind(Guid id,ComponentPlayer player){Owner();if(!player.PlayerData.IsExternalActor||player.Project!=project||!player.Entity.IsAddedToProject||actors.Values.Contains(player))throw new InvalidOperationException("Invalid native binding");Registry.Add(id,"player:"+player.PlayerData.PlayerIndex,PositionOf(player));actors.Add(id,player);}
  public ActorObservation Observe(Guid session,Guid actorId){
   var p=Actor(session,actorId);var origin=PositionOf(p);var eye=p.ComponentCreatureModel.EyePosition;var forward=Vector3.Normalize(p.ComponentCreatureModel.EyeRotation.GetForwardVector());
-  var cells=new List<CellObservation>();int bx=Terrain.ToCell((float)origin.X),by=Terrain.ToCell((float)origin.Y),bz=Terrain.ToCell((float)origin.Z);
-  for(int x=bx-4;x<=bx+4;x++)for(int z=bz-4;z<=bz+4;z++)for(int y=by-2;y<=by+observationAbove;y++){
-   int? value=null;var ep=new Position(eye.X,eye.Y,eye.Z);var fp=new Position(forward.X,forward.Y,forward.Z);
-   foreach(var point in VoxelSurfaceVisibility.Samples(ep,x,y,z)){
-    // Recheck the realized float endpoint: inset must not round into the neighbouring voxel.
-    var target=new Vector3((float)point.X,(float)point.Y,(float)point.Z);var realized=new Position(target.X,target.Y,target.Z);
-    if(VoxelSurfaceVisibility.InView(ep,fp,realized,x,y,z)&&LoadedRectangle(eye,target)&&OpaqueVoxelLineOfSight(eye,target)){
-     value=terrain.Terrain.GetCellValue(x,y,z);break;
-    }
-   }
-   cells.Add(new(x,y,z,value.HasValue?"known":"unknown",value));
-  }
+  var scan=Game.Westworld.SharedVoxelScanner.Scan(terrain,p.ComponentBody.Position,eye,forward,observationAbove);
+  var cells=scan.Cells.Select(c=>new CellObservation(c.X,c.Y,c.Z,c.Value.HasValue?"known":"unknown",c.Value)).ToList();
   // Old observations may be retired; action tickets are never evicted or replayed.
   foreach(var id in observations.Where(kv=>clock.Elapsed.TotalSeconds-kv.Value.Time>3).Select(kv=>kv.Key).ToArray())observations.Remove(id);
   if(observations.Count>=128)throw new InvalidOperationException("Observation budget full");

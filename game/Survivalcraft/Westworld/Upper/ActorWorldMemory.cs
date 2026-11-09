@@ -8,9 +8,23 @@ namespace Game.Westworld {
     public sealed record ObservedEntity(string Reference, string Name, Vector3 Position, float Distance);
     public sealed record ObservedPickable(string Reference, int Value, int Count, Vector3 Position, float Distance) {
         internal bool InReach { get; init; }
+        public string Sense { get; init; } = "vision";
     }
     public sealed record ActorObservation(double GameTime, SelfView Self, ObservedFocus Focus,
-        IReadOnlyList<ObservedEntity> Entities, IReadOnlyList<ObservedPickable> Pickables, string InventoryReference, string CraftingReference);
+        IReadOnlyList<ObservedEntity> Entities, IReadOnlyList<ObservedPickable> Pickables, string InventoryReference, string CraftingReference) {
+        public IReadOnlyList<ObservedBlock> VisibleBlocks { get; init; } = Array.Empty<ObservedBlock>();
+        public ObservationInventorySummary InventorySummary { get; init; }
+        public InventoryView Inventory { get; init; }
+        public Guid SnapshotId { get; init; } = Guid.NewGuid();
+        public ObservationCoverage Coverage { get; init; }
+    }
+    public sealed record ObservedBlock(string Reference, Point3 Cell, Vector3 Position, int Value, string Name, float Distance, int? Face);
+    public sealed record ObservationItemCount(int Value, int Count);
+    public sealed record ObservationInventorySummary(IReadOnlyList<InventorySlotView> NonEmptySlots, IReadOnlyList<int> EmptySlotIds,
+        int? SelectedSlot, IReadOnlyList<ObservationItemCount> ItemCounts);
+    public sealed record ObservationCoverage(float BlockRadius, int BlockLimit, int VisibleBlockTotal, int ReturnedBlocks, int OmittedBlocks,
+        bool ScanComplete, bool BudgetExhausted, VoxelScanStatistics ScanStatistics, int ObjectLimit,
+        bool EntitiesTruncated, bool PickablesTruncated, float FocusRange, float ObjectRange, VisibilityPoint? Eye, VisibilityPoint? Forward, string Note);
     public sealed record RememberedPlace(string Reference, Vector3 Position, double LastSeenGameTime, string Name);
 
     public sealed record RememberedMapPage(IReadOnlyList<RememberedPlace> Entries, int Offset, int Total, bool HasMore, int? NextOffset, double SnapshotGameTime, string Note);
@@ -20,14 +34,14 @@ namespace Game.Westworld {
         const int MaxRememberedPlaces = 128;
 
         sealed record LiveReference(ActionTarget Target = null, Pickable Pickable = null, int? PickableValue = null,
-            MovingBlock MovingBlock = null, IInventory Storage = null) {
+            MovingBlock MovingBlock = null, IInventory Storage = null, bool SurfaceObserved = false) {
             public bool Equals(LiveReference other) => other != null && SameTarget(Target, other.Target)
                 && ReferenceEquals(Pickable, other.Pickable) && PickableValue == other.PickableValue
-                && ReferenceEquals(MovingBlock, other.MovingBlock) && ReferenceEquals(Storage, other.Storage);
+                && ReferenceEquals(MovingBlock, other.MovingBlock) && ReferenceEquals(Storage, other.Storage) && SurfaceObserved == other.SurfaceObserved;
 
             public override int GetHashCode() => HashCode.Combine(
                 Target is EntityTarget entity ? RuntimeHelpers.GetHashCode(entity.Entity) : Target?.GetHashCode() ?? 0,
-                RuntimeHelpers.GetHashCode(Pickable), PickableValue, RuntimeHelpers.GetHashCode(MovingBlock), RuntimeHelpers.GetHashCode(Storage));
+                RuntimeHelpers.GetHashCode(Pickable), PickableValue, RuntimeHelpers.GetHashCode(MovingBlock), RuntimeHelpers.GetHashCode(Storage), SurfaceObserved);
         }
         sealed record PlaceMemory((Point3 Cell, bool Landmark) Key, RememberedPlace Place);
 
@@ -51,10 +65,14 @@ namespace Game.Westworld {
             m_queries = actions.Queries;
         }
 
-        public ActorObservation Capture(float lookDistance = 12f, float objectDistance = 8f, int objectLimit = 24) {
+        public ActorObservation Capture(float lookDistance = 12f, float objectDistance = 8f, int objectLimit = 24, int blockLimit = 32) {
+            if (blockLimit is < 1 or > 128) throw new ArgumentOutOfRangeException(nameof(blockLimit));
             SelfView self = m_queries.ReadSelf();
             FocusView focus = m_queries.LookAhead(out ActionTarget focusTarget, lookDistance);
             NearbyView nearby = m_queries.FindVisibleObjects(out Entity[] nearbyEntities, objectDistance, objectLimit);
+            var terrainScan = m_queries.ReadVisibleTerrain();
+            var inventory = m_queries.ReadInventory();
+            var inventorySummary = SummarizeInventory(inventory);
             double now = m_queries.GameTime;
             Dictionary<LiveReference, string> live = [];
 
@@ -85,8 +103,21 @@ namespace Game.Westworld {
             }
             ObservedPickable[] pickables = nearby.Pickables.Select(item => new ObservedPickable(
                 RememberLive(new LiveReference(Pickable: item.Target, PickableValue: item.Value)),
-                item.Value, item.Count, item.Position, item.Distance) { InReach = item.InReach }).ToArray();
+                item.Value, item.Count, item.Position, item.Distance) { InReach = item.InReach, Sense = item.Sense }).ToArray();
 
+            var knownBlocks = terrainScan == null ? Array.Empty<ScannedVoxel>() : terrainScan.Cells
+                .Where(c => c.Value.HasValue && Terrain.ExtractContents(c.Value.Value) != 0 && c.VisibleSample != null)
+                .OrderBy(c => Vector3.DistanceSquared(self.Position, new Vector3(c.X + .5f, c.Y + .5f, c.Z + .5f)))
+                .ThenBy(c => c.X).ThenBy(c => c.Y).ThenBy(c => c.Z).ToArray();
+            var observedBlocks = knownBlocks.Take(blockLimit).Select(c => {
+                int value = Terrain.ReplaceLight(c.Value.Value, 0);
+                var sample = c.VisibleSample.Value;
+                var point = new Vector3((float)sample.X, (float)sample.Y, (float)sample.Z);
+                var target = new BlockTarget(new Point3(c.X,c.Y,c.Z), value);
+                string reference = RememberLive(new LiveReference(target, SurfaceObserved: true));
+                return new ObservedBlock(reference, target.Cell, point, value, m_queries.VisibleBlockName(value),
+                    self == null ? 0 : Vector3.Distance(self.Position,point), null);
+            }).ToArray();
             if (self != null) {
                 RememberPlace(Terrain.ToCell(self.Position), landmark: false, self.Position, now, null);
             }
@@ -100,7 +131,24 @@ namespace Game.Westworld {
             m_objectLimit = objectLimit;
             return new ActorObservation(now, self, observedFocus, entities, pickables,
                 m_queries.OwnInventory == null ? null : m_inventoryReference,
-                m_queries.OwnCrafting == null ? null : m_craftingReference);
+                m_queries.OwnCrafting == null ? null : m_craftingReference) {
+                VisibleBlocks = Array.AsReadOnly(observedBlocks), InventorySummary = inventorySummary, Inventory = inventory,
+                Coverage = new(5, blockLimit, knownBlocks.Length, observedBlocks.Length, knownBlocks.Length-observedBlocks.Length,
+                    terrainScan?.Complete ?? false, terrainScan?.BudgetExhausted ?? false, terrainScan?.Statistics,
+                    objectLimit, nearby.EntitiesTruncated, nearby.PickablesTruncated, lookDistance, objectDistance, terrainScan?.Eye, terrainScan?.Forward,
+                    "VisibleBlockTotal counts only observed non-air cells inside the bounded scan, not hidden world contents. " +
+                    "OmittedBlocks is output truncation; incomplete scans may contain additional unknown cells. " +
+                    "Entity/pickable truncation signals additional sensed results, not their total count. Pickable sense distinguishes vision and proximity. " +
+                    "Position is an actual visible sample; Face may be unknown. Action reach and native prerequisites still apply.")
+            };
+        }
+
+        public static ObservationInventorySummary SummarizeInventory(InventoryView inventory) {
+            if (inventory == null) return null;
+            var occupied = inventory.Slots.Where(s => s.Count > 0).ToArray();
+            return new(Array.AsReadOnly(occupied), Array.AsReadOnly(inventory.Slots.Where(s => s.Count == 0).Select(s => s.Slot).ToArray()),
+                inventory.SelectedSlot, Array.AsReadOnly(occupied.GroupBy(s => s.Value).OrderBy(g => g.Key)
+                    .Select(g => new ObservationItemCount(g.Key, checked(g.Sum(s => s.Count)))).ToArray()));
         }
 
         public IReadOnlyList<RememberedPlace> ReadMap() => m_recentPlaces.Select(item => item.Place).ToArray();
@@ -180,6 +228,8 @@ namespace Game.Westworld {
             if (item.Pickable != null) {
                 return FindVisiblePickable(item)?.Position;
             }
+            if (item.SurfaceObserved && item.Target is BlockTarget surfaceBlock)
+                return m_queries.ReobserveKnownBlock(surfaceBlock, 5, surfaceObserved: true);
             FocusView focus = m_queries.LookAhead(out ActionTarget current, m_lookDistance);
             if (SameTarget(item.Target, current) && ReferenceEquals(item.MovingBlock, FindMovingBlock(current))) {
                 return current is EntityTarget seenEntity && seenEntity.Entity.FindComponent<ComponentBody>() is { } body

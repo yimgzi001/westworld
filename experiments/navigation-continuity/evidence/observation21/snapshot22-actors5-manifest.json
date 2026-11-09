@@ -1,0 +1,46 @@
+{
+  "exit": 1,
+  "logs": {
+    "snapshot.jsonl": "evidence-file-20f30d6ad71352a05d0f",
+    "console.log": "evidence-file-dbebc659afd773012f2b",
+    "exit.txt": "evidence-file-b927b496cc6b8581e9ed",
+    "run.sh": "evidence-file-eb9f62bf9c30681700fa",
+    "stage.json": "evidence-file-b6e4cf51d7a21256a8c3",
+    "source-hashes.json": "evidence-file-c147646de43b4ca80339",
+    "installed-hashes.json": "evidence-file-5d3e02449b0fddac5611"
+  },
+  "sourceDelta": "source-delta-a87cf291bb65ea97ff4a",
+  "sourceCount": 1751,
+  "changedSourceCount": 12,
+  "checkpoint": {
+    "case": "snapshot22-actors5",
+    "environment": "dot-cloud",
+    "finishedUtc": "2026-11-09T17:57:15.416704+00:00",
+    "results": {
+      "work/snapshot22-actors5/exit.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "work/snapshot22-actors5/snapshot.jsonl": "4ada80c257d353df73cdc6669e6b246e3a7e84a97df6aa38a92e5804b601ca01"
+    },
+    "retrospective": false,
+    "schema": "westworld-batch-checkpoint-v1",
+    "sources": {
+      "work/snapshot22-actors5/ObservationSnapshotGate.dll": "57c6b5b5196fdd563927808f2960c0a2cde3efc783ecb6d573d0815c9a9fd286",
+      "work/snapshot22-actors5/Survivalcraft.dll": "383d39a5030abf1de596429b4b79a16ec2269cd6f3b7ed8a5abbf23e7342133c",
+      "work/snapshot22-actors5/installed-hashes.json": "e40959c0bfa37ac97c7fde633035ee901d82193d55361bb28761d11a6c0e7ae8",
+      "work/snapshot22-actors5/source-hashes.json": "9ddb935b3e16277baeb75c1d7fa49d6337cd750cc87ed21f52ab02516b5a1418"
+    },
+    "stage": "unified-observation",
+    "startedUtc": "2026-11-09T17:56:00.757969+00:00",
+    "state": "failed"
+  },
+  "result": {
+    "kind": "result",
+    "passed": false,
+    "reason": "scenario_failed",
+    "seconds": 6.6738818,
+    "actors": 5,
+    "cleanupVerified": true,
+    "cleanupMeaning": "Dispose completed without exception, not independent resource-release audit",
+    "updateFailures": 0
+  },
+  "performanceValidity": "not measured: no completed observation_cost event"
+}

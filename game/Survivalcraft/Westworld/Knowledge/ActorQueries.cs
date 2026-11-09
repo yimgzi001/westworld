@@ -27,6 +27,7 @@ namespace Game.Westworld {
         public Vector3 Position { get; }
         public float Distance { get; }
         internal bool InReach { get; }
+        public string Sense { get; internal init; } = "vision";
 
         internal NearbyPickableView(Pickable target, float distance, bool inReach) {
             Target = target;
@@ -40,7 +41,10 @@ namespace Game.Westworld {
         public PickUp CreatePickup(int count) => new(Target, count);
     }
 
-    public sealed record NearbyView(IReadOnlyList<NearbyEntityView> Entities, IReadOnlyList<NearbyPickableView> Pickables);
+    public sealed record NearbyView(IReadOnlyList<NearbyEntityView> Entities, IReadOnlyList<NearbyPickableView> Pickables) {
+        public bool EntitiesTruncated { get; init; }
+        public bool PickablesTruncated { get; init; }
+    }
 
     public sealed record SignView(IReadOnlyList<string> Lines, IReadOnlyList<Color> Colors, string Url);
     public sealed record EnvironmentView(double GameTime, float? TimeOfDay, int Light, float Immersion,
@@ -112,21 +116,36 @@ namespace Game.Westworld {
 
             // Revalidate an already-seen reference while approaching it. This does not
             // discover new cells or turn memory into a global live-world query.
-            internal Vector3? ReobserveKnownBlock(BlockTarget target, float maxDistance) {
+            internal Vector3? ReobserveKnownBlock(BlockTarget target, float maxDistance, bool surfaceObserved = false) {
                 if (!m_port.IsActorAvailable || !m_port.CanTargetWorld() || m_port.m_sleep?.IsSleeping == true
                     || !float.IsFinite(maxDistance) || maxDistance <= 0 || maxDistance > 16) return null;
-                var eye = m_port.WorldEyes.EyePosition;
-                var point = new Vector3(target.Cell.X + 0.5f, target.Cell.Y + 0.5f, target.Cell.Z + 0.5f);
-                var delta = point - eye;
-                float range = Math.Min(maxDistance, SettingsManager.VisibilityRange);
-                if (delta.LengthSquared() < 0.0001f || delta.LengthSquared() > range * range
-                    || Vector3.Dot(Vector3.Normalize(delta), m_port.WorldEyes.EyeRotation.GetForwardVector()) < 0.5f) return null;
-                int minX = Terrain.ToCell(MathF.Min(eye.X, point.X)) >> 4, maxX = Terrain.ToCell(MathF.Max(eye.X, point.X)) >> 4;
-                int minZ = Terrain.ToCell(MathF.Min(eye.Z, point.Z)) >> 4, maxZ = Terrain.ToCell(MathF.Max(eye.Z, point.Z)) >> 4;
-                for (int x=minX;x<=maxX;x++) for(int z=minZ;z<=maxZ;z++)
-                    if(m_port.WorldTerrain.Terrain.GetChunkAtCell(x*16,z*16)?.State != TerrainChunkState.Valid) return null;
-                return m_port.FindWorldRay(target, RaycastMode.Digging, range, out _, out _) == AtomicActionFailure.None ? point : null;
+                if (!surfaceObserved) {
+                    // Preserve the original longer-range focus-reference contract.
+                    var eye = m_port.WorldEyes.EyePosition;
+                    var point = new Vector3(target.Cell.X+.5f,target.Cell.Y+.5f,target.Cell.Z+.5f);
+                    var delta=point-eye;float range=Math.Min(maxDistance,SettingsManager.VisibilityRange);
+                    if(delta.LengthSquared()<.0001f||delta.LengthSquared()>range*range
+                        ||Vector3.Dot(Vector3.Normalize(delta),m_port.WorldEyes.EyeRotation.GetForwardVector())<.5f)return null;
+                    int minX=Terrain.ToCell(MathF.Min(eye.X,point.X))>>4,maxX=Terrain.ToCell(MathF.Max(eye.X,point.X))>>4;
+                    int minZ=Terrain.ToCell(MathF.Min(eye.Z,point.Z))>>4,maxZ=Terrain.ToCell(MathF.Max(eye.Z,point.Z))>>4;
+                    for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++)
+                        if(m_port.WorldTerrain.Terrain.GetChunkAtCell(x*16,z*16)?.State!=TerrainChunkState.Valid)return null;
+                    return m_port.FindWorldRay(target,RaycastMode.Digging,range,out _,out _) == AtomicActionFailure.None ? point : null;
+                }
+                var eyes = m_port.WorldEyes;
+                var seen = SharedVoxelScanner.ReobserveCell(m_port.WorldTerrain, m_port.m_body.Position,
+                    eyes.EyePosition, eyes.EyeRotation.GetForwardVector(), target.Cell.X, target.Cell.Y, target.Cell.Z);
+                if (seen.Value is not int value || Terrain.ReplaceLight(value,0) != target.ExpectedValue || seen.VisibleSample == null) return null;
+                var sample = seen.VisibleSample.Value;
+                return new Vector3((float)sample.X,(float)sample.Y,(float)sample.Z);
             }
+
+            internal VoxelScanSnapshot ReadVisibleTerrain() {
+                if (!m_port.IsActorAvailable || !m_port.CanTargetWorld() || m_port.m_sleep?.IsSleeping == true) return null;
+                var eyes = m_port.WorldEyes;
+                return SharedVoxelScanner.Scan(m_port.WorldTerrain,m_port.m_body.Position,eyes.EyePosition,eyes.EyeRotation.GetForwardVector());
+            }
+            internal string VisibleBlockName(int value) => WorldBlock(value).GetDisplayName(m_port.WorldTerrain,value);
 
             public FocusView LookAhead(float maxDistance = 12f) => LookAhead(out _, maxDistance);
 
@@ -212,7 +231,7 @@ namespace Game.Westworld {
                     .OrderBy(item => item.Distance)
                     .Where(item => IsVisible(item.Point, item.Distance))
                     .DistinctBy(item => item.Body.Entity)
-                    .Take(limit)
+                    .Take(limit + 1)
                     .Select(item => (new NearbyEntityView(item.Body.Entity.Id,
                         item.Body.Entity.FindComponent<ComponentCreature>()?.DisplayName, item.Body.Position, item.Distance), item.Body.Entity))
                     .ToArray();
@@ -227,11 +246,13 @@ namespace Game.Westworld {
                         && Vector3.DistanceSquared(pickupCenter, item.Pickable.Position)
                             <= item.Pickable.DistanceToPick * item.Pickable.DistanceToPick))
                     .Where(item => IsVisible(item.Pickable.Position, item.Distance, item.InReach))
-                    .Take(limit)
-                    .Select(item => new NearbyPickableView(item.Pickable, item.Distance, item.InReach))
+                    .Take(limit + 1)
+                    .Select(item => new NearbyPickableView(item.Pickable, item.Distance, item.InReach) { Sense = IsVisible(item.Pickable.Position, item.Distance) ? "vision" : "proximity" })
                     .ToArray();
-                visibleEntities = entities.Select(item => item.Entity).ToArray();
-                return new NearbyView(entities.Select(item => item.View).ToArray(), pickables);
+                visibleEntities = entities.Take(limit).Select(item => item.Entity).ToArray();
+                return new NearbyView(entities.Take(limit).Select(item => item.View).ToArray(), pickables.Take(limit).ToArray()) {
+                    EntitiesTruncated = entities.Length > limit, PickablesTruncated = pickables.Length > limit
+                };
             }
 
             public SignView ReadSign(BlockTarget target) {

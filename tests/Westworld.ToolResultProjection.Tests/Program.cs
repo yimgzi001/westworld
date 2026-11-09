@@ -51,4 +51,13 @@ Check(JsonElement.DeepEquals(navProjected.GetProperty("data"),nav),"navigation s
 Check(ToolResultProjection.Project("host_navigation_status",J(new{request_id=Guid.Empty.ToString(),status="running",busy=true})).GetProperty("projectionStatus").GetString()=="unsupported_shape","busy without real request rejected");
 var rejection=ToolResultProjection.Project("host_navigate_local",J(new{status="rejected",reason="navigation_busy"}));
 Check(rejection.GetProperty("data").GetProperty("status").GetString()=="rejected","host navigation rejection not promoted to success");
+var atomic=J(new{snapshotId=Guid.NewGuid(),visibleBlocks=new[]{new{reference="b1",value=9}},coverage=new{scanComplete=false,omittedBlocks=2},inventory=new{slots=new[]{new{slot=0,value=9,count=2}},selectedSlot=0},inventorySummary=new{nonEmptySlots=1}});
+var split=ToolResultProjection.SplitObservation(atomic);
+Check(JsonElement.DeepEquals(split.Inventory,atomic.GetProperty("inventory")),"same observation inventory retained exactly");
+Check(JsonElement.DeepEquals(split.Observation.GetProperty("visibleBlocks"),atomic.GetProperty("visibleBlocks")),"split never trims visible references");
+Check(JsonElement.DeepEquals(split.Observation.GetProperty("coverage"),atomic.GetProperty("coverage")),"split retains coverage limitations exactly");
+Check(!split.Observation.TryGetProperty("inventory",out _)&&!split.Observation.TryGetProperty("inventorySummary",out _),"duplicate inventory omitted only from model observation view");
+Check(atomic.TryGetProperty("inventory",out _),"raw observation audit is not mutated");
+bool missingInventory=false;try{ToolResultProjection.SplitObservation(J(new{visibleBlocks=new object[0]}));}catch(ArgumentException){missingInventory=true;}
+Check(missingInventory,"missing atomic inventory fails rather than doing later read");
 Console.WriteLine("HOST FINAL TOTAL "+count);
