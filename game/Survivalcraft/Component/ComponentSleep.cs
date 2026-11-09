@@ -114,7 +114,7 @@ namespace Game {
                 if (m_sleepStartTime.HasValue) {
                     float num = (float)(m_subsystemGameInfo.TotalElapsedGameTime - m_sleepStartTime.Value);
                     if (m_allowManualWakeUp && num > 10f) {
-                        if (m_componentPlayer.GameWidget.Input.Any
+                        if (!m_componentPlayer.PlayerData.IsExternalActor && m_componentPlayer.GameWidget.Input.Any
                             && !DialogsManager.HasDialogs(m_componentPlayer.GameWidget)) {
                             m_componentPlayer.GameWidget.Input.Clear();
                             WakeUp();

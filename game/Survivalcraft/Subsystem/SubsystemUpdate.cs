@@ -36,6 +36,9 @@ namespace Game {
         public Dictionary<Type, DebugInfo> m_debugInfos = [];
         public Stopwatch m_debugStopwatch = new();
         public bool UpdateTimeDebug = false;
+        // Runtime evidence: exceptions must remain observable even when legacy update isolation continues.
+        public long UpdateFailureCount { get; private set; }
+        public string LastUpdateFailure { get; private set; }
 
         public int UpdateablesCount => m_updateables.Count;
 
@@ -94,8 +97,9 @@ namespace Game {
                             sortedUpdateable.Update(dt);
                         }
                     }
-                    catch (Exception) {
-                        // ignored
+                    catch (Exception error) {
+                        UpdateFailureCount++;
+                        LastUpdateFailure = sortedUpdateable.GetType().FullName + ": " + error;
                     }
                     finally {
                         if (UpdateTimeDebug) {

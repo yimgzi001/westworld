@@ -15,6 +15,9 @@ namespace Game {
 
         public static int MaxPlayers = 4;
 
+        // Separate experimental actor capacity; never used as a render-view index limit.
+        public const int MaxExternalActors = 50;
+
         public bool PlayerStartedPlaying = false;
 
         public ReadOnlyList<PlayerData> PlayersData => new(m_playersData);
@@ -52,8 +55,10 @@ namespace Game {
         }
 
         public void AddPlayerData(PlayerData playerData) {
-            if (m_playersData.Count >= MaxPlayers) {
-                throw new InvalidOperationException("Too many players.");
+            int capacity = playerData.IsExternalActor ? MaxExternalActors : MaxPlayers;
+            int count = m_playersData.Count(p => p.IsExternalActor == playerData.IsExternalActor);
+            if (count >= capacity) {
+                throw new InvalidOperationException(playerData.IsExternalActor ? "Too many external actors." : "Too many players.");
             }
             if (m_playersData.Contains(playerData)) {
                 throw new InvalidOperationException("Player already added.");

@@ -53,3 +53,5 @@
 [云桌面原生启动核验与环境结论修正](research/2026-11-09-cloud-desktop-launch.md)：正常云桌面启动 SCAPI 至主菜单，退出码 0；未创建世界，不代表零图形宿主或五角色验收。
 
 [云世界真实活动中心验收](../experiments/scapi-interest-smoke/README.md)：五个远端中心块到 Valid，负键正常释放；这些中心不是五个真实生存角色。
+
+[五个真实生存角色与零AI视口准入](../experiments/scapi-actor-gate/README.md)：云端五个完整原生Player、有限水平运动、饥饿更新、保存关闭重载均通过；仍非长期自主生存或50人规模证明。

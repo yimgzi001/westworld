@@ -41,6 +41,18 @@ namespace Game {
         public float m_progress;
         public int PlayerIndex { get; set; }
 
+        // Set before AddPlayerData. External actors retain native survival state but own no local viewport.
+        private bool m_isExternalActor;
+        public bool IsExternalActor {
+            get => m_isExternalActor;
+            set {
+                if (value == m_isExternalActor) return;
+                if (ComponentPlayer != null || SubsystemPlayers?.PlayersData.Contains(this) == true)
+                    throw new InvalidOperationException("Control kind is immutable while registered");
+                m_isExternalActor = value;
+            }
+        }
+
         public SubsystemGameWidgets SubsystemGameWidgets { get; set; }
 
         public SubsystemPlayers SubsystemPlayers { get; set; }
@@ -51,6 +63,9 @@ namespace Game {
 
         public GameWidget GameWidget {
             get {
+                if (IsExternalActor) {
+                    return null;
+                }
                 if (m_gameWidget == null) {
                     foreach (GameWidget gameWidget in SubsystemGameWidgets.GameWidgets) {
                         if (gameWidget.PlayerData == this) {
@@ -178,7 +193,7 @@ namespace Game {
                             }
                             else {
                                 SpawnPosition = m_subsystemTerrain.TerrainContentsGenerator.FindCoarseSpawnPosition();
-                                m_spawnMode = SpawnMode.InitialIntro;
+                                m_spawnMode = IsExternalActor ? SpawnMode.InitialNoIntro : SpawnMode.InitialIntro;
                             }
                             SubsystemPlayers.GlobalSpawnPosition = SpawnPosition;
                         }
@@ -318,7 +333,8 @@ namespace Game {
                             return false;
                         }
                     );
-                    if (!disableVanillaTapToRespawnAction
+                    if (!IsExternalActor
+                        && !disableVanillaTapToRespawnAction
                         && Time.RealTime - (m_playerDeathTime ?? 0) > 1.5
                         && !DialogsManager.HasDialogs(ComponentPlayer.GuiWidget)
                         && ComponentPlayer.GameWidget.Input.Any) {
@@ -374,6 +390,7 @@ namespace Game {
         }
 
         public virtual void Load(ValuesDictionary valuesDictionary) {
+            IsExternalActor = valuesDictionary.GetValue("IsExternalActor", false);
             SpawnPosition = valuesDictionary.GetValue("SpawnPosition", Vector3.Zero);
             FirstSpawnTime = valuesDictionary.GetValue("FirstSpawnTime", 0.0);
             LastSpawnTime = valuesDictionary.GetValue("LastSpawnTime", 0.0);
@@ -386,6 +403,7 @@ namespace Game {
         }
 
         public virtual void Save(ValuesDictionary valuesDictionary) {
+            valuesDictionary.SetValue("IsExternalActor", IsExternalActor);
             valuesDictionary.SetValue("SpawnPosition", SpawnPosition);
             valuesDictionary.SetValue("FirstSpawnTime", FirstSpawnTime);
             valuesDictionary.SetValue("LastSpawnTime", LastSpawnTime);
@@ -407,8 +425,10 @@ namespace Game {
                     throw new InvalidOperationException(string.Format(LanguageControl.Get(fName, 10), PlayerIndex));
                 }
                 ComponentPlayer = componentPlayer;
-                GameWidget.ActiveCamera = GameWidget.FindCamera<FppCamera>();
-                GameWidget.Target = componentPlayer;
+                if (!IsExternalActor) {
+                    GameWidget.ActiveCamera = GameWidget.FindCamera<FppCamera>();
+                    GameWidget.Target = componentPlayer;
+                }
                 if (FirstSpawnTime < 0.0) {
                     FirstSpawnTime = m_subsystemGameInfo.TotalElapsedGameTime;
                 }
@@ -631,7 +651,7 @@ namespace Game {
             }
             ValuesDictionary overrides = new() {
                 { "Player", new ValuesDictionary { { "PlayerIndex", PlayerIndex } } },
-                { "Intro", new ValuesDictionary { { "PlayIntro", spawnMode == SpawnMode.InitialIntro } } }, {
+                { "Intro", new ValuesDictionary { { "PlayIntro", !IsExternalActor && spawnMode == SpawnMode.InitialIntro } } }, {
                     "Clothing",
                     new ValuesDictionary {
                         { "Clothes", new ValuesDictionary { { "Feet", value4 }, { "Legs", value3 }, { "Torso", value2 }, { "Head", value } } }
@@ -672,6 +692,9 @@ namespace Game {
         }
 
         public virtual void UpdateSpawnDialog(string largeMessage, string smallMessage, float progress, bool resetProgress) {
+            if (IsExternalActor) {
+                return;
+            }
             if (resetProgress) {
                 m_progress = 0f;
             }

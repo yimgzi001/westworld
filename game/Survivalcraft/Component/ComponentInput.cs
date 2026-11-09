@@ -36,10 +36,21 @@ namespace Game {
 
         public bool ToggleFlyInDoubleJump { get; set; } = true;
         public PlayerInput PlayerInput => m_playerInput;
+        private PlayerInput m_externalInput;
+        private readonly int m_inputOwnerThread = Environment.CurrentManagedThreadId;
+        // Host-only one-update movement pulse; never an indefinite or cross-thread model command.
+        public void SubmitExternalMovement(Vector3 move, Vector2 look, bool jump = false) {
+            if (Environment.CurrentManagedThreadId != m_inputOwnerThread || !m_componentPlayer.PlayerData.IsExternalActor)
+                throw new InvalidOperationException("External movement requires actor game thread");
+            if (!float.IsFinite(move.X) || !float.IsFinite(move.Y) || !float.IsFinite(move.Z) || !float.IsFinite(look.X) || !float.IsFinite(look.Y))
+                throw new ArgumentException("Nonfinite movement");
+            if (move.LengthSquared() > 1f || MathF.Abs(look.X) > 1f || MathF.Abs(look.Y) > 1f) throw new ArgumentOutOfRangeException("Movement pulse outside normalized bounds");
+            m_externalInput = new PlayerInput { Move = move, Look = look, Jump = jump };
+        }
 
         public bool IsControlledByTouch { get; set; } = Touch.IsTouched;
 
-        public bool IsControlledByVr => VrManager.IsFrameActive
+        public bool IsControlledByVr => !m_componentPlayer.PlayerData.IsExternalActor && VrManager.IsFrameActive
             && (m_componentPlayer.GameWidget.Input.Devices & WidgetInputDevice.VrControllers) != WidgetInputDevice.None;
 
         public bool AllowHandleInput { get; set; } = true;
@@ -58,7 +69,7 @@ namespace Game {
         }
 
         public virtual Ray3? CalculateVrHandRay() {
-            if (VrManager.IsControllerPresent(VrController.Right)) {
+            if (!m_componentPlayer.PlayerData.IsExternalActor && VrManager.IsControllerPresent(VrController.Right)) {
                 Camera activeCamera = m_componentPlayer.GameWidget.ActiveCamera;
                 Matrix matrix = VrManager.HmdMatrixInverted
                     * Matrix.CreateWorld(activeCamera.ViewPosition, activeCamera.ViewDirection, activeCamera.ViewUp);
@@ -69,11 +80,15 @@ namespace Game {
         }
 
         public virtual void Update(float dt) {
-            m_playerInput = default;
+            bool external = m_componentPlayer.PlayerData.IsExternalActor;
+            m_playerInput = external ? m_externalInput : default;
+            m_externalInput = default;
+            if (!external) {
             UpdateInputFromMouseAndKeyboard(m_componentPlayer.GameWidget.Input);
             UpdateInputFromGamepad(m_componentPlayer.GameWidget.Input);
             UpdateInputFromVrControllers(m_componentPlayer.GameWidget.Input);
             UpdateInputFromWidgets(m_componentPlayer.GameWidget.Input);
+            }
             if (m_playerInput.Jump) {
                 if (Time.RealTime - m_lastJumpTime < 0.3 && ToggleFlyInDoubleJump) {
                     m_playerInput.ToggleCreativeFly = true;
@@ -86,13 +101,13 @@ namespace Game {
             m_playerInput.CameraMove = m_playerInput.Move;
             m_playerInput.CameraCrouchMove = m_playerInput.CrouchMove;
             m_playerInput.CameraLook = m_playerInput.Look;
-            if (!Window.IsActive
+            if ((!external && !Window.IsActive)
                 || !m_componentPlayer.PlayerData.IsReadyForPlaying) {
                 m_playerInput = default;
             }
             else if (m_componentPlayer.ComponentHealth.Health <= 0f
                 || m_componentPlayer.ComponentSleep.SleepFactor > 0f
-                || !m_componentPlayer.GameWidget.ActiveCamera.IsEntityControlEnabled) {
+                || (!external && !m_componentPlayer.GameWidget.ActiveCamera.IsEntityControlEnabled)) {
                 m_playerInput = new PlayerInput {
                     CameraMove = m_playerInput.CameraMove,
                     CameraCrouchMove = m_playerInput.CameraCrouchMove,
@@ -104,7 +119,7 @@ namespace Game {
                     KeyboardHelp = m_playerInput.KeyboardHelp
                 };
             }
-            else if (m_componentPlayer.GameWidget.ActiveCamera.UsesMovementControls) {
+            else if (!external && m_componentPlayer.GameWidget.ActiveCamera.UsesMovementControls) {
                 m_playerInput.Move = Vector3.Zero;
                 m_playerInput.CrouchMove = Vector3.Zero;
                 m_playerInput.Look = Vector2.Zero;

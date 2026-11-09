@@ -142,7 +142,13 @@ namespace Game {
 
         public LabelWidget LevelLabelWidget { get; set; }
 
-        public virtual bool ShowTouchWidget => m_componentPlayer.ComponentInput.IsControlledByTouch;
+        // External actors retain detached value sinks used by native survival components,
+        // but never create a GameWidget, input controls, or an attached GUI tree.
+        public bool IsExternalActor => m_componentPlayer?.PlayerData?.IsExternalActor == true;
+
+        public string LastExternalSmallMessage { get; private set; }
+
+        public virtual bool ShowTouchWidget => !IsExternalActor && m_componentPlayer.ComponentInput.IsControlledByTouch;
 
         public Widget ModalPanelWidget {
             get {
@@ -153,6 +159,7 @@ namespace Game {
                 return m_modalPanelContainerWidget.Children[0];
             }
             set {
+                if (IsExternalActor) { return; }
                 if (value != ModalPanelWidget) {
                     if (m_modalPanelAnimationData != null) {
                         EndModalPanelAnimation();
@@ -197,6 +204,7 @@ namespace Game {
             if (skip) {
                 return;
             }
+            if (IsExternalActor) { LastExternalSmallMessage = text; return; }
             MessageWidget.Message message = new(text, color, blinking);
             DisplaySmallMessage(message, playNotificationSound);
         }
@@ -204,6 +212,7 @@ namespace Game {
         // ReSharper disable MethodOverloadWithOptionalParameter
         public virtual void DisplaySmallMessage(string text, Color color, bool blinking, bool playNotificationSound, float fontScale = 1f) {
             // ReSharper restore MethodOverloadWithOptionalParameter
+            if (IsExternalActor) { LastExternalSmallMessage = text; return; }
             MessageWidget.Message message = new(text, color, blinking, fontScale);
             DisplaySmallMessage(message, playNotificationSound);
         }
@@ -214,6 +223,7 @@ namespace Game {
         /// <param name="message"></param>
         /// <param name="playNotificationSound"></param>
         public virtual void DisplaySmallMessage(MessageWidget.Message message, bool playNotificationSound) {
+            if (IsExternalActor) { LastExternalSmallMessage = message?.LabelWidget?.Text; return; }
             m_messageWidget.DisplayMessage(message);
             if (playNotificationSound) {
                 m_subsystemAudio.PlaySound("Audio/UI/Message", 1f, 0f, 0f, 0f);
@@ -221,6 +231,7 @@ namespace Game {
         }
 
         public virtual bool IsGameMenuDialogVisible() {
+            if (IsExternalActor) { return false; }
             foreach (Dialog dialog in DialogsManager.Dialogs) {
                 if (dialog.ParentWidget == m_componentPlayer.GuiWidget
                     && dialog is GameMenuDialog) {
@@ -231,6 +242,12 @@ namespace Game {
         }
 
         public virtual void Update(float dt) {
+            if (IsExternalActor) {
+                if (m_message != null && Time.RealTime > m_message.StartTime + m_message.Duration) {
+                    m_message = null;
+                }
+                return;
+            }
             HandleInput();
             UpdateWidgets();
             ModsManager.HookAction(
@@ -252,6 +269,16 @@ namespace Game {
             m_subsystemBlockBehaviors = Project.FindSubsystem<SubsystemBlockBehaviors>(true);
             m_componentPlayer = Entity.FindComponent<ComponentPlayer>(true);
             m_componentInput = Entity.FindComponent<ComponentInput>();
+            if (IsExternalActor) {
+                HealthBarWidget = new ValueBarWidget();
+                FoodBarWidget = new ValueBarWidget();
+                TemperatureBarWidget = new ValueBarWidget();
+                LevelLabelWidget = new LabelWidget();
+                ControlsContainerWidget = new CanvasWidget { IsVisible = false };
+                m_keyboardHelpMessageShown = valuesDictionary.GetValue<bool>("KeyboardHelpMessageShown");
+                m_gamepadHelpMessageShown = valuesDictionary.GetValue<bool>("GamepadHelpMessageShown");
+                return;
+            }
             GameWidget = m_componentPlayer.GameWidget;
             ContainerWidget guiWidget = m_componentPlayer.GuiWidget;
             m_backButtonWidget = guiWidget.Children.Find<ButtonWidget>("BackButton");
@@ -320,11 +347,11 @@ namespace Game {
         }
 
         public override void OnEntityAdded() {
-            ShortInventoryWidget.AssignComponents(m_componentPlayer.ComponentMiner.Inventory);
+            ShortInventoryWidget?.AssignComponents(m_componentPlayer.ComponentMiner.Inventory);
         }
 
         public override void OnEntityRemoved() {
-            ShortInventoryWidget.AssignComponents(null);
+            ShortInventoryWidget?.AssignComponents(null);
             m_message = null;
         }
 
@@ -337,6 +364,7 @@ namespace Game {
         }
 
         public virtual void UpdateSidePanelsAnimation() {
+            if (IsExternalActor) { return; }
             float num = MathUtils.Min(Time.FrameDuration, 0.1f);
             bool showModelWidget = ModalPanelWidget != null && (m_modalPanelAnimationData == null || m_modalPanelAnimationData.NewWidget != null);
             float targetSidePanelsFactor = (ShowTouchWidget | showModelWidget) ? 0 : 1;
@@ -360,6 +388,7 @@ namespace Game {
         }
 
         public virtual void UpdateModalPanelAnimation() {
+            if (IsExternalActor) { return; }
             m_modalPanelAnimationData.Factor += 6f * MathUtils.Min(Time.FrameDuration, 0.1f);
             if (m_modalPanelAnimationData.Factor < 1f) {
                 float factor = m_modalPanelAnimationData.Factor;
@@ -390,6 +419,7 @@ namespace Game {
         }
 
         public virtual void EndModalPanelAnimation() {
+            if (IsExternalActor) { return; }
             if (m_modalPanelAnimationData.OldWidget != null) {
                 m_modalPanelContainerWidget.Children.Remove(m_modalPanelAnimationData.OldWidget);
             }
@@ -401,6 +431,7 @@ namespace Game {
         }
 
         public virtual void UpdateWidgets() {
+            if (IsExternalActor) { return; }
             ComponentRider componentRider = m_componentPlayer.ComponentRider;
             ComponentSleep componentSleep = m_componentPlayer.ComponentSleep;
             //ComponentInput componentInput = m_componentPlayer.ComponentInput;
@@ -509,6 +540,7 @@ namespace Game {
         }
 
         public virtual void HandleInput() {
+            if (IsExternalActor) { return; }
             WidgetInput input = m_componentPlayer.GameWidget.Input;
             PlayerInput playerInput = m_componentPlayer.ComponentInput.PlayerInput;
             ComponentRider componentRider = m_componentPlayer.ComponentRider;
@@ -743,6 +775,7 @@ namespace Game {
         }
 
         public virtual void Draw(Camera camera, int drawOrder) {
+            if (IsExternalActor) { return; }
             ModsManager.HookAction(
                 "GuiDraw",
                 modloader => {

@@ -47,9 +47,9 @@ namespace Game {
 
         public GameWidget GameWidget => PlayerData.GameWidget;
 
-        public ContainerWidget GuiWidget => PlayerData.GameWidget.GuiWidget;
+        public ContainerWidget GuiWidget => PlayerData.GameWidget?.GuiWidget;
 
-        public ViewWidget ViewWidget => PlayerData.GameWidget.ViewWidget;
+        public ViewWidget ViewWidget => PlayerData.GameWidget?.ViewWidget;
 
         public ComponentGui ComponentGui { get; set; }
 
@@ -163,7 +163,7 @@ namespace Game {
                 playerInput.Look = Vector2.Zero;
             }
             if (ComponentMiner.Inventory != null) {
-                int max = ComponentGui.ShortInventoryWidget.m_inventory is ComponentCreativeInventory
+                int max = PlayerData.IsExternalActor ? Math.Max(1, ComponentMiner.Inventory.VisibleSlotsCount) : ComponentGui.ShortInventoryWidget.m_inventory is ComponentCreativeInventory
                     ? ComponentGui.ShortInventoryWidget.MaxVisibleSlotsCountInCreative
                     : ComponentGui.ShortInventoryWidget.MaxVisibleSlotsCount;
                 ComponentMiner.Inventory.ActiveSlotIndex = SettingsManager.ShortInventoryLooping
@@ -350,12 +350,12 @@ namespace Game {
                     && m_subsystemTime.GameTime - m_lastActionTime > timeIntervalAim) {
                     if (!m_isAimBlocked) {
                         Ray3 value = playerInput.Aim.Value;
-                        Vector3 vector = GameWidget.ActiveCamera.WorldToScreen(value.Position + value.Direction, Matrix.Identity);
+                        Vector3 vector = GameWidget?.ActiveCamera.WorldToScreen(value.Position + value.Direction, Matrix.Identity) ?? Vector3.Zero;
                         Point2 size = Window.Size;
-                        if (vector.X >= size.X * 0.02f
+                        if (PlayerData.IsExternalActor || (vector.X >= size.X * 0.02f
                             && vector.X < size.X * 0.98f
                             && vector.Y >= size.Y * 0.02f
-                            && vector.Y < size.Y * 0.98f) {
+                            && vector.Y < size.Y * 0.98f)) {
                             m_aim = value;
                             m_aimStartTime ??= m_subsystemTime.GameTime;
                             if (ComponentMiner.Aim(value, AimState.InProgress)) {

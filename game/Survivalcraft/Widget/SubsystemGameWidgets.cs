@@ -61,6 +61,9 @@ namespace Game {
         }
 
         public virtual void AddGameWidgetForPlayer(PlayerData playerData) {
+            if (playerData.IsExternalActor) {
+                return;
+            }
             int index = 0;
             while (index < MaxGameWidgets
                 && m_gameWidgets.FirstOrDefault(v => v.GameWidgetIndex == index) != null) {

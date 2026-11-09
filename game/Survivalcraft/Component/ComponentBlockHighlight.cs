@@ -34,6 +34,7 @@ namespace Game {
         public int[] DrawOrders => m_drawOrders;
 
         public virtual void Update(float dt) {
+            if (m_componentPlayer.PlayerData.IsExternalActor) { NearbyEditableCell = null; m_highlightRaycastResult = null; return; }
             Camera activeCamera = m_componentPlayer.GameWidget.ActiveCamera;
             Ray3? ray = m_componentPlayer.ComponentInput.IsControlledByVr
                 ? m_componentPlayer.ComponentInput.CalculateVrHandRay()
