@@ -1,0 +1,36 @@
+{
+  "schema": "westworld-strict-route-v1",
+  "verdict": "fail",
+  "checks": [
+    {
+      "check": "exactly_two_navigation_dispatches",
+      "status": "pass"
+    },
+    {
+      "check": "first_command_distance_3m",
+      "status": "pass"
+    },
+    {
+      "check": "first_unique_receipt_and_terminal",
+      "status": "pass"
+    },
+    {
+      "check": "first_arrived_single_segment",
+      "status": "fail"
+    },
+    {
+      "check": "first_actual_progress",
+      "status": "pass"
+    },
+    {
+      "check": "one_complete_route",
+      "status": "pass"
+    },
+    {
+      "check": "unique_local_and_bounded_binding",
+      "status": "unknown"
+    }
+  ],
+  "binding": "unique serial single-actor log intervals + explicit bounded/local IDs; samples lack routeId; not cryptographic identity proof",
+  "sourceSha256": "a938c9ba0b7f0c82b4cced0417dead9fd5c379ace8eb53c783474eb8b90bf22b"
+}

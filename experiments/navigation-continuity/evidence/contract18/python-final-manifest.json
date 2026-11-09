@@ -1,0 +1,7 @@
+{
+  "source": "work/tool-contract18/navigation-python-final.log",
+  "sha256": "bbbdc745fb264931afa15a0d45b8d77194ef4c9e0119155325e10d17effd8111",
+  "bytes": 98,
+  "scope": "30 Python tool checks, separate from 775 C# contracts",
+  "initialAttempt": "read-only sandbox temporary-directory failure reported in tool output; no fabricated original log"
+}

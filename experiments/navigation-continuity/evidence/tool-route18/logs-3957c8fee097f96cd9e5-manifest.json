@@ -1,0 +1,37 @@
+{
+  "rawSHA256": "3957c8fee097f96cd9e5995dbf293d239b110160d44a47225690ffc48d4e9644",
+  "rawBytes": 1470118,
+  "gzipSHA256": "32c26621a5ba5e6d3e5f837da2856e9fe622df380086879434201c5f8b7ddbf8",
+  "parts": [
+    {
+      "file": "logs-3957c8fee097f96cd9e5.gz.b64.part001",
+      "bytes": 29000,
+      "sha256": "ee0c63cd1d6c0ed2df5a8e781dd3e3ade91d3b549bc2d0aab51854ba5792f0cd"
+    },
+    {
+      "file": "logs-3957c8fee097f96cd9e5.gz.b64.part002",
+      "bytes": 29000,
+      "sha256": "3546757dafaa65ba6642538c8742ab99405c3cbf48a126dc63354593cbe22bab"
+    },
+    {
+      "file": "logs-3957c8fee097f96cd9e5.gz.b64.part003",
+      "bytes": 29000,
+      "sha256": "55991f60fd7b24d527e2137a487abb3642fca33492fa303208fe22f5eaebf762"
+    },
+    {
+      "file": "logs-3957c8fee097f96cd9e5.gz.b64.part004",
+      "bytes": 29000,
+      "sha256": "735935d64c452835da291e3844de3cc671e73ede3225f555a2e35d4c5ba85f9b"
+    },
+    {
+      "file": "logs-3957c8fee097f96cd9e5.gz.b64.part005",
+      "bytes": 29000,
+      "sha256": "85fc80bcd6018da64a199a9561dd67927f627d4f4ff5c09f65f96a2bd02b07ea"
+    },
+    {
+      "file": "logs-3957c8fee097f96cd9e5.gz.b64.part006",
+      "bytes": 5316,
+      "sha256": "f545fa6ed1e7e6a9a54cc9d0433c60614d7857fbf08167ea9f30c197d14185b4"
+    }
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "schema": "westworld-continuity-analysis-v1",
+  "prefetchTiming": [
+    {
+      "requestId": "e90d4c09-85f7-46e9-a418-1220ba0f4319",
+      "precedingSuccess": true,
+      "requestToResponseSeconds": 3.0589873279968742,
+      "terminalToNextDispatchSeconds": 1.1066799849941162,
+      "nativeTerminalToNextDispatchSeconds": 1.32787153100071,
+      "terminalObservationDelaySeconds": 0.22119154600659385,
+      "dispatchAssociation": "temporal_only_unbound",
+      "responseAfterTerminalSeconds": 1.056637106994458,
+      "candidateTaken": true,
+      "reportedMovingOverlapSeconds": 1.1822164190016338,
+      "reportedMovingOverlapPath": 2.602630615234375
+    }
+  ],
+  "sampledStateSeconds": {
+    "Settling": 2.209111306008708,
+    "Observing": 0.11275408099754713,
+    "Looking": 0.23741668799630133,
+    "Moving": 1.8113892940018559,
+    "Arrived": 1.4558087219993467
+  },
+  "sampledCoverageSeconds": 5.826480091003759,
+  "lowSpeedIntervals": [
+    {
+      "requestId": "08f5a96b-da3a-4ada-bd5e-90304a24c1dd",
+      "ownerId": "257c337d-c969-409e-8cdf-3da7812da1b0",
+      "start": 51271.471575346,
+      "end": 51272.173025248,
+      "seconds": 0.7014499020006042
+    },
+    {
+      "requestId": "08f5a96b-da3a-4ada-bd5e-90304a24c1dd",
+      "ownerId": "257c337d-c969-409e-8cdf-3da7812da1b0",
+      "start": 51273.85103612,
+      "end": 51275.425636305,
+      "seconds": 1.5746001849984168
+    },
+    {
+      "requestId": "b2259cec-58ca-4b8f-b730-5f234eab9ae3",
+      "ownerId": "257c337d-c969-409e-8cdf-3da7812da1b0",
+      "start": 51275.43564523,
+      "end": 51276.109244492,
+      "seconds": 0.6735992620015168
+    },
+    {
+      "requestId": "b2259cec-58ca-4b8f-b730-5f234eab9ae3",
+      "ownerId": "257c337d-c969-409e-8cdf-3da7812da1b0",
+      "start": 51276.911666137,
+      "end": 51277.308064362,
+      "seconds": 0.3963982249988476
+    }
+  ],
+  "sampleGapOrInvalidCount": 1,
+  "sampledStateTransitionCount": 14,
+  "reportedSegmentCounts": [
+    1
+  ],
+  "postTerminalPhysicalState": "sampled_after_busy_not_continuous_proof",
+  "postTerminalSampleCount": 353,
+  "selectedFlatRoutes": [
+    {
+      "routeId": "be3df85d-03f2-4f24-aa2e-f1c51cbcfcac",
+      "plannedEndpointDistance": 3.0,
+      "internalWaypoints": [
+        {
+          "index": 0,
+          "sampleCount": 35,
+          "minimumSampledSpeed": 2.2099762,
+          "lowSpeedSamples": 0
+        },
+        {
+          "index": 1,
+          "sampleCount": 44,
+          "minimumSampledSpeed": 2.2515433,
+          "lowSpeedSamples": 0
+        }
+      ],
+      "skillRequestId": "b81e5a14-a8a8-47c7-881f-71f995e634b0",
+      "association": "serial_log_order_not_explicit_route_id_in_samples",
+      "waypoints": [
+        {
+          "X": -99.5,
+          "Y": 65,
+          "Z": -100.5
+        },
+        {
+          "X": -98.5,
+          "Y": 65,
+          "Z": -100.5
+        },
+        {
+          "X": -97.5,
+          "Y": 65,
+          "Z": -100.5
+        }
+      ],
+      "movingSampleCount": 266,
+      "movingSampleSpanSeconds": 1.3302821980032604,
+      "maximumMovingSampleGapSeconds": 0.055822645997977816,
+      "firstWaypointRadius": 0.2,
+      "firstWaypointNearSampleCount": 35,
+      "firstWaypointMinimumSampledSpeed": 2.2099762,
+      "firstWaypointLowSpeedSamples": 0,
+      "startSamplePosition": [
+        -100.5,
+        65,
+        -100.5
+      ],
+      "endMovingSamplePosition": [
+        -97.74551,
+        65,
+        -100.5
+      ]
+    },
+    {
+      "routeId": "9822a8f0-90ec-436a-b823-bbbe2697f0fa",
+      "plannedEndpointDistance": 1.0,
+      "internalWaypoints": [],
+      "skillRequestId": "bb76ab19-dcba-4f18-a642-f5a6bc1d809f",
+      "association": "serial_log_order_not_explicit_route_id_in_samples",
+      "waypoints": [
+        {
+          "X": -96.55281829833984,
+          "Y": 65,
+          "Z": -100.5
+        }
+      ],
+      "movingSampleCount": 142,
+      "movingSampleSpanSeconds": 0.47226829799910774,
+      "maximumMovingSampleGapSeconds": 0.010424341999168973,
+      "firstWaypointRadius": 0.2,
+      "firstWaypointNearSampleCount": 0,
+      "firstWaypointMinimumSampledSpeed": null,
+      "firstWaypointLowSpeedSamples": null,
+      "startSamplePosition": [
+        -97.55282,
+        65,
+        -100.5
+      ],
+      "endMovingSamplePosition": [
+        -96.800385,
+        65,
+        -100.5
+      ]
+    }
+  ],
+  "flatRouteFallbackCount": 2,
+  "internalWaypointStopCount": null,
+  "stopSpeedThreshold": 0.1,
+  "maximumSampleGapSeconds": 0.1,
+  "queryProjectionCpuSeconds": null,
+  "nativeActualStopTimes": null,
+  "unknown": [
+    "Intervals are sampled bounds, not proof of continuous zero speed; gaps are not interpolated"
+  ],
+  "navigationTerminals": [
+    {
+      "snapshot": {
+        "RequestId": "08f5a96b-da3a-4ada-bd5e-90304a24c1dd",
+        "Status": 3,
+        "Reason": "arrived",
+        "Busy": false,
+        "Segments": 1,
+        "Path": 2.94586181640625,
+        "Remaining": 0.05413818359375
+      },
+      "elapsedSeconds": 2.6609251
+    },
+    {
+      "snapshot": {
+        "RequestId": "b2259cec-58ca-4b8f-b730-5f234eab9ae3",
+        "Status": 3,
+        "Reason": "arrived",
+        "Busy": false,
+        "Segments": 1,
+        "Path": 0.9366073608398438,
+        "Remaining": 0.06339263916015625
+      },
+      "elapsedSeconds": 1.7329227
+    }
+  ],
+  "result": {
+    "kind": "result",
+    "passed": true,
+    "reason": "controlled_prefetch_lifecycle_verified",
+    "seconds": 11.339421,
+    "updateFailures": 0
+  },
+  "sourceSha256": "1af7fead7aca089c9f0e80598c810aee7c04f13764304c5c72141d8f18a84185"
+}

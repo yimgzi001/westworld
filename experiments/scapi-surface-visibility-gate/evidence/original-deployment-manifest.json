@@ -1,0 +1,10 @@
+{
+  "status": "prepared-not-run",
+  "models": 0,
+  "nativeCornerSeamCovered": false,
+  "hashes": {
+    "SurfaceVisibilityGate.dll": "7466cc0e43fa6de99970bfaad0ee0dce26f6b7fe39265db5204e1e1907245213",
+    "Westworld.Scapi.Adapter.dll": "aac793fa0998fd694e005e1a4c275f980c21dc980eecfa7b9b5c528200d75241",
+    "Survivalcraft.dll": "4de0087d320efba9f813ab38e3804e74332794ed494476874bd5c84897f41e55"
+  }
+}

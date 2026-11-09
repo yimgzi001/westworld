@@ -1,0 +1,17 @@
+{
+  "rawSHA256": "d1313995a3a767096b3347ecdd09fbc7fa8c7143817aa66ce2c3dde0b5190cc5",
+  "rawBytes": 259062,
+  "gzipSHA256": "b5d3fc2e2311816cb7a979db408a46b51e54d53f9c560be12879edcad73d4587",
+  "parts": [
+    {
+      "file": "logs-d1313995a3a767096b33.gz.b64.part001",
+      "bytes": 29000,
+      "sha256": "2cf9ec6ea437fc7e4dc96d43b94c34112f15c462696c36225f2e246957264d93"
+    },
+    {
+      "file": "logs-d1313995a3a767096b33.gz.b64.part002",
+      "bytes": 856,
+      "sha256": "6ce40d1f3db82a1b3da11ea979f8cd7a0adfd7a11516035b968d81ed75752f7f"
+    }
+  ]
+}

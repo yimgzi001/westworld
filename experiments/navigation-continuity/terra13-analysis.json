@@ -1,0 +1,67 @@
+{
+  "schema": "westworld-continuity-analysis-v1",
+  "prefetchTiming": [
+    {
+      "requestId": "b883d77c-9d82-4101-9082-1f83bcfc397a",
+      "precedingSuccess": true,
+      "requestToResponseSeconds": 7.722588157004793,
+      "terminalToNextDispatchSeconds": 2.6364721540012397,
+      "nativeTerminalToNextDispatchSeconds": 2.6544495310008642,
+      "terminalObservationDelaySeconds": 0.01797737699962454,
+      "dispatchAssociation": "temporal_only_unbound",
+      "responseAfterTerminalSeconds": 2.620130435003375,
+      "candidateTaken": true,
+      "reportedMovingOverlapSeconds": 1.290595527003461,
+      "reportedMovingOverlapPath": 2.11440278403461
+    }
+  ],
+  "sampledStateSeconds": null,
+  "sampledCoverageSeconds": null,
+  "lowSpeedIntervals": null,
+  "sampleGapOrInvalidCount": null,
+  "sampledStateTransitionCount": null,
+  "reportedSegmentCounts": [],
+  "postTerminalPhysicalState": "unknown_busy_only_telemetry",
+  "internalWaypointStopCount": null,
+  "stopSpeedThreshold": 0.1,
+  "maximumSampleGapSeconds": 0.1,
+  "queryProjectionCpuSeconds": null,
+  "nativeActualStopTimes": null,
+  "unknown": [
+    "No per-frame navigation_sample telemetry; state dwell/physical stops unknown"
+  ],
+  "navigationTerminals": [
+    {
+      "snapshot": {
+        "RequestId": "cb3e05e6-0af9-453c-9d63-b36af601e6d2",
+        "Status": 3,
+        "Reason": "arrived",
+        "Busy": false,
+        "Segments": 3,
+        "Path": 2.7848053108900785,
+        "Remaining": 0.2151947108040647
+      },
+      "elapsedSeconds": 5.9401308
+    },
+    {
+      "snapshot": {
+        "RequestId": "b70a7464-14ee-44e4-be2e-f1b6f2f0f8e9",
+        "Status": 3,
+        "Reason": "arrived",
+        "Busy": false,
+        "Segments": 1,
+        "Path": 0.9280242919921875,
+        "Remaining": 0.0719757080078125
+      },
+      "elapsedSeconds": 1.7613054
+    }
+  ],
+  "result": {
+    "kind": "result",
+    "passed": true,
+    "reason": "model_observed_endpoint_verified",
+    "seconds": 25.8733008,
+    "updateFailures": 0
+  },
+  "sourceSha256": "df5ce685879af66a7faf013e22c561502506fef96132f124098e96ff3700bf46"
+}

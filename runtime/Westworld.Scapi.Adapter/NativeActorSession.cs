@@ -32,9 +32,14 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
   var p=Actor(session,actorId);var origin=PositionOf(p);var eye=p.ComponentCreatureModel.EyePosition;var forward=Vector3.Normalize(p.ComponentCreatureModel.EyeRotation.GetForwardVector());
   var cells=new List<CellObservation>();int bx=Terrain.ToCell((float)origin.X),by=Terrain.ToCell((float)origin.Y),bz=Terrain.ToCell((float)origin.Z);
   for(int x=bx-4;x<=bx+4;x++)for(int z=bz-4;z<=bz+4;z++)for(int y=by-2;y<=by+observationAbove;y++){
-   var target=new Vector3(x+0.5f,y+0.5f,z+0.5f);var delta=target-eye;int? value=null;
-   bool candidate=y>=0&&y<TerrainChunk.Height&&delta.Length()<=5f&&(delta.LengthSquared()<=0.0001f||Vector3.Dot(Vector3.Normalize(delta),forward)>=0.5f);
-   if(candidate&&LoadedRectangle(eye,target)&&OpaqueVoxelLineOfSight(eye,target))value=terrain.Terrain.GetCellValue(x,y,z);
+   int? value=null;var ep=new Position(eye.X,eye.Y,eye.Z);var fp=new Position(forward.X,forward.Y,forward.Z);
+   foreach(var point in VoxelSurfaceVisibility.Samples(ep,x,y,z)){
+    // Recheck the realized float endpoint: inset must not round into the neighbouring voxel.
+    var target=new Vector3((float)point.X,(float)point.Y,(float)point.Z);var realized=new Position(target.X,target.Y,target.Z);
+    if(VoxelSurfaceVisibility.InView(ep,fp,realized,x,y,z)&&LoadedRectangle(eye,target)&&OpaqueVoxelLineOfSight(eye,target)){
+     value=terrain.Terrain.GetCellValue(x,y,z);break;
+    }
+   }
    cells.Add(new(x,y,z,value.HasValue?"known":"unknown",value));
   }
   // Old observations may be retired; action tickets are never evicted or replayed.
@@ -50,20 +55,13 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  }
  // Conservative visual policy: full opaque voxel occlusion, not collision-box LOS.
  // Transparent blocks do not occlude; sub-voxel holes in opaque blocks are conservatively hidden.
- bool OpaqueVoxelLineOfSight(Vector3 start,Vector3 end){
-  var d=end-start;int x=Terrain.ToCell(start.X),y=Terrain.ToCell(start.Y),z=Terrain.ToCell(start.Z),tx=Terrain.ToCell(end.X),ty=Terrain.ToCell(end.Y),tz=Terrain.ToCell(end.Z);
-  int sx=Math.Sign(d.X),sy=Math.Sign(d.Y),sz=Math.Sign(d.Z);
-  float Delta(float v)=>v==0?float.PositiveInfinity:MathF.Abs(1/v);
-  float First(float a,float v,int cell)=>v==0?float.PositiveInfinity:((v>0?cell+1:cell)-a)/v;
-  float dx=Delta(d.X),dy=Delta(d.Y),dz=Delta(d.Z),mx=First(start.X,d.X,x),my=First(start.Y,d.Y,y),mz=First(start.Z,d.Z,z);
-  for(int step=0;step<32;step++){
-   if(x==tx&&y==ty&&z==tz)return true;
-   if(y<0||y>=TerrainChunk.Height)return false;
+ bool OpaqueVoxelLineOfSight(Vector3 start,Vector3 end)=>VoxelSurfaceVisibility.LineOfSight(
+  new(start.X,start.Y,start.Z),new(end.X,end.Y,end.Z),(x,y,z)=>{
+   if(y<0||y>=TerrainChunk.Height||terrain.Terrain.GetChunkAtCell(x,z)?.State!=TerrainChunkState.Valid)return null;
    int value=terrain.Terrain.GetCellValue(x,y,z);
-   if(!BlocksManager.Blocks[Terrain.ExtractContents(value)].IsTransparent_(value))return false;
-   if(mx<=my&&mx<=mz){x+=sx;mx+=dx;}else if(my<=mz){y+=sy;my+=dy;}else{z+=sz;mz+=dz;}
-  }return false;
- }
+   return !BlocksManager.Blocks[Terrain.ExtractContents(value)].IsTransparent_(value);
+  });
+
  bool LoadedRectangle(Vector3 a,Vector3 b){
   int minX=Terrain.ToCell(MathF.Min(a.X,b.X))>>4,maxX=Terrain.ToCell(MathF.Max(a.X,b.X))>>4,minZ=Terrain.ToCell(MathF.Min(a.Z,b.Z))>>4,maxZ=Terrain.ToCell(MathF.Max(a.Z,b.Z))>>4;
   for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++)if(terrain.Terrain.GetChunkAtCell(x*16,z*16)?.State!=TerrainChunkState.Valid)return false;

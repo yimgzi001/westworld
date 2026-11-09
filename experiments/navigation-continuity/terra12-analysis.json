@@ -1,0 +1,67 @@
+{
+  "schema": "westworld-continuity-analysis-v1",
+  "prefetchTiming": [
+    {
+      "requestId": "adaa1c4b-74a2-42e8-8271-332d48816e7d",
+      "precedingSuccess": true,
+      "requestToResponseSeconds": 9.632778412000334,
+      "terminalToNextDispatchSeconds": 11.611210616996686,
+      "nativeTerminalToNextDispatchSeconds": 11.86437923199992,
+      "terminalObservationDelaySeconds": 0.25316861500323284,
+      "dispatchAssociation": "temporal_only_unbound",
+      "responseAfterTerminalSeconds": 4.331400025999756,
+      "candidateTaken": true,
+      "reportedMovingOverlapSeconds": 1.2832690950017422,
+      "reportedMovingOverlapPath": 2.1036224365234375
+    }
+  ],
+  "sampledStateSeconds": null,
+  "sampledCoverageSeconds": null,
+  "lowSpeedIntervals": null,
+  "sampleGapOrInvalidCount": null,
+  "sampledStateTransitionCount": null,
+  "reportedSegmentCounts": [],
+  "postTerminalPhysicalState": "unknown_busy_only_telemetry",
+  "internalWaypointStopCount": null,
+  "stopSpeedThreshold": 0.1,
+  "maximumSampleGapSeconds": 0.1,
+  "queryProjectionCpuSeconds": null,
+  "nativeActualStopTimes": null,
+  "unknown": [
+    "No per-frame navigation_sample telemetry; state dwell/physical stops unknown"
+  ],
+  "navigationTerminals": [
+    {
+      "snapshot": {
+        "RequestId": "fb403d89-36df-4ac4-9dce-190a240d8d14",
+        "Status": 3,
+        "Reason": "arrived",
+        "Busy": false,
+        "Segments": 3,
+        "Path": 2.7890548706054688,
+        "Remaining": 0.21094512939453125
+      },
+      "elapsedSeconds": 5.9573058
+    },
+    {
+      "snapshot": {
+        "RequestId": "7a7b1c53-149c-40d1-b712-05d6107eeabe",
+        "Status": 3,
+        "Reason": "arrived",
+        "Busy": false,
+        "Segments": 1,
+        "Path": 0.9287109375,
+        "Remaining": 0.0712890625
+      },
+      "elapsedSeconds": 1.7663331
+    }
+  ],
+  "result": {
+    "kind": "result",
+    "passed": true,
+    "reason": "model_observed_endpoint_verified",
+    "seconds": 36.5325347,
+    "updateFailures": 0
+  },
+  "sourceSha256": "b959185a570fdd9b573f9c409369ebedfd08a16cef59c99a396dbe2d9d23327a"
+}

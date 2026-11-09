@@ -1,0 +1,163 @@
+{
+  "schema": "westworld-continuity-analysis-v1",
+  "prefetchTiming": [
+    {
+      "requestId": "d12e624f-9c39-4cb2-94a0-b840f1d25a06",
+      "precedingSuccess": true,
+      "requestToResponseSeconds": 1.1327618509967579,
+      "terminalToNextDispatchSeconds": 0.027564502001041546,
+      "nativeTerminalToNextDispatchSeconds": 0.16136943799938308,
+      "terminalObservationDelaySeconds": 0.13380493599834153,
+      "dispatchAssociation": "temporal_only_unbound",
+      "responseAfterTerminalSeconds": 0,
+      "candidateTaken": true,
+      "reportedMovingOverlapSeconds": 1.126810960995499,
+      "reportedMovingOverlapPath": 2.4771194458007812
+    }
+  ],
+  "sampledStateSeconds": {
+    "Settling": 1.585286041998188,
+    "Observing": 0.1077458390063839,
+    "Looking": 0.11837399599608034,
+    "Moving": 1.3346076140005607,
+    "Arrived": 0.027195866001420654,
+    "Failed": 0.06554348400095478
+  },
+  "sampledCoverageSeconds": 3.2387528410035884,
+  "lowSpeedIntervals": [
+    {
+      "requestId": "4d490b82-61be-4e9a-93b7-d53f1a8f99fd",
+      "ownerId": "9d805a52-0eca-4c16-a453-870453210e74",
+      "start": 50673.231558196,
+      "end": 50673.947269254,
+      "seconds": 0.715711058001034
+    },
+    {
+      "requestId": "4d490b82-61be-4e9a-93b7-d53f1a8f99fd",
+      "ownerId": "9d805a52-0eca-4c16-a453-870453210e74",
+      "start": 50675.600947202,
+      "end": 50675.833156771,
+      "seconds": 0.23220956899604062
+    },
+    {
+      "requestId": "4d490b82-61be-4e9a-93b7-d53f1a8f99fd",
+      "ownerId": "9d805a52-0eca-4c16-a453-870453210e74",
+      "start": 50675.981178719,
+      "end": 50676.008374585,
+      "seconds": 0.027195866001420654
+    },
+    {
+      "requestId": "5dc878ad-168b-4291-a4f8-cd0559f8e8bd",
+      "ownerId": "9d805a52-0eca-4c16-a453-870453210e74",
+      "start": 50676.017994871,
+      "end": 50676.627953271,
+      "seconds": 0.6099584000039613
+    }
+  ],
+  "sampleGapOrInvalidCount": 2,
+  "sampledStateTransitionCount": 9,
+  "reportedSegmentCounts": [
+    1
+  ],
+  "postTerminalPhysicalState": "sampled_after_busy_not_continuous_proof",
+  "postTerminalSampleCount": 17,
+  "selectedFlatRoutes": [
+    {
+      "routeId": "77e56782-234a-483a-b6e1-6efbb53d766b",
+      "plannedEndpointDistance": 3.0,
+      "internalWaypoints": [
+        {
+          "index": 0,
+          "sampleCount": 53,
+          "minimumSampledSpeed": 2.2062464,
+          "lowSpeedSamples": 0
+        },
+        {
+          "index": 1,
+          "sampleCount": 44,
+          "minimumSampledSpeed": 2.2514675,
+          "lowSpeedSamples": 0
+        }
+      ],
+      "skillRequestId": "2a0f0023-43b4-419a-915e-0d257c403ea4",
+      "association": "serial_log_order_not_explicit_route_id_in_samples",
+      "waypoints": [
+        {
+          "X": -99.5,
+          "Y": 65,
+          "Z": -100.5
+        },
+        {
+          "X": -98.5,
+          "Y": 65,
+          "Z": -100.5
+        },
+        {
+          "X": -97.5,
+          "Y": 65,
+          "Z": -100.5
+        }
+      ],
+      "movingSampleCount": 289,
+      "movingSampleSpanSeconds": 1.3265703059951193,
+      "maximumMovingSampleGapSeconds": 0.03959650300384965,
+      "firstWaypointRadius": 0.2,
+      "firstWaypointNearSampleCount": 53,
+      "firstWaypointMinimumSampledSpeed": 2.2062464,
+      "firstWaypointLowSpeedSamples": 0,
+      "startSamplePosition": [
+        -100.5,
+        65,
+        -100.5
+      ],
+      "endMovingSamplePosition": [
+        -97.74793,
+        65,
+        -100.5
+      ]
+    }
+  ],
+  "flatRouteFallbackCount": 2,
+  "internalWaypointStopCount": null,
+  "stopSpeedThreshold": 0.1,
+  "maximumSampleGapSeconds": 0.1,
+  "queryProjectionCpuSeconds": null,
+  "nativeActualStopTimes": null,
+  "unknown": [
+    "Intervals are sampled bounds, not proof of continuous zero speed; gaps are not interpolated"
+  ],
+  "navigationTerminals": [
+    {
+      "snapshot": {
+        "RequestId": "4d490b82-61be-4e9a-93b7-d53f1a8f99fd",
+        "Status": 3,
+        "Reason": "arrived",
+        "Busy": false,
+        "Segments": 1,
+        "Path": 2.9398880004882812,
+        "Remaining": 0.06011199951171875
+      },
+      "elapsedSeconds": 2.6501341
+    },
+    {
+      "snapshot": {
+        "RequestId": "5dc878ad-168b-4291-a4f8-cd0559f8e8bd",
+        "Status": 4,
+        "Reason": "segment_no_untried_missing_cells",
+        "Busy": false,
+        "Segments": 1,
+        "Path": 0.00019073486328125,
+        "Remaining": 0.9998092651367188
+      },
+      "elapsedSeconds": 0.5480355
+    }
+  ],
+  "result": {
+    "kind": "result",
+    "passed": false,
+    "reason": "controlled_prefetch_lifecycle_failed",
+    "seconds": 9.1588041,
+    "updateFailures": 0
+  },
+  "sourceSha256": "7a9f1f1aa1d27769cab75aab5d31ea5c77e3466f84bfb5aa3d2d35d68ba665a8"
+}

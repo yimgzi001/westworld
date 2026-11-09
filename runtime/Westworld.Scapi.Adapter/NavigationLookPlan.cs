@@ -22,9 +22,10 @@ public sealed class NavigationLookPlan {
         limit=maxAttempts;
     }
     public NavigationLookDecision Next(LocalObservationWindow window,Position eye,
-        IReadOnlyList<NavigationMissingCell> missing) {
+        IReadOnlyList<NavigationMissingCell> missing,double maximumKnownAge=3) {
         ArgumentNullException.ThrowIfNull(window);ArgumentNullException.ThrowIfNull(missing);
         NavigationLookDecision No(string reason)=>new(null,reason);
+        if(!double.IsFinite(maximumKnownAge)||maximumKnownAge<0||maximumKnownAge>3)return No("invalid_evidence_age_limit");
         if(window.SessionId==Guid.Empty||window.ActorId==Guid.Empty||window.ObservationId==Guid.Empty
             ||!double.IsFinite(window.Time)||window.Time<0||!Finite(window.Position)||!Finite(eye)
             ||!float.IsFinite(window.Health)||window.Health<=0||missing.Count>512||window.Cells.Count>4096
@@ -36,10 +37,12 @@ public sealed class NavigationLookPlan {
         foreach(var c in window.Cells) {
             if(c is null||!known.Add((c.X,c.Y,c.Z)))return No("invalid_window");
         }
+        // A stricter dispatch freshness limit can request real re-observation.
+        // It never updates evidence timestamps or resets the finite attempt budget.
         // Invalid/expired evidence is not upgraded into knowledge.
         known.Clear();
         foreach(var c in window.Cells)if(c.Value>=0&&c.SourceObservationId!=Guid.Empty
-            &&double.IsFinite(c.Age)&&c.Age>=0&&c.Age<=3&&double.IsFinite(c.ObservedAt)&&c.ObservedAt>=0
+            &&double.IsFinite(c.Age)&&c.Age>=0&&c.Age<=maximumKnownAge&&double.IsFinite(c.ObservedAt)&&c.ObservedAt>=0
             &&Math.Abs(window.Time-c.ObservedAt-c.Age)<=1e-6)known.Add((c.X,c.Y,c.Z));
         foreach(var c in missing)if(c is null||!Enum.IsDefined(c.Stage)||c.Y is <0 or >255
             ||Math.Abs((long)c.X)>10_000_000||Math.Abs((long)c.Z)>10_000_000
@@ -52,7 +55,7 @@ public sealed class NavigationLookPlan {
             .OrderBy(c=>c.Stage).ThenBy(c=>Distance(eye,new(c.X+.5,c.Y+.5,c.Z+.5)))
             .ThenBy(c=>c.X).ThenBy(c=>c.Y).ThenBy(c=>c.Z);
         foreach(var c in candidates) {
-            var target=new Position(c.X+.5,c.Y+.5,c.Z+.5);double length=Distance(eye,target);
+            var target=(c.Stage is NavigationLookStage.CurrentSupport or NavigationLookStage.ForwardSupport)&&c.Y<Math.Round(window.Position.Y)?VoxelSurfaceVisibility.SupportTop(c.X,c.Y,c.Z):new Position(c.X+.5,c.Y+.5,c.Z+.5);double length=Distance(eye,target);
             if(length<1e-6)continue;
             var d=new Position((target.X-eye.X)/length,(target.Y-eye.Y)/length,(target.Z-eye.Z)/length);
             attempted.Add((c.X,c.Y,c.Z));count++;

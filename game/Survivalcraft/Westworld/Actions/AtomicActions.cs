@@ -44,6 +44,7 @@ namespace Game.Westworld {
 
             Register<MoveTo>(StartMove, () => m_body != null && (m_pathfinding != null && m_pilot != null
                 || m_locomotion is { WalkSpeed: > 0f } or { SwimSpeed: > 0f }));
+            Register<MoveAlongObservedRoute>(StartObservedRoute, () => m_body != null && m_locomotion is { WalkSpeed: > 0f });
             Register<Wait>(StartWait);
             Register<SelectItem>(StartSelectItem, () => m_miner?.Inventory is { VisibleSlotsCount: > 0, SlotsCount: > 0 });
             RegisterMovement();

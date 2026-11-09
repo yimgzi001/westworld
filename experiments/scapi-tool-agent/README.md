@@ -44,7 +44,7 @@ free03 was accidentally staged from old DLLs after a failed parallel build repor
 
 ## Reproducible verification
 
-`bash experiments/scapi-tool-agent/run-contract-tests.sh` builds and runs seventeen pure suites, failing immediately on any build/test error. Dependencies must already be restored. These do not prove native world or model outcomes. Run them between resource-measured model trials, not during a trial.
+`bash experiments/scapi-tool-agent/run-contract-tests.sh` builds and runs twenty pure suites, failing immediately on any build/test error. Dependencies must already be restored. These do not prove native world or model outcomes. Run them between resource-measured model trials, not during a trial.
 
 `bash experiments/scapi-tool-agent/stage.sh <fresh-label> <existing-runtime-assets-directory>` serially builds and stages four modes only after a successful build. Each fresh directory records source/DLL hashes, and its run.sh verifies installed DLL hashes before execution. Launch that run.sh through the authorized dot desktop terminal. Do not reuse existing world/evidence directories.
 
@@ -72,4 +72,12 @@ Native ledger behavior was verified separately in scapi-navigation-ledger-gate (
 
 ## PlanningPhase 回归接入
 
-批测 runner 已加入 `Westworld.PlanningPhase.Tests`（实际 csproj/assembly 名均带 Westworld 前缀），默认共17套。新增16条纯断言检查前序真实运行状态与身份、原始目标/参数保留、非未来事实说明及剩余预算边界。不启动模型/游戏；不证明提前规划实测成功。可单独运行 `dotnet tests/Westworld.PlanningPhase.Tests/bin/Release/net10.0/Westworld.PlanningPhase.Tests.dll`。构建失败与测试失败均中止批测，不跳过此套。历史8套统计仍是当时的运行记录，不追溯改成17套。
+批测 runner 已加入 `Westworld.PlanningPhase.Tests`（实际 csproj/assembly 名均带 Westworld 前缀），此前默认共17套。新增16条纯断言检查前序真实运行状态与身份、原始目标/参数保留、非未来事实说明及剩余预算边界。不启动模型/游戏；不证明提前规划实测成功。可单独运行 `dotnet tests/Westworld.PlanningPhase.Tests/bin/Release/net10.0/Westworld.PlanningPhase.Tests.dll`。构建失败与测试失败均中止批测，不跳过此套。历史8套统计仍是当时的运行记录，不追溯改成当前套数。
+
+## ObservedFlatRoutes 接入批测
+
+runner追加第18套 `tests/Westworld.ObservedFlatRoutes.Tests/ObservedFlatRoutes.Tests.csproj`，程序集 `ObservedFlatRoutes.Tests.dll`。该套31条是纯观察路线几何检查，不等价于原生连续走路验证。其csproj引用 adapter 输出中的Core DLL，完整聚合前须先确认当前adapter原生编译成功；当前只更新runner并通过bash语法检查，未声称18套完整聚合已通过。历史17套669条仍保留其当时含义。
+
+## Stage17 感知契约批测
+
+新增 `VoxelSurfaceVisibility.Tests.csproj`/同名DLL 与 `NavigationLook.Tests.csproj`/同名DLL，默认20套，沿用串行build与禁用MSBuild server。新增两套只测体素可见性/补看计划契约，不等价于原生感知或游戏运行；ObservedFlatRoutes当前43条也保持纯几何定位。完整本批运行日志独立保存在work/tool-contract17，不覆盖旧批结果。

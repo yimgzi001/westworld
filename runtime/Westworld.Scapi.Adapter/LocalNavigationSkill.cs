@@ -15,7 +15,7 @@ public sealed class LocalNavigationSkill {
  readonly LocalNavigationSkillLease lease;
  readonly Guid actor; readonly LocalObservationMemory memory; readonly Action<object> audit;
  readonly int thread=Environment.CurrentManagedThreadId;
- NavigationLookPlan look=new(16); AtomicActionRun? run; NavigationSettling? settling;
+ NavigationLookPlan look=new(16),corridorLook=new(4); AtomicActionRun? run; NavigationSettling? settling;
  IReadOnlyList<LocalObservedCell> proof=Array.Empty<LocalObservedCell>();ObservedStepRoute? step;
  Position origin=new(0,0,0), destination=new(0,0,0), bias=new(0,0,0);
  long started,proofStarted,settlingStarted; double initialAge; double lastGameTime; Vector3 previous;
@@ -50,7 +50,7 @@ public sealed class LocalNavigationSkill {
    throw new InvalidOperationException("Stable living ground actor required before new segment");
   if(!lease.TryAcquire(requestId,GameTime))throw new InvalidOperationException("Native owner busy, quarantined or clock invalid");
   RequestId=requestId;bias=requestedDirectionPoint;started=Stopwatch.GetTimestamp();lastGameTime=GameTime;
-  previous=player.ComponentBody.Position;ActualHorizontalPath=0;look=new(16);alignedCell=null;preparations=0;cancelled=false;
+  previous=player.ComponentBody.Position;ActualHorizontalPath=0;look=new(16);corridorLook=new(4);alignedCell=null;preparations=0;cancelled=false;
   run=null;settling=null;Status=LocalNavigationStatus.Observing;Reason="fresh_local_segment_requested";
   StopAndSettle(LocalNavigationStatus.Observing,"initial_stable_dwell_required");
  }
@@ -81,6 +81,28 @@ public sealed class LocalNavigationSkill {
  void Prepare(){
   if(++preparations>18){StopAndSettle(LocalNavigationStatus.Failed,"preparation_budget_exhausted");return;}
   var w=memory.Observe(senses.Observe(senses.SessionId,actor));origin=w.Position;
+  var inspected=ObservedFlatRoutes.Inspect(w,bias,maximumEvidenceAge:2);var continuous=inspected.Route;
+  var bodyBox=player.ComponentBody.BoundingBox;var bodySize=bodyBox.Max-bodyBox.Min;
+  if(continuous is not null&&continuous.MaximumAge<=2&&bodySize.X<=.501f&&bodySize.Z<=.501f&&bodySize.Y<=1.901f){
+   // One model-authorized endpoint, one run/lease, all corridor cells already observed.
+   Begin(continuous.Destination,continuous.Evidence,null,
+    new MoveAlongObservedRoute(Array.AsReadOnly(continuous.Points.Select(Vec).ToArray()),.25f,4),LocalNavigationStatus.Moving);
+   audit(new{kind="observed_flat_route_started",RequestId,routeId=continuous.Id,waypoints=continuous.Points,continuous.MaximumAge,backend="player_direct_locomotion",supportsPilot=player.Entity.FindComponent<ComponentPilot>() is not null,supportsPathfinding=player.Entity.FindComponent<ComponentPathfinding>() is not null,nativeStatus=run!.Result.Status.ToString(),nativeFailure=run.Result.Failure.ToString()});return;
+  }
+  audit(new{kind="observed_flat_route_not_selected",RequestId,observationId=w.ObservationId,
+   reason=continuous is null?inspected.Reason:continuous.MaximumAge>2?"evidence_too_old_to_dispatch":"actual_body_exceeds_projection_envelope",
+   requiredCells=inspected.RequiredCount,issues=inspected.Issues.Take(16).ToArray(),issueCount=inspected.Issues.Count,requestedEndpoint=bias,actualBodySize=new[]{bodySize.X,bodySize.Y,bodySize.Z},fallback="existing_local_segment"});
+  if(inspected.Issues.Count>0&&inspected.Issues.All(i=>i.Reason is "missing_or_unknown" or "stale_evidence" or "refresh_needed")){
+   var eyePoint=player.ComponentCreatureModel.EyePosition;
+   var missing=inspected.Issues.Select(i=>new NavigationMissingCell(i.X,i.Y,i.Z,i.Support?NavigationLookStage.ForwardSupport:NavigationLookStage.HeadClearance)).ToArray();
+   var scan=corridorLook.Next(w,Pos(eyePoint),missing,maximumKnownAge:2);
+   if(scan.Look is {} targetLook){
+    if(!lease.IsHeld(RequestId))throw new InvalidOperationException("Navigation lease lost");
+    proof=Array.Empty<LocalObservedCell>();step=null;run=actions.Start(new FaceTowards(Vec(targetLook.Target),4,(float)Math.Clamp(targetLook.PitchRadians*180/Math.PI,-75,75)));Status=LocalNavigationStatus.Looking;
+    audit(new{kind="target_corridor_look",RequestId,targetLook,reason=scan.Reason});return;
+   }
+   audit(new{kind="target_corridor_look_exhausted",RequestId,reason=scan.Reason});
+  }
   var flat=LocalRouteCandidates.Project(w,1,RouteGroundPolicy.ObservedFullCube);var steps=ObservedStepRoutes.Project(w);
   var centre=LocalNavigationAlignment.Project(w);string cell=$"{Math.Floor(origin.X)},{Math.Floor(origin.Y)},{Math.Floor(origin.Z)}";
   bool raised=w.Cells.Any(c=>c.Y==(int)Math.Round(origin.Y)&&(c.Value&1023) is 1 or 2 or 3 or 4 or 5 or 8&&Math.Abs(c.X-Math.Floor(origin.X))+Math.Abs(c.Z-Math.Floor(origin.Z))==1);

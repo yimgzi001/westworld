@@ -1,0 +1,92 @@
+{
+  "schema": "westworld-strict-route-v1",
+  "verdict": "pass",
+  "checks": [
+    {
+      "check": "exactly_two_navigation_dispatches",
+      "status": "pass"
+    },
+    {
+      "check": "first_command_distance_3m",
+      "status": "pass"
+    },
+    {
+      "check": "first_unique_receipt_and_terminal",
+      "status": "pass"
+    },
+    {
+      "check": "first_arrived_single_segment",
+      "status": "pass"
+    },
+    {
+      "check": "first_actual_progress",
+      "status": "pass"
+    },
+    {
+      "check": "one_complete_route",
+      "status": "pass"
+    },
+    {
+      "check": "unique_local_and_bounded_binding",
+      "status": "pass"
+    },
+    {
+      "check": "geometry_present",
+      "status": "pass"
+    },
+    {
+      "check": "full_authorized_3m_endpoint",
+      "status": "pass"
+    },
+    {
+      "check": "single_sample_owner",
+      "status": "pass"
+    },
+    {
+      "check": "moving_samples_present",
+      "status": "pass"
+    },
+    {
+      "check": "no_internal_nonmoving_state",
+      "status": "pass"
+    },
+    {
+      "check": "continuous_sample_times",
+      "status": "pass"
+    },
+    {
+      "check": "actual_lease_while_moving",
+      "status": "pass"
+    },
+    {
+      "check": "waypoint_0_both_sides_sampled",
+      "status": "pass"
+    },
+    {
+      "check": "waypoint_0_no_sampled_low_speed",
+      "status": "pass"
+    },
+    {
+      "check": "waypoint_1_both_sides_sampled",
+      "status": "pass"
+    },
+    {
+      "check": "waypoint_1_no_sampled_low_speed",
+      "status": "pass"
+    },
+    {
+      "check": "second_command_1m",
+      "status": "pass"
+    },
+    {
+      "check": "second_actual_arrived",
+      "status": "pass"
+    },
+    {
+      "check": "overall_native_pass",
+      "status": "pass"
+    }
+  ],
+  "binding": "unique serial single-actor log intervals + explicit bounded/local IDs; samples lack routeId; not cryptographic identity proof",
+  "sourceSha256": "210a1230c91663433cd5794b24aefa51f10041a768b42fe1f22dc236e9f98a88"
+}

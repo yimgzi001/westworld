@@ -1,0 +1,153 @@
+{
+  "schema": "westworld-continuity-matrix-v1",
+  "status": "partially_executed",
+  "cases": [
+    {
+      "case": "flat-delay-1s-repeat-1",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 1,
+      "repeat": 1,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay1-repeat1/tool-agent.jsonl",
+      "sourceSha256": "950f583957094c90a42b3721d2932d083efedeb285efce97ea79eb403c020979"
+    },
+    {
+      "case": "flat-delay-1s-repeat-2",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 1,
+      "repeat": 2,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay1-repeat2/tool-agent.jsonl",
+      "sourceSha256": "af48334a3ea3a80eaf63b1663f1ee0df1b9d597b66d4a87c252689b5e41ae570"
+    },
+    {
+      "case": "flat-delay-1s-repeat-3",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 1,
+      "repeat": 3,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay1-repeat3/tool-agent.jsonl",
+      "sourceSha256": "210a1230c91663433cd5794b24aefa51f10041a768b42fe1f22dc236e9f98a88"
+    },
+    {
+      "case": "flat-delay-3s-repeat-1",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 3,
+      "repeat": 1,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay3-repeat1/tool-agent.jsonl",
+      "sourceSha256": "84f216114acd3137c9fdae3e5abe6d14cc30d862d71631c5344e8b4f73c26eef"
+    },
+    {
+      "case": "flat-delay-3s-repeat-2",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 3,
+      "repeat": 2,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay3-repeat2/tool-agent.jsonl",
+      "sourceSha256": "5a3ba47354d20da03d78d202608ddce644ecc9b0be3f14fb2dbe30ba3a932005"
+    },
+    {
+      "case": "flat-delay-3s-repeat-3",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 3,
+      "repeat": 3,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay3-repeat3/tool-agent.jsonl",
+      "sourceSha256": "1af7fead7aca089c9f0e80598c810aee7c04f13764304c5c72141d8f18a84185"
+    },
+    {
+      "case": "flat-delay-8s-repeat-1",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 8,
+      "repeat": 1,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay8-repeat1/tool-agent.jsonl",
+      "sourceSha256": "aae651fc3c67ead67570c266f830d085324f3a8029938f93cbe5e9e7d7830482"
+    },
+    {
+      "case": "flat-delay-8s-repeat-2",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 8,
+      "repeat": 2,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay8-repeat2/tool-agent.jsonl",
+      "sourceSha256": "53c62aeae3952aba4b2f4e6810b704247a5be4be2ce23c59b4a07aaf9a670d48"
+    },
+    {
+      "case": "flat-delay-8s-repeat-3",
+      "fixture": "same_flat_3m",
+      "replyDelaySeconds": 8,
+      "repeat": 3,
+      "expected": "actual predecessor arrival plus fresh candidate validation; late reply may legitimately wait at endpoint",
+      "executed": true,
+      "strictVerdict": "pass",
+      "source": "work/tool-route18-delay8-repeat3/tool-agent.jsonl",
+      "sourceSha256": "995c4e087656b457eb71be662812f4753d7ecf904e58309386b6b2602b95327e"
+    },
+    {
+      "case": "up-step-landing",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    },
+    {
+      "case": "down-step-landing",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    },
+    {
+      "case": "dynamic-obstacle",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    },
+    {
+      "case": "unknown-next-cell",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    },
+    {
+      "case": "cancel-moving",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    },
+    {
+      "case": "decision-deadline-late-reply",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    },
+    {
+      "case": "paused-physics-wall-deadline",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    },
+    {
+      "case": "owner-quarantine",
+      "fixture": "explicit_negative_control",
+      "expected": "no unsafe continuation; retain stop/settle or quarantine evidence; no candidate resurrection",
+      "executed": false
+    }
+  ]
+}

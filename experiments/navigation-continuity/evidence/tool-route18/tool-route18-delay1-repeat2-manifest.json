@@ -1,0 +1,26 @@
+{
+  "logs": "logs-2ea3a9349e781175706a",
+  "sources": "sources-35124bc89bab2f076bbb",
+  "installed": "installed-49c6e3c58c2e8cbaa990",
+  "checkpoint": {
+    "case": "route18-delay1-repeat2",
+    "environment": "dot-cloud",
+    "finishedUtc": "2026-11-09T17:06:37.910390+00:00",
+    "results": {
+      "work/tool-route18-delay1-repeat2/exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "work/tool-route18-delay1-repeat2/tool-agent.jsonl": "af48334a3ea3a80eaf63b1663f1ee0df1b9d597b66d4a87c252689b5e41ae570"
+    },
+    "retrospective": false,
+    "schema": "westworld-batch-checkpoint-v1",
+    "sources": {
+      "work/tool-route18-delay1-repeat2/ToolAgentGate.dll": "0ac9c4b1f6bc1d815c8c0fdcb81905ccbd60b70a261fc5cc2a47de9fcc2690d6",
+      "work/tool-route18-delay1-repeat2/Westworld.Scapi.Adapter.dll": "aa3e47fa74edf306cc2f5d796510bb27bac0bbc33e0bcdcdd850bfbd28ff11f7",
+      "work/tool-route18-delay1-repeat2/installed-hashes.json": "2e6b495012bdb9e320b37c106d809ff29531a311a72290eb8646924ca18baa38"
+    },
+    "stage": "native-continuity",
+    "startedUtc": "2026-11-09T17:04:03.314034+00:00",
+    "state": "passed"
+  },
+  "driverSHA256": "56b1cda75ae1da65a84af4331357db7f3a9f961d40f8b642dfca2dcb251baccf",
+  "exit": "0"
+}

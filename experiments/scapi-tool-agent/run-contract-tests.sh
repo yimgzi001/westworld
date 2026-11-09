@@ -6,7 +6,7 @@ DOTNET="${DOTNET:-$ROOT/work/dotnet/dotnet}"
 LOG_DIR="${LOG_DIR:-$ROOT/work/tool-contract-test-$(date -u +%Y%m%dT%H%M%SZ)}"
 mkdir -p "$LOG_DIR"
 # NuGet restore must already be completed. Do not hide build failures with tail/pipes.
-for suite in ToolCallLedger ToolDecision NativeToolOffers ProviderBounds HuntingTools ProductionTools AttackReadiness InferenceAudit ToolResultProjection DecisionHandoff FileController LocalNavigationSkill ToolContextMemory BoundedNavigation HostNavigationTools DecisionDispatchWindow PlanningPhase; do
+for suite in ToolCallLedger ToolDecision NativeToolOffers ProviderBounds HuntingTools ProductionTools AttackReadiness InferenceAudit ToolResultProjection DecisionHandoff FileController LocalNavigationSkill ToolContextMemory BoundedNavigation HostNavigationTools DecisionDispatchWindow PlanningPhase ObservedFlatRoutes VoxelSurfaceVisibility NavigationLook; do
   project="$ROOT/tests/Westworld.$suite.Tests/$suite.Tests.csproj"
   if [[ "$suite" == PlanningPhase ]]; then
     project="$ROOT/tests/Westworld.$suite.Tests/Westworld.$suite.Tests.csproj"
@@ -20,4 +20,4 @@ for suite in ToolCallLedger ToolDecision NativeToolOffers ProviderBounds Hunting
   fi
   "$DOTNET" "$assembly" | tee "$LOG_DIR/$suite.test.log"
 done
-printf 'All seventeen pure suites passed (native navigation lifecycle not asserted). Logs: %s\n' "$LOG_DIR"
+printf 'All twenty pure suites passed (native navigation lifecycle not asserted). Logs: %s\n' "$LOG_DIR"
