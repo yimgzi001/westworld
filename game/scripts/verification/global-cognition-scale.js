@@ -4,9 +4,13 @@
     var Diagnostics = importNamespace("System.Diagnostics");
     var Templates = importNamespace("TemplatesDatabase");
     var mode = Engine.Storage.ReadAllText("app:global-mode").trim();
-    var observation = mode === "live-observe";
+    var interruptLedger = mode === "observe-ledger-interrupt";
+    var recoverLedger = mode === "observe-ledger-recover";
+    var faultLedger = mode === "observe-ledger-write-fault";
+    var fixedObservation = mode === "observe-ahead" || interruptLedger || recoverLedger || faultLedger;
+    var observation = mode === "live-observe" || fixedObservation;
     var forage = mode === "live-forage" || observation;
-    var live = mode === "live" || mode === "live-session" || forage;
+    var live = mode === "live" || mode === "live-session" || mode === "live-forage" || mode === "live-observe";
     var exercise = mode === "live" || mode === "scale-action";
     var sustained = mode === "live-session" || forage;
     var actorCount = 50, parallelism = exercise || sustained ? 15 : 5, reviewCount = 5;
@@ -20,6 +24,9 @@
     var lastSample = -1, actorActivity = [];
     var nutrition = [], foodDrops = [];
     var observationElapsed, inFlightAtCutoff, observedGameTime, advancingWithRequests = 0, advancingWithTasks = 0;
+    var inFlightSamples = new Map(), movedDuringOwnRequest = new Map();
+    var recoveryTask, ledgerBeforeRecovery;
+    var lastObservationFrameAt, observationFrameGaps = [];
 
     function check(condition, label) {
         if (!condition) throw new Error(label);
@@ -200,6 +207,7 @@
             var decisionJson = minds[i].LastDecisionJson;
             if (decisionJson && decisionJson !== activity.lastDecision) {
                 var applied = JSON.parse(decisionJson);
+                sampleTaskResult(activity, applied.precedingTaskOutcome);
                 activity.lastDecision = decisionJson;
                 activity.version = applied.version;
                 if (applied.actionError) activity.rejected++;
@@ -210,22 +218,25 @@
                 }
             }
             if (!activity.pending) continue;
-            var task = JSON.parse(tools[i].InvokeJson("task_status", "{}")).data;
-            if (task.taskId !== activity.pending) continue;
-            if (task.status === "succeeded") {
-                activity.completed++;
-            } else if (task.status === "failed" || task.status === "cancelled") {
-                activity.failed++;
-            } else {
-                continue;
-            }
-            for (var step of task.steps.filter(step => step.status === "succeeded")) {
-                completedByAction[step.name] = (completedByAction[step.name] || 0) + 1;
-                if (step.name === "Eat") activity.eaten += step.affectedCount;
-                if (step.name === "PickUp") activity.picked += step.affectedCount;
-            }
-            activity.pending = null;
+            sampleTaskResult(activity, JSON.parse(tools[i].InvokeJson("task_status", "{}")).data);
         }
+    }
+
+    function sampleTaskResult(activity, task) {
+        if (!task || task.taskId !== activity.pending) return;
+        if (task.status === "succeeded") {
+            activity.completed++;
+        } else if (task.status === "failed" || task.status === "cancelled") {
+            activity.failed++;
+        } else {
+            return;
+        }
+        for (var step of task.steps.filter(step => step.status === "succeeded")) {
+            completedByAction[step.name] = (completedByAction[step.name] || 0) + 1;
+            if (step.name === "Eat") activity.eaten += step.affectedCount;
+            if (step.name === "PickUp") activity.picked += step.affectedCount;
+        }
+        activity.pending = null;
     }
 
     function sessionDetail() {
@@ -271,46 +282,117 @@
     }
 
     var observationDetail;
+    function sampleOwnRequestMotion(status) {
+        var nextSamples = new Map();
+        for (var request of status.lookAheadRequests || []) {
+            var index = actors.findIndex(actor => actor.Id === request.actorId);
+            var task = JSON.parse(tools[index].InvokeJson("task_status", "{}")).data;
+            if (task.taskId !== request.taskId || task.status !== "running" || task.steps[task.currentStep]?.name !== "MoveTo") continue;
+            var position = bodies[index].Position;
+            var start = inFlightSamples.get(request.id) || {x: position.X, z: position.Z, at: time.GameTime};
+            nextSamples.set(request.id, start);
+            var distance = Math.hypot(position.X - start.x, position.Z - start.z);
+            if (distance >= .1 && time.GameTime > start.at && distance > (movedDuringOwnRequest.get(request.id)?.distance || 0)) {
+                movedDuringOwnRequest.set(request.id, {actorId: request.actorId, distance});
+            }
+        }
+        inFlightSamples = nextSamples;
+    }
+
     function monitorObservation(status) {
         if (status.spent + status.unknown + status.reserved > status.budget) {
             throw new Error("observation exceeded its budget");
         }
-        var elapsed = Diagnostics.Stopwatch.GetElapsedTime(sessionStartedAt).TotalSeconds;
+        if (interruptLedger && status.applied > 0 && status.networkInFlight > 0) {
+            scheduler.SetPaused(true);
+            var durable = JSON.parse(Engine.Storage.ReadAllText(ledgerPath)).attempts;
+            var completed = durable.filter(attempt => attempt.state === "completed");
+            var inFlight = durable.filter(attempt => attempt.state === "inFlight");
+            check(completed.length >= status.applied && inFlight.length > 0,
+                "a settled decision and a dispatched request were both durable before process kill");
+            finish("passed", {completed: completed.length, inFlight: inFlight.length, requests: status.requests});
+            return;
+        }
+        var frameAt = Diagnostics.Stopwatch.GetTimestamp();
+        observationFrameGaps.push(Diagnostics.Stopwatch.GetElapsedTime(lastObservationFrameAt, frameAt).TotalMilliseconds);
+        lastObservationFrameAt = frameAt;
+        var elapsed = Diagnostics.Stopwatch.GetElapsedTime(sessionStartedAt, frameAt).TotalSeconds;
         if (time.GameTime > observedGameTime && status.inFlight > 0) {
             advancingWithRequests++;
             if (status.activeTasks > 0) advancingWithTasks++;
         }
+        sampleOwnRequestMotion(status);
         observedGameTime = time.GameTime;
-        if (elapsed < 60) { sampleActivity(false); return; }
+        if (elapsed < (fixedObservation ? 20 : 60)) { sampleActivity(false); return; }
         sampleActivity(true);
         sessionEnd = time.GameTime;
         observationElapsed = elapsed;
         inFlightAtCutoff = status.inFlight;
         finalStatus = {status, reason: "wall_clock_limit"};
         observationDetail = sessionDetail();
+        observationDetail.scheduling = JSON.parse(scheduler.ObservationMetricsJson());
+        var gaps = observationFrameGaps.sort((a, b) => a - b);
+        observationDetail.frameIntervals = {
+            count: gaps.length, p95Ms: gaps[Math.ceil(gaps.length * .95) - 1],
+            p99Ms: gaps[Math.ceil(gaps.length * .99) - 1], maxMs: gaps[gaps.length - 1],
+            over50Ms: gaps.filter(gap => gap > 50).length, over100Ms: gaps.filter(gap => gap > 100).length
+        };
         scheduler.StopObservationDispatch();
         phase = "observationDrain";
     }
 
     function finishObservation(status) {
         var attempts = JSON.parse(Engine.Storage.ReadAllText(ledgerPath)).attempts;
-        var errors = {};
-        for (var attempt of attempts) {
+        var sentAttempts = attempts.filter(attempt => attempt.state !== "unsent");
+        var errors = {}, actorsDispatched = new Set(), lookAheadBeforeAllFirstRequests = false;
+        for (var attempt of sentAttempts) {
             if (attempt.error) errors[attempt.error] = (errors[attempt.error] || 0) + 1;
+            lookAheadBeforeAllFirstRequests ||= !!attempt.precedingTask && actorsDispatched.size < actorCount;
+            actorsDispatched.add(attempt.actorId);
         }
         var detail = Object.assign(observationDetail, {
             wallSeconds: observationElapsed, requests: status.requests, decisionsApplied: status.applied, peak: status.peak,
             spentNanoUsd: status.spent, unknownNanoUsd: status.unknown, reservedNanoUsd: status.reserved,
             targetSpeed: 3, measuredSpeed: observationDetail.simulatedSeconds / observationElapsed,
             advancingFramesWithRequests: advancingWithRequests, advancingFramesWithTasksAndRequests: advancingWithTasks,
-            inFlightAtCutoff, rejectedResponses: errors
+            inFlightAtCutoff, rejectedResponses: errors,
+            lookAheadStarted: finalStatus.status.lookAheadStarted, lookAheadBuffered: finalStatus.status.lookAheadBuffered,
+            lookAheadRequests: sentAttempts.filter(attempt => attempt.precedingTask).length, lookAheadBeforeAllFirstRequests,
+            unsentReservations: attempts.length - sentAttempts.length,
+            requestsWithOwnMotion: movedDuringOwnRequest.size,
+            actorsMovingDuringOwnRequests: new Set(Array.from(movedDuringOwnRequest.values(), sample => sample.actorId)).size,
+            maxBlocksMovedDuringOwnRequest: Math.max(0, ...Array.from(movedDuringOwnRequest.values(), sample => sample.distance))
         });
+        if (status.modelReplyEvents !== undefined) {
+            detail.eventCounts = {
+                starts: finalStatus.status.taskStartEvents,
+                ends: finalStatus.status.taskEndEvents,
+                replies: status.modelReplyEvents
+            };
+            check(detail.eventCounts.starts >= detail.lookAheadRequests && detail.eventCounts.ends > 0,
+                "task starts and ends were delivered through the event queue");
+            check(detail.eventCounts.replies === status.requests, "each model request delivered one completion event");
+        }
+        if (status.ledgerPending !== undefined) {
+            check(sentAttempts.length === status.requests && !status.ledgerPending,
+                "each sent request has one durable attempt and all writes were acknowledged");
+            check(attempts.every(attempt => attempt.state !== "inFlight") && new Set(attempts.map(attempt => attempt.id)).size === attempts.length,
+                "drained ledger contains no unsettled or duplicate attempts");
+        }
         check(status.peak > 0 && status.peak <= parallelism && status.reserved === 0,
             "request cap and final ledger reservations verified");
         check(advancingWithTasks > 0 && System.Object.ReferenceEquals(project, getProject()),
             "world and ongoing actor tasks advanced while other actors waited for replies");
-        check(detail.multiStepPlans > 0 && detail.foodPicked > 0 && detail.foodEaten > 0,
-            "multi-step decisions and real food actions executed");
+        check(detail.requestsWithOwnMotion > 0, "the same actor moved in its running task while its own model request was in flight");
+        check(detail.lookAheadStarted > 0, "look-ahead decisions started new tasks after their predecessors succeeded");
+        if (fixedObservation) {
+            check(detail.lookAheadBeforeAllFirstRequests, "look-ahead requests got slots while initial requests were still queued");
+            check(detail.lookAheadBuffered > 0 && errors.pose_changed > 0 && errors.preceding_task_unsuccessful > 0,
+                "early replies waited for handoff and stale moves and unsuccessful predecessors were rejected");
+        } else {
+            check(detail.multiStepPlans > 0 && detail.foodPicked > 0 && detail.foodEaten > 0,
+                "multi-step decisions and real food actions executed");
+        }
         scheduler.Dispose();
         finish("passed", detail);
     }
@@ -352,9 +434,43 @@
         if (status.state === "running" && reachedDuration) stopSession(status, "duration");
     }
 
+    function createScheduler() {
+        var endpoint = System.Environment.GetEnvironmentVariable("WENMING_MODEL_ENDPOINT");
+        if (!live) endpoint += "/" + (fixedObservation ? "observe-ahead" : mode) + "/responses";
+        var client = new W.ActorModelClient(endpoint, System.Environment.GetEnvironmentVariable("WENMING_MODEL"),
+            "responses", System.Environment.GetEnvironmentVariable("WENMING_MODEL_API_KEY"));
+        return new W.WorldCognitionScheduler(client, "app:cognition-run", parallelism, observation ? sessionBudget : 1,
+            inputPrice, outputPrice, live ? "openai-luna-standard-2026-11" : "fixture-v1");
+    }
+
+    function monitorLedgerRecovery() {
+        if (!recoveryTask) {
+            ledgerBeforeRecovery = JSON.parse(Engine.Storage.ReadAllText(ledgerPath)).attempts;
+            scheduler = createScheduler();
+            recoveryTask = scheduler.RecoverObservationLedgerAsync();
+            return;
+        }
+        if (!recoveryTask.IsCompleted) return;
+        var recovered = JSON.parse(recoveryTask.GetAwaiter().GetResult());
+        var attempts = JSON.parse(Engine.Storage.ReadAllText(ledgerPath)).attempts;
+        var spent = ledgerBeforeRecovery.filter(a => a.state === "completed").reduce((total, a) => total + a.charge, 0);
+        var unknown = ledgerBeforeRecovery.filter(a => a.state === "unknown" || a.state === "inFlight")
+            .reduce((total, a) => total + a.reserved, 0);
+        check(attempts.length === ledgerBeforeRecovery.length && attempts.every((attempt, index) => {
+            var previous = ledgerBeforeRecovery[index];
+            return attempt.id === previous.id && attempt.charge === previous.charge
+                && attempt.state === (previous.state === "inFlight" ? "unknown" : previous.state);
+        }), "recovery changed only unresolved attempt states, with no new or duplicate attempts");
+        check(recovered.spent === spent && recovered.unknown === unknown && spent > 0 && unknown > 0,
+            "recovery preserved settled charges and reserved ambiguous charges without dispatching");
+        scheduler.Dispose();
+        finish("passed", recovered);
+    }
+
     frameHandlers.push(function () {
         if (phase === "done" || phase === "spawning") return;
         try {
+            if (recoverLedger) { monitorLedgerRecovery(); return; }
             if (phase === "load") {
                 if (Game.ScreensManager.GetScreenName(Game.ScreensManager.CurrentScreen) !== "MainMenu"
                     || Game.ScreensManager.IsAnimating) return;
@@ -379,12 +495,7 @@
                 var players = findSubsystem("Players").ComponentPlayers;
                 if (players.Count !== 1 || time.GameTime < 4) return;
                 phase = "spawning";
-                var endpoint = System.Environment.GetEnvironmentVariable("WENMING_MODEL_ENDPOINT");
-                if (!live) endpoint += "/" + mode + "/responses";
-                var client = new W.ActorModelClient(endpoint, System.Environment.GetEnvironmentVariable("WENMING_MODEL"),
-                    "responses", System.Environment.GetEnvironmentVariable("WENMING_MODEL_API_KEY"));
-                scheduler = new W.WorldCognitionScheduler(client, "app:cognition-run", parallelism, observation ? sessionBudget : 1,
-                    inputPrice, outputPrice, live ? "openai-luna-standard-2026-11" : "fixture-v1");
+                scheduler = createScheduler();
                 spawnActors(players.get_Item(0).ComponentBody.Position);
                 phase = "settle";
                 return;
@@ -392,11 +503,16 @@
             if (phase === "settle") {
                 if ((exercise || sustained) && bodies.some(body => body.StandingOnValue == null)) return;
                 if (observation) {
+                    var frameRate = Number(System.Environment.GetEnvironmentVariable("WENMING_OBSERVATION_FRAME_RATE"));
+                    if (frameRate > 0) {
+                        Engine.Window.PresentationInterval = 0;
+                        Engine.Time.FrameDurationLimit = 1 / frameRate;
+                    }
                     time.BasicGameTimeFactor = 3;
                     time.MaxGameTimeDelta = Math.min(time.MaxGameTimeDelta, .05 / 3);
-                    scheduler.StartObservation();
+                    scheduler.StartObservation(true);
                     sessionStart = observedGameTime = time.GameTime;
-                    sessionStartedAt = Diagnostics.Stopwatch.GetTimestamp();
+                    sessionStartedAt = lastObservationFrameAt = Diagnostics.Stopwatch.GetTimestamp();
                     phase = "observation";
                     return;
                 }
@@ -411,10 +527,16 @@
                 return;
             }
             var status = JSON.parse(scheduler.StatusJson());
+            if (faultLedger && status.state === "faulted") {
+                check(status.fault === "persistence_error" && status.requests === 0 && status.reserved > 0,
+                    "failed reservation write paused the run before any network dispatch");
+                finish("passed", {fault: status.fault, requests: status.requests});
+                return;
+            }
             if (status.state === "faulted") { finish("failed", status); return; }
             if (phase === "observation") { monitorObservation(status); return; }
             if (phase === "observationDrain") {
-                if (status.inFlight === 0) finishObservation(status);
+                if (status.inFlight === 0 && !status.ledgerPending) finishObservation(status);
                 return;
             }
             if (phase === "session") { monitorSession(status); return; }
@@ -497,6 +619,8 @@
                     "second batch installed in the same world and time advanced again");
                 finish("passed", {pauseFrames, requests: actorCount + reviewCount, spentNanoUsd: status.spent});
             }
-        } catch (error) { finish("failed", String(error)); }
+        } catch (error) {
+            finish("failed", observationDetail ? Object.assign(observationDetail, {error: String(error)}) : String(error));
+        }
     });
 })();

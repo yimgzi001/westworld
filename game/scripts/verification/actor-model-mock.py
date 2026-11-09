@@ -53,6 +53,9 @@ class Handler(BaseHTTPRequestHandler):
     def global_reply(self, context):
         mode = self.path.split("/")[2]
         actor = context["profile"]
+        if mode == "observe-ahead":
+            self.observation_reply(context)
+            return
         if mode in ("scale", "scale-action"):
             index = int(actor.removeprefix("scale "))
             assert actor == f"scale {index}" and 0 <= index < 50
@@ -79,6 +82,23 @@ class Handler(BaseHTTPRequestHandler):
         time.sleep(6 if mode == "ambiguous" else .45 if actor == "cohort 0" else .1)
         self.send_global_decision({"reason": "Wait briefly", "task": "start", "reviewAfter": 120,
             "steps": [{"tool": "act_Wait", "arguments": {"duration": .15}}]})
+
+    def observation_reply(self, context):
+        index = int(context["profile"].split()[1].removesuffix("."))
+        decision = {"reason": "Use the test plan", "task": "keep", "reviewAfter": 120}
+        move = {"tool": "act_MoveTo", "arguments": {"bearing": 0, "distance": 3, "range": .25}}
+        wait = {"tool": "act_Wait", "arguments": {"duration": 5}}
+        if "initial" in context["reasons"]:
+            last_step = dict(wait, minimum_affected=1) if index % 5 == 1 else wait
+            decision.update(task="start", steps=[move, last_step])
+        elif "nextTask" in context["reasons"]:
+            assert context["task"]["status"] in ("waiting", "running", "blocked")
+            time.sleep(.45)
+            if context["task"]["totalSteps"] == 2:
+                decision.update(task="start", steps=[move if index % 5 == 0 else wait])
+            else:
+                assert context["lastOutcome"]["status"] == "succeeded"
+        self.send_global_decision(decision)
 
     def send_global_decision(self, decision):
         self.send_json(200, {"model": "gpt-6-luna", "status": "completed",

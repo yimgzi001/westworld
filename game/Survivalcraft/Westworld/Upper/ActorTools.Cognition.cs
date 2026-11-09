@@ -9,6 +9,11 @@ namespace Game.Westworld {
         internal bool CognitiveWorldIsCurrent => GameManager.Project == m_actions.BoundActor.Project && m_actions.IsTaskActorAvailable;
         internal bool CognitiveActionRunning => m_actions.IsActionRunning;
         internal bool CognitiveTaskActive => TaskActive || CognitiveActionRunning;
+        internal Guid? CognitiveActiveTaskId => m_tasks.ActiveTaskId;
+        internal event Action<int, Guid, bool> CognitiveTaskActivityChanged {
+            add => m_tasks.TaskActivityChanged += value;
+            remove => m_tasks.TaskActivityChanged -= value;
+        }
         internal bool HasActorNutrition => m_actions.ActorNutrition != null;
         internal double CognitiveTime => m_actions.Queries.GameTime;
         internal SelfView CognitiveBody => m_actions.Queries.ReadSelf();
