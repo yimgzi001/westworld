@@ -42,10 +42,12 @@
 
 [原生挖掘/拾取/放置交接](research/2026-11-09-interaction-handoff.md)：停止本机操作前的成功与失败证据、未提交材料边界；后续仅在dot云电脑测试。
 
-[云端Linux构建门槛与零AI视口风险](research/2026-11-09-cloud-linux-preflight.md)：修复Linux资源打包并构建成功；原生启动仍受无图形平台阻碍，五角色验收未完成。
+[云端Linux构建门槛与零AI视口风险](research/2026-11-09-cloud-linux-preflight.md)：修复Linux资源打包并构建成功；早期命令上下文图形受限，后续云桌面核验已成功启动主菜单（见下）；五角色验收未完成。
 
 [Actor/视口/模拟活动中心核心契约](../runtime/Westworld.Runtime.Core/README.md)：云端49项纯契约检查，身份与可选人类视口分离、恢复先对账；不是五个真实游戏角色运行证明。
 
 [无图形宿主边界核查](research/2026-11-09-headless-boundaries.md)：Bootstrap、时钟、内容与呈现的实际耦合及下一步改造路线。
 
 [SCAPI活动中心与区块/实体适配边界](../runtime/Westworld.Scapi.Adapter/README.md)：70项纯核心与7项编译原生钩子检查；真实地形/生存actor运行仍待验收，命令shell与整台云桌面能力分开核查。
+
+[云桌面原生启动核验与环境结论修正](research/2026-11-09-cloud-desktop-launch.md)：正常云桌面启动 SCAPI 至主菜单，退出码 0；未创建世界，不代表零图形宿主或五角色验收。
