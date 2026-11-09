@@ -37,7 +37,7 @@ Independent review strengthened the initial passing run: use XZ distance instead
 - SubsystemUpdate now exposes failure count and latest error instead of making failures completely invisible. This test rejects any such error. It does not implement automatic production recovery.
 - The experiment publishes the existing activity adapter after all native actors become ready, then retires their positive spawn loading keys. A production host must repeat ownership transfer after respawn and reconcile partially loaded worlds.
 - Core ActorRegistry GUID/checkpoint and model interfaces are not yet fully wired into this native experiment. Persistent native PlayerIndex identity is validated here.
-- A human viewport was tested separately; one human joining the same five-AI world has **not** yet been exercised.
+- Follow-up [same-world human/AI coexistence gate](COEXISTENCE.md) verifies one original human viewport alongside five AI bodies, including restart and input-channel separation. A real person interacting or late joining has not been exercised.
 - No long-duration ecological survival, multi-agent collaboration, LLM decisions, resource scaling or purely graphics-free process is claimed.
 
 ## Reproduce

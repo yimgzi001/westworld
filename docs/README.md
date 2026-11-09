@@ -55,3 +55,5 @@
 [云世界真实活动中心验收](../experiments/scapi-interest-smoke/README.md)：五个远端中心块到 Valid，负键正常释放；这些中心不是五个真实生存角色。
 
 [五个真实生存角色与零AI视口准入](../experiments/scapi-actor-gate/README.md)：云端五个完整原生Player、有限水平运动、饥饿更新、保存关闭重载均通过；仍非长期自主生存或50人规模证明。
+
+[同世界一人类视口与五AI共存验收](../experiments/scapi-actor-gate/COEXISTENCE.md)：六个原生角色、一个视口、动作通道隔离、活动中心与存读档通过；人类角色由程序创建，尚非真人操作/后加入测试。

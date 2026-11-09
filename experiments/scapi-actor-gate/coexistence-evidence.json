@@ -1,0 +1,764 @@
+[
+  {
+    "kind": "start",
+    "reload": false,
+    "human": true,
+    "scripted": true,
+    "humanControl": "program-created native viewport, no human keypresses"
+  },
+  {
+    "kind": "human_external_input_rejected",
+    "rejected": true
+  },
+  {
+    "kind": "bound",
+    "actors": 5,
+    "human": true,
+    "views": 1,
+    "state": [
+      {
+        "index": 2,
+        "name": "Actor_1",
+        "external": true,
+        "position": [
+          568.5,
+          65.01,
+          -132.5
+        ],
+        "health": 1,
+        "food": 0.55,
+        "stamina": 1,
+        "sleep": 1,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 3,
+        "name": "Actor_2",
+        "external": true,
+        "position": [
+          572.5,
+          65.01,
+          -133.5
+        ],
+        "health": 1,
+        "food": 0.55,
+        "stamina": 1,
+        "sleep": 1,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 4,
+        "name": "Actor_3",
+        "external": true,
+        "position": [
+          570.5,
+          64.51,
+          -130.5
+        ],
+        "health": 1,
+        "food": 0.55,
+        "stamina": 1,
+        "sleep": 1,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 5,
+        "name": "Actor_4",
+        "external": true,
+        "position": [
+          570.5,
+          65.01,
+          -135.5
+        ],
+        "health": 1,
+        "food": 0.55,
+        "stamina": 1,
+        "sleep": 1,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 6,
+        "name": "Actor_5",
+        "external": true,
+        "position": [
+          568.5,
+          66.01,
+          -134.5
+        ],
+        "health": 1,
+        "food": 0.55,
+        "stamina": 1,
+        "sleep": 1,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 7,
+        "name": "HumanObserver",
+        "external": false,
+        "position": [
+          567.5,
+          65.01,
+          -130.5
+        ],
+        "health": 1,
+        "food": 0.55,
+        "stamina": 1,
+        "sleep": 1,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      }
+    ]
+  },
+  {
+    "kind": "before",
+    "state": [
+      {
+        "index": 2,
+        "name": "Actor_1",
+        "external": true,
+        "position": [
+          568.5,
+          65,
+          -132.5
+        ],
+        "health": 1,
+        "food": 0.54921305,
+        "stamina": 1,
+        "sleep": 0.9983395,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 3,
+        "name": "Actor_2",
+        "external": true,
+        "position": [
+          572.5,
+          65,
+          -133.5
+        ],
+        "health": 1,
+        "food": 0.54922175,
+        "stamina": 1,
+        "sleep": 0.9983395,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 4,
+        "name": "Actor_3",
+        "external": true,
+        "position": [
+          570.8066,
+          65.303955,
+          -130.43251
+        ],
+        "health": 1,
+        "food": 0.54921305,
+        "stamina": 1,
+        "sleep": 0.99845594,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 5,
+        "name": "Actor_4",
+        "external": true,
+        "position": [
+          570.5,
+          65,
+          -135.5
+        ],
+        "health": 1,
+        "food": 0.54921305,
+        "stamina": 1,
+        "sleep": 0.9983395,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 6,
+        "name": "Actor_5",
+        "external": true,
+        "position": [
+          568.5,
+          66,
+          -134.5
+        ],
+        "health": 1,
+        "food": 0.54922175,
+        "stamina": 1,
+        "sleep": 0.9983395,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 7,
+        "name": "HumanObserver",
+        "external": false,
+        "position": [
+          567.5,
+          65,
+          -130.5
+        ],
+        "health": 1,
+        "food": 0.54922175,
+        "stamina": 1,
+        "sleep": 0.9983395,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      }
+    ]
+  },
+  {
+    "kind": "after",
+    "state": [
+      {
+        "index": 2,
+        "name": "Actor_1",
+        "external": true,
+        "position": [
+          568.7992,
+          65,
+          -133.32262
+        ],
+        "health": 1,
+        "food": 0.5465437,
+        "stamina": 1,
+        "sleep": 0.99277914,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 3,
+        "name": "Actor_2",
+        "external": true,
+        "position": [
+          572.65753,
+          65,
+          -134.3932
+        ],
+        "health": 1,
+        "food": 0.54655164,
+        "stamina": 1,
+        "sleep": 0.99277914,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 4,
+        "name": "Actor_3",
+        "external": true,
+        "position": [
+          570.1641,
+          65.303955,
+          -131.08907
+        ],
+        "health": 1,
+        "food": 0.5465446,
+        "stamina": 1,
+        "sleep": 0.9928956,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 5,
+        "name": "Actor_4",
+        "external": true,
+        "position": [
+          570.811,
+          65,
+          -136.35506
+        ],
+        "health": 1,
+        "food": 0.54654425,
+        "stamina": 1,
+        "sleep": 0.99277914,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 6,
+        "name": "Actor_5",
+        "external": true,
+        "position": [
+          568.7975,
+          66,
+          -135.31805
+        ],
+        "health": 1,
+        "food": 0.5465524,
+        "stamina": 1,
+        "sleep": 0.99277914,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 7,
+        "name": "HumanObserver",
+        "external": false,
+        "position": [
+          567.5,
+          65,
+          -130.5
+        ],
+        "health": 1,
+        "food": 0.546615,
+        "stamina": 1,
+        "sleep": 0.99277914,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      }
+    ],
+    "distances": [
+      0.87533724,
+      0.9069891,
+      0.91859376,
+      0.90985,
+      0.8704655,
+      0
+    ],
+    "foodChanged": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "stopSpeeds": [
+      0,
+      0,
+      0.011503451,
+      5.3438812e-18,
+      9.971594e-13,
+      0
+    ],
+    "keys": [
+      7,
+      -1,
+      -2,
+      -3,
+      -4,
+      -5,
+      -6
+    ],
+    "isolationChecks": 1159,
+    "observedInputs": [
+      40,
+      36,
+      61,
+      63,
+      63
+    ],
+    "Passed": true
+  },
+  {
+    "kind": "save_verified",
+    "saved": true,
+    "ids": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7"
+    ]
+  },
+  {
+    "kind": "result",
+    "passed": true,
+    "reload": false,
+    "reason": "pulse_complete",
+    "seconds": 17.3707419,
+    "updateFailures": 0
+  },
+  {
+    "kind": "start",
+    "reload": true,
+    "human": true,
+    "scripted": true,
+    "humanControl": "program-created native viewport, no human keypresses"
+  },
+  {
+    "kind": "human_external_input_rejected",
+    "rejected": true
+  },
+  {
+    "kind": "bound",
+    "actors": 5,
+    "human": true,
+    "views": 1,
+    "state": [
+      {
+        "index": 2,
+        "name": "Actor_1",
+        "external": true,
+        "position": [
+          568.7992,
+          65,
+          -133.32262
+        ],
+        "health": 1,
+        "food": 0.54639304,
+        "stamina": 1,
+        "sleep": 0.99247664,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 3,
+        "name": "Actor_2",
+        "external": true,
+        "position": [
+          572.65753,
+          65,
+          -134.3932
+        ],
+        "health": 1,
+        "food": 0.54640967,
+        "stamina": 1,
+        "sleep": 0.99247664,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 4,
+        "name": "Actor_3",
+        "external": true,
+        "position": [
+          570.16406,
+          65.303955,
+          -131.08968
+        ],
+        "health": 1,
+        "food": 0.54640263,
+        "stamina": 1,
+        "sleep": 0.9925931,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 5,
+        "name": "Actor_4",
+        "external": true,
+        "position": [
+          570.811,
+          65,
+          -136.35506
+        ],
+        "health": 1,
+        "food": 0.5463936,
+        "stamina": 1,
+        "sleep": 0.99247664,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 6,
+        "name": "Actor_5",
+        "external": true,
+        "position": [
+          568.7975,
+          66,
+          -135.31805
+        ],
+        "health": 1,
+        "food": 0.54640174,
+        "stamina": 1,
+        "sleep": 0.99247664,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 7,
+        "name": "HumanObserver",
+        "external": false,
+        "position": [
+          567.5,
+          65,
+          -130.5
+        ],
+        "health": 1,
+        "food": 0.5464643,
+        "stamina": 1,
+        "sleep": 0.99247664,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      }
+    ]
+  },
+  {
+    "kind": "reload_match",
+    "passed": true
+  },
+  {
+    "kind": "before",
+    "state": [
+      {
+        "index": 2,
+        "name": "Actor_1",
+        "external": true,
+        "position": [
+          568.7992,
+          65,
+          -133.32262
+        ],
+        "health": 1,
+        "food": 0.5456145,
+        "stamina": 1,
+        "sleep": 0.99081546,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 3,
+        "name": "Actor_2",
+        "external": true,
+        "position": [
+          572.65753,
+          65,
+          -134.3932
+        ],
+        "health": 1,
+        "food": 0.5456311,
+        "stamina": 1,
+        "sleep": 0.99081546,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 4,
+        "name": "Actor_3",
+        "external": true,
+        "position": [
+          570.1518,
+          65.303955,
+          -131.09842
+        ],
+        "health": 1,
+        "food": 0.5456241,
+        "stamina": 1,
+        "sleep": 0.9909319,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 5,
+        "name": "Actor_4",
+        "external": true,
+        "position": [
+          570.811,
+          65,
+          -136.35506
+        ],
+        "health": 1,
+        "food": 0.545615,
+        "stamina": 1,
+        "sleep": 0.99081546,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 6,
+        "name": "Actor_5",
+        "external": true,
+        "position": [
+          568.7975,
+          66,
+          -135.31805
+        ],
+        "health": 1,
+        "food": 0.5456232,
+        "stamina": 1,
+        "sleep": 0.99081546,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 7,
+        "name": "HumanObserver",
+        "external": false,
+        "position": [
+          567.5,
+          65,
+          -130.5
+        ],
+        "health": 1,
+        "food": 0.54568577,
+        "stamina": 1,
+        "sleep": 0.99081546,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      }
+    ]
+  },
+  {
+    "kind": "after",
+    "state": [
+      {
+        "index": 2,
+        "name": "Actor_1",
+        "external": true,
+        "position": [
+          568.7992,
+          65,
+          -133.32262
+        ],
+        "health": 1,
+        "food": 0.5430086,
+        "stamina": 1,
+        "sleep": 0.98525566,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 3,
+        "name": "Actor_2",
+        "external": true,
+        "position": [
+          572.65753,
+          65,
+          -134.3932
+        ],
+        "health": 1,
+        "food": 0.54302526,
+        "stamina": 1,
+        "sleep": 0.98525566,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 4,
+        "name": "Actor_3",
+        "external": true,
+        "position": [
+          570.13367,
+          65.303955,
+          -131.13168
+        ],
+        "health": 1,
+        "food": 0.5430182,
+        "stamina": 1,
+        "sleep": 0.9853721,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 5,
+        "name": "Actor_4",
+        "external": true,
+        "position": [
+          570.811,
+          65,
+          -136.35506
+        ],
+        "health": 1,
+        "food": 0.54300916,
+        "stamina": 1,
+        "sleep": 0.98525566,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 6,
+        "name": "Actor_5",
+        "external": true,
+        "position": [
+          568.7975,
+          66,
+          -135.31805
+        ],
+        "health": 1,
+        "food": 0.5430173,
+        "stamina": 1,
+        "sleep": 0.98525566,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      },
+      {
+        "index": 7,
+        "name": "HumanObserver",
+        "external": false,
+        "position": [
+          567.5,
+          65,
+          -130.5
+        ],
+        "health": 1,
+        "food": 0.5430799,
+        "stamina": 1,
+        "sleep": 0.98525566,
+        "slots_sha256": "460a033c2965a1d39ee0427501a34db43bb4147ca842e051de69fa74580ff687",
+        "slot_count": 26
+      }
+    ],
+    "distances": [
+      0,
+      0,
+      0.037882827,
+      0,
+      0,
+      0
+    ],
+    "foodChanged": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "stopSpeeds": [
+      0,
+      0,
+      0.021763558,
+      0,
+      0,
+      0
+    ],
+    "keys": [
+      7,
+      -1,
+      -2,
+      -3,
+      -4,
+      -5,
+      -6
+    ],
+    "isolationChecks": 1228,
+    "observedInputs": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Passed": true
+  },
+  {
+    "kind": "save_verified",
+    "saved": true,
+    "ids": [
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7"
+    ]
+  },
+  {
+    "kind": "result",
+    "passed": true,
+    "reload": true,
+    "reason": "pulse_complete",
+    "seconds": 17.1309149,
+    "updateFailures": 0
+  }
+]
