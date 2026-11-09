@@ -101,6 +101,8 @@ namespace Game {
                 };
                 ProjectData projectData = new(DatabaseManager.GameDatabase, projectNode, valuesDictionary, true);
                 m_project = new Project(DatabaseManager.GameDatabase, projectData);
+                Westworld.ActorTools.RegisterTaskCheckpoint(m_project, projectNode);
+                Westworld.WorldCognitionScheduler.RegisterLoadedCohort(m_project, projectNode);
                 m_subsystemUpdate = m_project.FindSubsystem<SubsystemUpdate>(true);
             }
             m_worldInfo = worldInfo;
@@ -183,6 +185,7 @@ namespace Game {
         }
 
         public static void UpdateProject() {
+            if (m_project != null && !Westworld.WorldCognitionScheduler.PumpWorld(m_project)) return;
             if (SyncDispatcher.Count > 0
                 && SyncDispatcher[0].Invoke()) {
                 SyncDispatcher.RemoveAt(0);
@@ -194,6 +197,7 @@ namespace Game {
 
         public static void DisposeProject() {
             if (m_project != null) {
+                Westworld.WorldCognitionScheduler.CloseWorld(m_project);
                 ProjectDisposed?.Invoke(m_project);
                 m_project.Dispose();
                 m_project = null;

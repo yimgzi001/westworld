@@ -22,6 +22,11 @@ namespace Game {
 
         public float Health { get; set; }
 
+        internal Action<float> AtomicSteeringOrder { get; set; }
+
+        internal bool CanBeSteered => m_componentBody.ImmersionFactor is > 0.01f and <= 0.95f
+            && !m_componentBody.StandingOnValue.HasValue && m_componentBody.StandingOnBody == null;
+
         public UpdateOrder UpdateOrder => UpdateOrder.Default;
 
         public void Injure(float amount, ComponentCreature attacker, bool ignoreInvulnerability) {
@@ -46,10 +51,10 @@ namespace Game {
                 }
             }
             bool num = m_componentBody.ImmersionFactor > 0.95f;
-            bool num2 = !num
-                && m_componentBody.ImmersionFactor > 0.01f
-                && !m_componentBody.StandingOnValue.HasValue
-                && m_componentBody.StandingOnBody == null;
+            bool num2 = CanBeSteered;
+            if (num2) {
+                AtomicSteeringOrder?.Invoke(dt);
+            }
             m_turnSpeed += 2.5f * m_subsystemTime.GameTimeDelta * (1f * TurnOrder - m_turnSpeed);
             Quaternion rotation = m_componentBody.Rotation;
             float num3 = MathF.Atan2(

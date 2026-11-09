@@ -258,6 +258,9 @@ namespace Game {
             int num = 0;
             lock (m_lock) {
                 foreach (Pickable pickable in m_pickables) {
+                    if (pickable.ToRemove || pickable.Count <= 0) {
+                        continue;
+                    }
                     ValuesDictionary valuesDictionary3 = new();
                     pickable.Save(valuesDictionary3);
                     ModsManager.HookAction(

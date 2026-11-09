@@ -46,6 +46,7 @@ namespace Game {
 
         public virtual void Update() {
             for (int i = 0; i < UpdatesPerFrame; i++) {
+                if (!Westworld.WorldCognitionScheduler.BeforeNativeStep(Project)) break;
                 m_subsystemTime.NextFrame();
                 bool flag = false;
                 lock (m_toAddOrRemove) {
@@ -133,6 +134,7 @@ namespace Game {
                         return false;
                     }
                 );
+                Westworld.WorldCognitionScheduler.AfterNativeStep(Project, dt);
             }
         }
 

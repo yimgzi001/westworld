@@ -17,10 +17,12 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  readonly Dictionary<Guid,(Guid Actor,Position Origin,double Time,SlotObservation[] Inventory,CellObservation[] Cells)> observations=new();
  readonly HashSet<Guid> retiredBindings=new();
  readonly int owner=Environment.CurrentManagedThreadId;bool disposed;
+ public bool ActionsEnabled {get;}
+ void DemandActions(){Owner();if(!ActionsEnabled)throw new InvalidOperationException("Observation-only session: actions owned by external task executor");}
  public ActorRegistry Registry {get;}
  public Guid SessionId=>Registry.SessionId;
  public float FloatUpdateOrder=>-15;
- public NativeActorSession(Project project,Guid worldId){this.project=project??throw new ArgumentNullException(nameof(project));terrain=project.FindSubsystem<SubsystemTerrain>(true);Registry=new ActorRegistry(worldId);}
+ public NativeActorSession(Project project,Guid worldId,bool actionsEnabled=true){ActionsEnabled=actionsEnabled;this.project=project??throw new ArgumentNullException(nameof(project));terrain=project.FindSubsystem<SubsystemTerrain>(true);Registry=new ActorRegistry(worldId);}
  void Owner(){if(disposed)throw new ObjectDisposedException(nameof(NativeActorSession));if(Environment.CurrentManagedThreadId!=owner)throw new InvalidOperationException("Game thread required");}
  ComponentPlayer Actor(Guid session,Guid id){Owner();if(session!=SessionId)throw new InvalidOperationException("Stale session");if(retiredBindings.Contains(id)||!actors.TryGetValue(id,out var p)||p.Project!=project||!p.Entity.IsAddedToProject)throw new InvalidOperationException("Actor not bound to live native entity");return p;}
  static Position PositionOf(ComponentPlayer p){var v=p.ComponentBody.Position;return new(v.X,v.Y,v.Z);}
@@ -68,7 +70,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
   return true;
  }
  public SkillResult Submit(MoveIntent intent){
-  Owner();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
+  DemandActions();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
   if(tickets.TryGetValue(intent.ActionId,out var previous)){if(previous.Intent!=intent)throw new InvalidOperationException("Action ID payload conflict");return previous.Result;}
   if(foodTickets.ContainsKey(intent.ActionId)||forageTickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID already used for a different skill");
   var p=Actor(intent.SessionId,intent.ActorId);
@@ -85,7 +87,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  static bool Terminal(string status)=>status is "Succeeded" or "Blocked" or "Canceled" or "Failed";
  public void Update(float dt){Owner();
   if(!float.IsFinite(dt)||dt<0||dt>0.25f){FailAll("invalid game timestep");return;}
-  foreach(var (id,p) in actors){if(retiredBindings.Contains(id))continue;if(!p.Entity.IsAddedToProject){Stop(p);Registry.Remove(id);retiredBindings.Add(id);continue;}var a=Registry.Read(id);Registry.Update(SessionId,id,a.Revision,PositionOf(p),p.ComponentHealth.Health>0&&p.PlayerData.IsReadyForPlaying);}
+  foreach(var (id,p) in actors){if(retiredBindings.Contains(id))continue;if(!p.Entity.IsAddedToProject){if(ActionsEnabled)Stop(p);Registry.Remove(id);retiredBindings.Add(id);continue;}var a=Registry.Read(id);Registry.Update(SessionId,id,a.Revision,PositionOf(p),p.ComponentHealth.Health>0&&p.PlayerData.IsReadyForPlaying);}
   foreach(var t in tickets.Values.Where(t=>!Terminal(t.Result.Status)).ToArray()){
    var p=actors[t.Intent.ActorId];var now=PositionOf(p);double previousElapsed=t.Elapsed;t.Elapsed+=dt;
    if(retiredBindings.Contains(t.Intent.ActorId)||!p.Entity.IsAddedToProject||!p.PlayerData.IsReadyForPlaying||p.ComponentHealth.Health<=0||p.ComponentSleep.SleepFactor>0||clock.Elapsed.TotalSeconds-t.AcceptedAt>4){Stop(p);t.Result=t.Result with {Status="Failed",End=now,HorizontalDistance=Distance(t.Result.Start,now),ForwardProgress=Vector2.Dot(new Vector2((float)(now.X-t.Result.Start.X),(float)(now.Z-t.Result.Start.Z)),t.Direction),Reason="native availability/deadline"};continue;}

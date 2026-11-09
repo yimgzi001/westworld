@@ -41,7 +41,9 @@ namespace Game {
 
         public SubsystemSignBlockBehavior.TextData m_editingTextData;
 
-        public Color[] m_colors = [
+        public Color[] m_colors = DefaultLineColors.ToArray();
+
+        internal static readonly Color[] DefaultLineColors = [
             new(0, 0, 0),
             new(140, 0, 0),
             new(0, 112, 0),

@@ -24,7 +24,7 @@ public sealed partial class NativeActorSession {
   return SubmitForage(new(d.SessionId,d.ActorId,d.DecisionId,currentObservationId??d.ObservationId,d.Target));
  }
  public ForageResult SubmitForage(ForageIntent intent){
-  Owner();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
+  DemandActions();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
   if(forageTickets.TryGetValue(intent.ActionId,out var old)){if(old.Intent!=intent)throw new InvalidOperationException("Action ID payload conflict");return old.Result;}
   if(tickets.ContainsKey(intent.ActionId)||foodTickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID used by other skill");
   var p=Actor(intent.SessionId,intent.ActorId);var target=intent.Target;

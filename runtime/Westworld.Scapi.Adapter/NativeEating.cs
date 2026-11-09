@@ -15,7 +15,7 @@ public sealed partial class NativeActorSession {
  static bool SupportedFood(int value)=>Terrain.ExtractContents(value)==CookedFishBlock.Index||(Terrain.ExtractContents(value)==PumpkinBlock.Index&&BasePumpkinBlock.GetSize(Terrain.ExtractData(value))==7);
  public EatResult SubmitEat(EatIntent intent)=>SubmitEatCore(intent,null);
  EatResult SubmitEatCore(EatIntent intent,Guid? parent){
-  Owner();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
+  DemandActions();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
   if(foodTickets.TryGetValue(intent.ActionId,out var old)){if(old.Intent!=intent)throw new InvalidOperationException("Action ID payload conflict");return old.Result;}
   if(tickets.ContainsKey(intent.ActionId)||forageTickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID already used for a different skill");
   var p=Actor(intent.SessionId,intent.ActorId);var inventory=p.ComponentMiner.Inventory;
