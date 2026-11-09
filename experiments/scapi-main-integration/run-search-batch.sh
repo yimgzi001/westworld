@@ -7,7 +7,7 @@ if [[ "$dotnet" == */* ]]; then dotnet="$(realpath "$dotnet")"; else dotnet="$(c
 stamp="$(date -u +%Y%m%dT%H%M%S)-$$"
 build="$repo/work/search-suite-$stamp-build"
 "$dotnet" build "$repo/experiments/scapi-main-integration/IntegrationGate.csproj" -c Release -m:1 -o "$build" || exit 2
-for entry in 'a natural actors-cloud-20261109' 'b natural westworld-search-02' 'c natural westworld-search-03' 'wall blocked westworld-blocked-01' 'obstacle obstacle westworld-obstacle-01' 'fixture fixture actors-cloud-20261109'; do
+for entry in 'a natural actors-cloud-20261109' 'b natural westworld-search-02' 'c natural westworld-search-03' 'd natural westworld-inland-01' 'e natural westworld-inland-02' 'f natural westworld-inland-03' 'wall blocked westworld-blocked-01' 'obstacle obstacle westworld-obstacle-01' 'fixture fixture actors-cloud-20261109'; do
  read -r name mode seed <<< "$entry"
  target="$repo/work/search-suite-$stamp-$name"
  mkdir "$target" || exit 2

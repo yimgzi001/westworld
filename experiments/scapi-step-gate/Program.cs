@@ -27,11 +27,7 @@ sealed class Runner:IUpdateable,IDisposable {
    else if(scan++<12){float pitch=scan%3==0?-30:scan%3==2?45:-55;float bearing=scan%3==0?-3:3;run=actions.Start(new FaceTowards(p.ComponentCreatureModel.EyePosition+Vector3.UnitX*bearing,4,pitch));stage=2;}
    else{Done=true;Passed=false;Gate.Log(new{kind="refused",reason="required geometry not visible",window.Cells});}
   }else if(stage==2&&run.Result.Status!=AtomicActionStatus.Running)stage=1;
-  else if(stage==3){var b=p.ComponentBody.BoundingBox;bool inside=true,knownSupportContactUsed=false;for(int x=(int)Math.Floor(b.Min.X+1e-5);x<=(int)Math.Floor(b.Max.X-1e-5)&&inside;x++)for(int z=(int)Math.Floor(b.Min.Z+1e-5);z<=(int)Math.Floor(b.Max.Z-1e-5)&&inside;z++)for(int y=(int)Math.Floor(b.Min.Y+1e-5);y<=(int)Math.Floor(b.Max.Y-1e-5);y++)if(!proofAir.Contains((x,y,z))){
-    bool nativeRiseContact=up&&p.ComponentBody.IsSmoothRiseEnabled&&y==Terrain.ToCell(target.Y)-1&&x==Terrain.ToCell(target.X)&&z==Terrain.ToCell(target.Z)&&b.Min.Y>=target.Y-Math.Min(p.ComponentBody.MaxSmoothRiseHeight,.5f)&&chosen.Evidence.Any(c=>c.X==x&&c.Y==y&&c.Z==z&&(c.Value&1023)==3);
-    bool nativeEdgeContact=!up&&y==(int)Math.Round(chosen.Origin.Y)-1&&b.Min.Y>=chosen.Origin.Y-.02&&chosen.Evidence.Any(c=>c.X==x&&c.Y==y&&c.Z==z&&(c.Value&1023)==3);
-    if(!nativeRiseContact&&!nativeEdgeContact){inside=false;break;}else knownSupportContactUsed=true;
-   }
+  else if(stage==3){var b=p.ComponentBody.BoundingBox;var guard=ObservedStepGuard.Check(chosen,new(b.Min.X,b.Min.Y,b.Min.Z),new(b.Max.X,b.Max.Y,b.Max.Z),p.ComponentBody.IsSmoothRiseEnabled,p.ComponentBody.MaxSmoothRiseHeight);bool inside=guard.Inside,knownSupportContactUsed=guard.KnownSupportContactUsed;
    bool expired=chosen.MaximumAge+Stopwatch.GetElapsedTime(started).TotalSeconds>3;if(!inside||expired)actions.Cancel(run);
    Gate.Log(new{kind="step_tick",position=p.ComponentBody.Position.ToString(),velocity=p.ComponentBody.Velocity.ToString(),standing=p.ComponentBody.StandingOnValue,jump=p.ComponentLocomotion.LastJumpOrder,nativeSmoothRise=p.ComponentBody.MaxSmoothRiseHeight,knownSupportContactUsed,inside,expired,status=run.Result.Status.ToString(),failure=run.Result.Failure.ToString()});
    if(run.Result.Status!=AtomicActionStatus.Running){Done=true;Passed=inside&&!expired&&run.Result.Status==AtomicActionStatus.Succeeded&&p.ComponentBody.StandingOnValue.HasValue&&Math.Abs(p.ComponentBody.Position.Y-target.Y)<.1f&&p.ComponentHealth.Health>0;}

@@ -1,0 +1,5787 @@
+{
+  "baseline": "0ed4738ea0195ccb3dff4dd759e5924f89413b5a",
+  "regression": {
+    "csharp": 551,
+    "python": 8
+  },
+  "naturalFoodFound": false,
+  "naturalStepExecuted": false,
+  "runs": [
+    {
+      "run": "mixed-a",
+      "sourceSha256": "195b9733a33e95a79361340db39b916003e10cd7a2a5178b4d5c2d0ba3e2dd81",
+      "results": [
+        {
+          "kind": "result",
+          "passed": false,
+          "reason": "scenario finished",
+          "seconds": 41.7288582,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 64,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 54,
+        "Blocked": 10,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "model_search_goal",
+          "decision": {
+            "SessionId": "f27ab741-55d6-423b-9046-6a57c9e706bb",
+            "ActorId": "ffea1a84-7e28-47b3-84a4-36f8def1ede2",
+            "ObservationId": "d7d54367-adbd-454a-afc5-7c303f3a0df3",
+            "DecisionId": "1bfc38b2-e0dd-49d9-8fb0-ca095af543e6",
+            "Goal": "FindFood",
+            "Skill": "Survey",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": null
+          },
+          "metrics": {
+            "WallSeconds": 9.3062938,
+            "PeakSampledRssBytes": 4411916288,
+            "SampledCpuSeconds": 27.08,
+            "PromptTokens": 241,
+            "BackendGenerationEvaluations": 10,
+            "PromptMilliseconds": 4873.9,
+            "GenerationMilliseconds": 940.86,
+            "Response": "{\"skill\":\"Survey\",\"candidate_index\":0}"
+          },
+          "policy": "model chooses Survey/FindFood; bounded local skill selects evidence-supported short routes"
+        }
+      ],
+      "routeResults": [
+        {
+          "kind": "local_route_result",
+          "choice": "6d2d6325-f27a-4f94-9c68-65b7d7f15f8e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4942626953125,
+            "Y": 65,
+            "Z": -133.2543182373047
+          },
+          "outcome": "Arrived",
+          "routeMoves": 1
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8213beb4-3ca6-40bb-a112-c9cdbb802b79",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -134.01312255859375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 2
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "efd02bce-2cfe-4dad-95c6-0b12bb746a39",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -134.77040100097656
+          },
+          "outcome": "Arrived",
+          "routeMoves": 3
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "938e7eb8-8a6b-4256-b172-b30caead0a1f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -135.55673217773438
+          },
+          "outcome": "Arrived",
+          "routeMoves": 4
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "3b8f56c3-4562-4b34-bb5c-d6162e2976ed",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -136.32635498046875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 5
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "03ccb78e-2fb8-40a1-9cdd-563c6a4a9b8e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -137.0835418701172
+          },
+          "outcome": "Arrived",
+          "routeMoves": 6
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8a544d1b-bd32-4948-a419-a0b1bb6f63fd",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -137.83912658691406
+          },
+          "outcome": "Arrived",
+          "routeMoves": 7
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2ba24b15-b08f-492c-8dbe-c5bf79cbb83d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -138.60079956054688
+          },
+          "outcome": "Arrived",
+          "routeMoves": 8
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "50fc7e72-e421-49c9-873c-04c1ac26878c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -139.36009216308594
+          },
+          "outcome": "Arrived",
+          "routeMoves": 9
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "3b951468-1ed8-46ef-97e4-c8b039e11c28",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 570.4945068359375,
+            "Y": 65,
+            "Z": -140.11744689941406
+          },
+          "outcome": "Arrived",
+          "routeMoves": 10
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "eaabae47-a1e5-44d1-8f3e-88fa79a02bf2",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 570.568359375,
+            "Y": 65,
+            "Z": -140.22012329101562
+          },
+          "outcome": "Blocked",
+          "routeMoves": 11
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "a99b6a8a-d67b-46b1-a0fb-1b9916cd10f4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 570.7822875976562,
+            "Y": 65,
+            "Z": -140.15103149414062
+          },
+          "outcome": "Blocked",
+          "routeMoves": 12
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d064f293-194e-4d3a-8d48-0c247736a732",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 570.88525390625,
+            "Y": 65,
+            "Z": -139.93963623046875
+          },
+          "outcome": "Blocked",
+          "routeMoves": 13
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2e4e80e2-582c-43ae-8f59-a7260cc34115",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 570.942138671875,
+            "Y": 65,
+            "Z": -139.8487548828125
+          },
+          "outcome": "Blocked",
+          "routeMoves": 14
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "146f9e6d-9c60-461c-bdb1-7ccea7f9d527",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.4967041015625,
+            "Y": 65,
+            "Z": -139.33389282226562
+          },
+          "outcome": "Arrived",
+          "routeMoves": 15
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "141b5bed-5c0b-4c8d-8847-fec42ff7e4ca",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.0357055664062,
+            "Y": 65,
+            "Z": -138.7859649658203
+          },
+          "outcome": "Arrived",
+          "routeMoves": 16
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "249dcc5b-f5d5-4c3e-8a84-34be6621503f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.0918579101562,
+            "Y": 65,
+            "Z": -138.0217742919922
+          },
+          "outcome": "Arrived",
+          "routeMoves": 17
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6a91b900-789d-455a-9015-35d45a2e455b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.080078125,
+            "Y": 65,
+            "Z": -137.25485229492188
+          },
+          "outcome": "Arrived",
+          "routeMoves": 18
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "794505a8-9b74-4299-bf2c-d76aae18a023",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.0830688476562,
+            "Y": 65,
+            "Z": -136.48104858398438
+          },
+          "outcome": "Arrived",
+          "routeMoves": 19
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c45c37b2-d2ee-4d50-89da-1f20ba913084",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.0827026367188,
+            "Y": 65,
+            "Z": -135.72276306152344
+          },
+          "outcome": "Arrived",
+          "routeMoves": 20
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "baee74ee-9bde-4c1d-a216-b8a058003463",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.0827026367188,
+            "Y": 65,
+            "Z": -134.96339416503906
+          },
+          "outcome": "Arrived",
+          "routeMoves": 21
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d3ec979b-9972-4504-b6af-d92c0f699666",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.0827026367188,
+            "Y": 65,
+            "Z": -134.19741821289062
+          },
+          "outcome": "Arrived",
+          "routeMoves": 22
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "3de611a8-6aeb-4147-b5c2-2cffb12c0835",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.5762329101562,
+            "Y": 65,
+            "Z": -133.60755920410156
+          },
+          "outcome": "Arrived",
+          "routeMoves": 23
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "de7ad219-ef18-4d04-be07-5c5a89a7ef80",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.3348999023438,
+            "Y": 65,
+            "Z": -133.58099365234375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 24
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "e015e1b4-04b6-48ad-8014-4799a6abeae1",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.8314819335938,
+            "Y": 65,
+            "Z": -134.13983154296875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 25
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "35b4b254-1fff-402d-8019-debc3728bcd1",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.7701416015625,
+            "Y": 65,
+            "Z": -134.902587890625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 26
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "09dcd9e7-c876-4ac9-96fa-b6dec802713f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.7833251953125,
+            "Y": 65,
+            "Z": -135.66246032714844
+          },
+          "outcome": "Arrived",
+          "routeMoves": 27
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8325cf5e-2708-4998-a586-21ccfbcfafbd",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.7801513671875,
+            "Y": 65,
+            "Z": -136.42086791992188
+          },
+          "outcome": "Arrived",
+          "routeMoves": 28
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5eaf82ab-652f-4641-b757-312d9225172b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.7803344726562,
+            "Y": 65,
+            "Z": -137.179443359375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 29
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "de36d5ab-f2b4-4b84-9346-7744de3d9aff",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.7803344726562,
+            "Y": 65,
+            "Z": -137.93679809570312
+          },
+          "outcome": "Arrived",
+          "routeMoves": 30
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "45859626-3f0e-4c06-a8cd-dcabedf17fe1",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.7803344726562,
+            "Y": 65,
+            "Z": -138.69468688964844
+          },
+          "outcome": "Arrived",
+          "routeMoves": 31
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4eeb01b5-e37e-4bf3-9197-a6409dd26c4c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.2952880859375,
+            "Y": 65,
+            "Z": -139.28646850585938
+          },
+          "outcome": "Arrived",
+          "routeMoves": 32
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "caf5b94c-5b7b-413e-8185-cf47289d089a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.5384521484375,
+            "Y": 65,
+            "Z": -139.31121826171875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 33
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2be43e60-92f5-4d12-b498-e95150941a95",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 571.4342651367188,
+            "Y": 65,
+            "Z": -139.3826141357422
+          },
+          "outcome": "Blocked",
+          "routeMoves": 34
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "e12f8b21-a808-47b2-9645-bd953f009e54",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 571.9736938476562,
+            "Y": 65,
+            "Z": -138.85890197753906
+          },
+          "outcome": "Arrived",
+          "routeMoves": 35
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b6d25d31-e3a8-49e4-be82-e58c32423f3b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.5079345703125,
+            "Y": 65,
+            "Z": -138.31863403320312
+          },
+          "outcome": "Arrived",
+          "routeMoves": 36
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "e869577c-cdfc-4697-85a9-8d5800e7c797",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 572.56494140625,
+            "Y": 65,
+            "Z": -137.55410766601562
+          },
+          "outcome": "Arrived",
+          "routeMoves": 37
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8506dcf2-1f1c-4b84-8c92-f399c0266966",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 573.0621948242188,
+            "Y": 65,
+            "Z": -136.9715576171875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 38
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "dad16bbe-26c1-4bfc-9619-1e58172f2a2c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 573.124755859375,
+            "Y": 65,
+            "Z": -136.2064208984375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 39
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "eb65f37a-407c-4b30-bd4f-059d8af7dc84",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 573.11083984375,
+            "Y": 65,
+            "Z": -135.44635009765625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 40
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "e8f66b22-a3a8-4bfb-a746-c2d8ec5af67b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 573.1143188476562,
+            "Y": 65,
+            "Z": -134.69029235839844
+          },
+          "outcome": "Arrived",
+          "routeMoves": 41
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "7d63adcb-f8da-4f2a-b533-2556b04c1475",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 573.1929931640625,
+            "Y": 65,
+            "Z": -134.58184814453125
+          },
+          "outcome": "Blocked",
+          "routeMoves": 42
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "36733a62-cea8-42eb-8dcc-d0418849b9f4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 573.4121704101562,
+            "Y": 65,
+            "Z": -134.65585327148438
+          },
+          "outcome": "Blocked",
+          "routeMoves": 43
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "79e484e0-cc39-4546-8f9d-5d8ff7ffe0f3",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 573.9552001953125,
+            "Y": 65,
+            "Z": -135.18417358398438
+          },
+          "outcome": "Arrived",
+          "routeMoves": 44
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "78e66161-3747-4e82-a415-b3998c630a4b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 574.7171630859375,
+            "Y": 65,
+            "Z": -135.24400329589844
+          },
+          "outcome": "Arrived",
+          "routeMoves": 45
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d92022fc-4276-42d4-af03-674fa6f112e8",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 575.4778442382812,
+            "Y": 65,
+            "Z": -135.23097229003906
+          },
+          "outcome": "Arrived",
+          "routeMoves": 46
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "07139512-ed3e-436f-9c22-d286721ab292",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 576.2364501953125,
+            "Y": 65,
+            "Z": -135.23361206054688
+          },
+          "outcome": "Arrived",
+          "routeMoves": 47
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ba1f350a-8871-438d-b1bd-077a1604a1b9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 576.9931640625,
+            "Y": 65,
+            "Z": -135.2329559326172
+          },
+          "outcome": "Arrived",
+          "routeMoves": 48
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "9921e5e3-d90f-4ead-93ca-de7e450df9f3",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 577.7529296875,
+            "Y": 65,
+            "Z": -135.2329559326172
+          },
+          "outcome": "Arrived",
+          "routeMoves": 49
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "13892a98-4aad-412f-84b9-c0b933d2362f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 578.51025390625,
+            "Y": 65,
+            "Z": -135.2329559326172
+          },
+          "outcome": "Arrived",
+          "routeMoves": 50
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "09125402-bbc6-4c63-b988-66579f981d3d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.2687377929688,
+            "Y": 65,
+            "Z": -135.2329559326172
+          },
+          "outcome": "Arrived",
+          "routeMoves": 51
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1289279a-b516-44ca-80eb-a87a4ad4dd74",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 580.0247802734375,
+            "Y": 65,
+            "Z": -135.2329559326172
+          },
+          "outcome": "Arrived",
+          "routeMoves": 52
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b5ada189-c393-484a-b861-d8cefa684eb1",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 580.1286010742188,
+            "Y": 65,
+            "Z": -135.15777587890625
+          },
+          "outcome": "Blocked",
+          "routeMoves": 53
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "30b107f1-707c-4b4c-9926-0e47b3464d07",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 580.052734375,
+            "Y": 65,
+            "Z": -134.93630981445312
+          },
+          "outcome": "Blocked",
+          "routeMoves": 54
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ee7bf983-416f-4862-a8b0-a5a13eff602a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.9886474609375,
+            "Y": 65,
+            "Z": -134.1707000732422
+          },
+          "outcome": "Arrived",
+          "routeMoves": 55
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6cde62d5-9238-482a-ac5b-9f394963abc8",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 580.0015258789062,
+            "Y": 65,
+            "Z": -133.40939331054688
+          },
+          "outcome": "Arrived",
+          "routeMoves": 56
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "796029d5-6ceb-4a13-814b-f72c24aec56a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.99853515625,
+            "Y": 65,
+            "Z": -132.648193359375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 57
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "adf2c0db-fd67-47af-ae1e-01db1f58848f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.9987182617188,
+            "Y": 65,
+            "Z": -131.8873291015625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 58
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "04e78988-d395-4fc7-982a-11b0378c9f28",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.9987182617188,
+            "Y": 65,
+            "Z": -131.0950927734375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 59
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "3de1b0b8-8833-4493-a0f0-89c25764278e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.9987182617188,
+            "Y": 65,
+            "Z": -130.3148193359375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 60
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d3ccb359-4f33-4bda-90c7-58646b48ec58",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.9987182617188,
+            "Y": 65,
+            "Z": -129.5575408935547
+          },
+          "outcome": "Arrived",
+          "routeMoves": 61
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "37cecbc3-8258-4085-b12b-00aecc80cb5f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 579.9987182617188,
+            "Y": 65,
+            "Z": -128.80120849609375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 62
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5f52f754-a07f-4224-bbd1-187e77d72b66",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": 580.0760498046875,
+            "Y": 65,
+            "Z": -128.69638061523438
+          },
+          "outcome": "Blocked",
+          "routeMoves": 63
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "66c772fd-94f9-4179-b524-f6153ed9d829",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": 580.836669921875,
+            "Y": 65,
+            "Z": -128.66763305664062
+          },
+          "outcome": "Arrived",
+          "routeMoves": 64
+        }
+      ],
+      "routeProofSample": [
+        {
+          "kind": "local_route_started",
+          "route": {
+            "ChoiceId": "6d2d6325-f27a-4f94-9c68-65b7d7f15f8e",
+            "SessionId": "f27ab741-55d6-423b-9046-6a57c9e706bb",
+            "ActorId": "ffea1a84-7e28-47b3-84a4-36f8def1ede2",
+            "ObservationId": "1041c4d7-9d2d-42b4-8458-84077af83edd",
+            "EvidenceId": "87cbf30a-05d6-49a8-8442-a684171b946a",
+            "Origin": {
+              "X": 570.5,
+              "Y": 65,
+              "Z": -132.5
+            },
+            "Destination": {
+              "X": 570.5,
+              "Y": 65,
+              "Z": -133.5
+            },
+            "PriorVisits": 0,
+            "Reason": "observed_frontier_hops=0; lowest_visits_then_avoid_recent_return_and_keep_heading; blocked_edges_excluded"
+          },
+          "routeKind": "Flat",
+          "routeMoves": 1,
+          "proofCells": 6,
+          "provenance": [
+            {
+              "X": 570,
+              "Y": 64,
+              "Z": -134,
+              "Value": 7,
+              "SourceObservationId": "1041c4d7-9d2d-42b4-8458-84077af83edd",
+              "ObservedAt": 13.4935881,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": 570,
+              "Y": 65,
+              "Z": -134,
+              "Value": 14336,
+              "SourceObservationId": "1041c4d7-9d2d-42b4-8458-84077af83edd",
+              "ObservedAt": 13.4935881,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": 570,
+              "Y": 66,
+              "Z": -134,
+              "Value": 14336,
+              "SourceObservationId": "af45c0f1-df36-42a3-8a31-c3143f8020e6",
+              "ObservedAt": 13.4036454,
+              "Age": 0.08994269999999993,
+              "IsCurrent": false
+            },
+            {
+              "X": 570,
+              "Y": 64,
+              "Z": -133,
+              "Value": 7,
+              "SourceObservationId": "1041c4d7-9d2d-42b4-8458-84077af83edd",
+              "ObservedAt": 13.4935881,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": 570,
+              "Y": 65,
+              "Z": -133,
+              "Value": 14336,
+              "SourceObservationId": "1041c4d7-9d2d-42b4-8458-84077af83edd",
+              "ObservedAt": 13.4935881,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": 570,
+              "Y": 66,
+              "Z": -133,
+              "Value": 14336,
+              "SourceObservationId": "1041c4d7-9d2d-42b4-8458-84077af83edd",
+              "ObservedAt": 13.4935881,
+              "Age": 0,
+              "IsCurrent": true
+            }
+          ]
+        }
+      ],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-b",
+      "sourceSha256": "a1b47574554f7de5d52a87745848aa217e216a8d1dfad7e44bd10bd6a06c2cf1",
+      "results": [
+        {
+          "kind": "result",
+          "passed": false,
+          "reason": "scenario finished",
+          "seconds": 41.7195907,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 64,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 50,
+        "Blocked": 11,
+        "Interrupted": 3
+      },
+      "events": [
+        {
+          "kind": "model_search_goal",
+          "decision": {
+            "SessionId": "b42b09c9-72bf-4620-a83f-3f6780bc45e0",
+            "ActorId": "d3c69276-4192-48b6-b78d-b8aa34d4e331",
+            "ObservationId": "0ccc3b55-fc3e-4b32-afbc-0544ee5b2d35",
+            "DecisionId": "135a0c21-f384-4bd0-86d8-a52d468c4b3a",
+            "Goal": "FindFood",
+            "Skill": "Survey",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": null
+          },
+          "metrics": {
+            "WallSeconds": 8.5644085,
+            "PeakSampledRssBytes": 4411985920,
+            "SampledCpuSeconds": 26.0799999,
+            "PromptTokens": 240,
+            "BackendGenerationEvaluations": 10,
+            "PromptMilliseconds": 4722.91,
+            "GenerationMilliseconds": 1008.23,
+            "Response": "{\"skill\":\"Survey\",\"candidate_index\":0}"
+          },
+          "policy": "model chooses Survey/FindFood; bounded local skill selects evidence-supported short routes"
+        }
+      ],
+      "routeResults": [
+        {
+          "kind": "local_route_result",
+          "choice": "6e436043-c0bb-4b2f-a858-3a23d5fad8d7",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.03526306152344,
+            "Y": 67,
+            "Z": 424.9689025878906
+          },
+          "outcome": "Arrived",
+          "routeMoves": 1
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b1c49b92-5027-417c-af3e-2e03cebe0e3d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.8031005859375,
+            "Y": 67,
+            "Z": 424.91204833984375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 2
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "a88c6dfc-860d-4529-8d3b-933b705c9f7c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.37347412109375,
+            "Y": 67,
+            "Z": 425.4185791015625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 3
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "696957e9-1f97-4f46-bb7f-cb9f7d2906d6",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.41087341308594,
+            "Y": 67,
+            "Z": 426.19586181640625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 4
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "afcc93fb-a9b7-48d1-bf8a-d18ffd302081",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.40675354003906,
+            "Y": 67,
+            "Z": 426.9607849121094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 5
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d017dd93-2d38-40fb-a97b-b9b4b97dff33",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.40757751464844,
+            "Y": 67,
+            "Z": 427.7229309082031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 6
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ed3f4ae6-abae-41e7-9566-45992b75f710",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.40748596191406,
+            "Y": 67,
+            "Z": 428.48223876953125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 7
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c22a0eeb-187c-4996-9ce6-fd4d794535c2",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.40748596191406,
+            "Y": 67,
+            "Z": 429.2504577636719
+          },
+          "outcome": "Arrived",
+          "routeMoves": 8
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "614a9df5-54ea-48f2-8075-37746f187344",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.40748596191406,
+            "Y": 67,
+            "Z": 430.0213623046875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 9
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ee6c949e-7328-4cd6-b47c-883507c2c66c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.8734893798828,
+            "Y": 67,
+            "Z": 430.6233825683594
+          },
+          "outcome": "Arrived",
+          "routeMoves": 10
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5c443c6b-0436-4a62-b523-fc0304603998",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.86465454101562,
+            "Y": 67,
+            "Z": 429.87835693359375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 11
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c4573257-d8fa-4b28-94b4-d0c8d6fdc786",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.86636352539062,
+            "Y": 67,
+            "Z": 429.11676025390625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 12
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "bf8b8846-5967-47eb-a130-cb35b7a1d61f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -148.4156036376953,
+            "Y": 67,
+            "Z": 428.5762939453125
+          },
+          "outcome": "Interrupted",
+          "routeMoves": 13
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "59bbca23-03cf-4148-88e2-f731ae469c21",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -148.31077575683594,
+            "Y": 67,
+            "Z": 428.32403564453125
+          },
+          "outcome": "Blocked",
+          "routeMoves": 14
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "50e33825-c3f2-447a-b02b-08a3720920cb",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -147.80149841308594,
+            "Y": 67,
+            "Z": 427.72467041015625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 15
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d6efda9c-c505-4122-93ac-9709b8daf6ee",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -147.7663116455078,
+            "Y": 67,
+            "Z": 426.90875244140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 16
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "65a10bbc-4acc-4927-bdb9-369ab904b06f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.30154418945312,
+            "Y": 67,
+            "Z": 426.3381042480469
+          },
+          "outcome": "Arrived",
+          "routeMoves": 17
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "306fc56c-a540-47ac-9fc3-c8d684253851",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.33920288085938,
+            "Y": 67,
+            "Z": 425.5370178222656
+          },
+          "outcome": "Arrived",
+          "routeMoves": 18
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4c23317d-d252-46e9-895c-0270daa5ac11",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.8867645263672,
+            "Y": 67,
+            "Z": 424.959716796875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 19
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2837d7f8-151d-41db-b812-ceb2512e6184",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.09674072265625,
+            "Y": 67,
+            "Z": 424.96343994140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 20
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d8d7c6fe-7349-47e2-a020-5668aab1025b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -147.2658233642578,
+            "Y": 67,
+            "Z": 424.96392822265625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 21
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "915e06d1-0f02-4c07-be90-2d98abae9d8e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -146.49407958984375,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 22
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b8ae7dac-647d-4b61-9363-1565d6b1e424",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -145.68170166015625,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 23
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c8a34960-7ec9-484b-8fc8-89c87f586e7c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -144.8858184814453,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 24
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "49353e0b-5b69-4e9f-8e8c-af9f50432158",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -144.0750274658203,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 25
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1db099c2-ece0-4200-990b-deb242524943",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -143.31307983398438,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 26
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "7a434ee6-bc34-4bdd-97f3-1a3e874fceea",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -142.55149841308594,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 27
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "87b2c227-d5fb-47d9-83e9-5a82d2e403f3",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -141.78717041015625,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 28
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2e24a842-7045-4761-a2db-32901de0cdd0",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -141.02499389648438,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 29
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0408b169-38e0-4847-b0fc-75311f1641f4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -140.2628631591797,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 30
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "e69d7ab7-212c-4f43-a496-7b69640e20c1",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -139.4857940673828,
+            "Y": 67,
+            "Z": 424.9641418457031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 31
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "e6ea3816-4aad-416e-9273-4bfe92b449bc",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -139.3807830810547,
+            "Y": 67,
+            "Z": 425.0734558105469
+          },
+          "outcome": "Blocked",
+          "routeMoves": 32
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "24ac04b7-6d28-40cf-802d-579892fc10fb",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -139.4130859375,
+            "Y": 67,
+            "Z": 425.83990478515625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 33
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1a1f491b-22b9-46d8-95a8-9d1ce44a4407",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -139.41416931152344,
+            "Y": 67,
+            "Z": 426.5987548828125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 34
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4d1c6a7e-a69b-4f30-818d-ad119da0146a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -139.41407775878906,
+            "Y": 67,
+            "Z": 427.3597412109375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 35
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "9b46eb13-e57f-40e8-b4aa-030f6f58d7f2",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -139.50094604492188,
+            "Y": 67,
+            "Z": 427.4664611816406
+          },
+          "outcome": "Blocked",
+          "routeMoves": 36
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6a0e9667-04eb-456a-839d-0ba94959763e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -139.8138427734375,
+            "Y": 67,
+            "Z": 427.29473876953125
+          },
+          "outcome": "Interrupted",
+          "routeMoves": 37
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ab06ca1f-c1a7-4729-bf90-f2e36625f635",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -140.35804748535156,
+            "Y": 67,
+            "Z": 426.7443542480469
+          },
+          "outcome": "Arrived",
+          "routeMoves": 38
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "9b7953e8-3b71-45a5-8f68-a89a68e493ae",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -140.90158081054688,
+            "Y": 67,
+            "Z": 426.2016906738281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 39
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c229f23f-6192-4b35-8979-8b98fc3c41d3",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -141.4410400390625,
+            "Y": 67,
+            "Z": 425.6620788574219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 40
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "a4a03800-bcbf-4632-ab49-7797ee07a1f6",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -142.20941162109375,
+            "Y": 67,
+            "Z": 425.6095275878906
+          },
+          "outcome": "Arrived",
+          "routeMoves": 41
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "f50ac183-19e0-4ed1-a885-4b3f6586690c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -142.9837188720703,
+            "Y": 67,
+            "Z": 425.6204528808594
+          },
+          "outcome": "Arrived",
+          "routeMoves": 42
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4cbf2846-573f-4ef4-90ee-6698864d37b7",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -143.74855041503906,
+            "Y": 67,
+            "Z": 425.6183776855469
+          },
+          "outcome": "Arrived",
+          "routeMoves": 43
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "7ca9ae25-ed70-481d-80d2-245c45fd86ed",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -144.50643920898438,
+            "Y": 67,
+            "Z": 425.6187744140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 44
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "25914221-b5c6-426b-a51e-ece438c10472",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -145.26849365234375,
+            "Y": 67,
+            "Z": 425.6187744140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 45
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "989ae9a9-579b-488e-8860-40ad6ea34910",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -146.0343475341797,
+            "Y": 67,
+            "Z": 425.6187744140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 46
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b4fabf11-834d-41f0-9364-66698da51ea8",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -146.13885498046875,
+            "Y": 67,
+            "Z": 425.7071228027344
+          },
+          "outcome": "Blocked",
+          "routeMoves": 47
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "461278d5-5963-4676-85ae-b84ea1d77bae",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -146.00332641601562,
+            "Y": 67,
+            "Z": 425.9886169433594
+          },
+          "outcome": "Blocked",
+          "routeMoves": 48
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "dc31b389-ca29-40d4-966b-cb0d654fcadc",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -145.89942932128906,
+            "Y": 67,
+            "Z": 426.0265197753906
+          },
+          "outcome": "Blocked",
+          "routeMoves": 49
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2d1b42b2-1816-4310-bb91-277e1b48cc4b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -146.6542510986328,
+            "Y": 67,
+            "Z": 426.0166320800781
+          },
+          "outcome": "Arrived",
+          "routeMoves": 50
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "f67a97a3-a5af-4afb-93ef-bbcf635db42d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -146.75057983398438,
+            "Y": 67,
+            "Z": 426.0847473144531
+          },
+          "outcome": "Blocked",
+          "routeMoves": 51
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "a5a829e7-b7cd-4ab2-a5d9-3a0a902f1fa0",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -147.522705078125,
+            "Y": 67,
+            "Z": 426.1380615234375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 52
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "30ffd2e1-6aca-40f7-bdcc-149279246ca0",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -147.62850952148438,
+            "Y": 67,
+            "Z": 426.2054748535156
+          },
+          "outcome": "Blocked",
+          "routeMoves": 53
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c3f35d11-8538-4fea-887d-7daeaca0efce",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.3901824951172,
+            "Y": 67,
+            "Z": 426.2630920410156
+          },
+          "outcome": "Arrived",
+          "routeMoves": 54
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c140c383-2832-4c99-a31c-16de31739252",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -148.49459838867188,
+            "Y": 67,
+            "Z": 426.3197021484375
+          },
+          "outcome": "Blocked",
+          "routeMoves": 55
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "30f49d2f-9095-4e12-aff3-898026ddaa44",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.0661163330078,
+            "Y": 67,
+            "Z": 425.8133850097656
+          },
+          "outcome": "Arrived",
+          "routeMoves": 56
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "bb5c1a59-a9df-4dcb-a6f4-2c139e53334d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.11227416992188,
+            "Y": 67,
+            "Z": 425.0523376464844
+          },
+          "outcome": "Arrived",
+          "routeMoves": 57
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "f84b54b1-490c-426f-b467-99cb0ffc4246",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.5505828857422,
+            "Y": 67,
+            "Z": 425.558837890625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 58
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "869fd0b1-0446-4ca0-9410-35c85de00542",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -149.08209228515625,
+            "Y": 67,
+            "Z": 425.0213317871094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 59
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "31daec54-225a-4f6c-96d8-e1d83a0bd41a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -149.09036254882812,
+            "Y": 67,
+            "Z": 424.87994384765625
+          },
+          "outcome": "Blocked",
+          "routeMoves": 60
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "650a348a-fba1-45f8-a983-646235ba94db",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -149.051025390625,
+            "Y": 67,
+            "Z": 424.8359680175781
+          },
+          "outcome": "Interrupted",
+          "routeMoves": 61
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "fa2e9a7b-fbef-42aa-98a1-da1906e0ecc1",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -148.20614624023438,
+            "Y": 67,
+            "Z": 424.7816467285156
+          },
+          "outcome": "Arrived",
+          "routeMoves": 62
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "22e7441c-99ac-45df-908a-2bbe10232dc0",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -147.4435272216797,
+            "Y": 67,
+            "Z": 424.7818908691406
+          },
+          "outcome": "Arrived",
+          "routeMoves": 63
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b48a5662-2d5b-4088-a2ae-ee4fd014af13",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -147.33895874023438,
+            "Y": 67,
+            "Z": 424.6984558105469
+          },
+          "outcome": "Blocked",
+          "routeMoves": 64
+        }
+      ],
+      "routeProofSample": [
+        {
+          "kind": "local_route_started",
+          "route": {
+            "ChoiceId": "6e436043-c0bb-4b2f-a858-3a23d5fad8d7",
+            "SessionId": "b42b09c9-72bf-4620-a83f-3f6780bc45e0",
+            "ActorId": "d3c69276-4192-48b6-b78d-b8aa34d4e331",
+            "ObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+            "EvidenceId": "0437687a-0158-4635-be5a-aa20527ada17",
+            "Origin": {
+              "X": -147.5,
+              "Y": 67,
+              "Z": 425.5
+            },
+            "Destination": {
+              "X": -148.20710678118655,
+              "Y": 67,
+              "Z": 424.79289321881345
+            },
+            "PriorVisits": 0,
+            "Reason": "observed_frontier_hops=0; lowest_visits_then_avoid_recent_return_and_keep_heading; blocked_edges_excluded"
+          },
+          "routeKind": "Flat",
+          "routeMoves": 1,
+          "proofCells": 12,
+          "provenance": [
+            {
+              "X": -149,
+              "Y": 66,
+              "Z": 424,
+              "Value": 6,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -149,
+              "Y": 67,
+              "Z": 424,
+              "Value": 15360,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -149,
+              "Y": 68,
+              "Z": 424,
+              "Value": 15360,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -149,
+              "Y": 66,
+              "Z": 425,
+              "Value": 6,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -149,
+              "Y": 67,
+              "Z": 425,
+              "Value": 15360,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -149,
+              "Y": 68,
+              "Z": 425,
+              "Value": 15360,
+              "SourceObservationId": "bf710686-1d21-4748-8561-8fd23e606287",
+              "ObservedAt": 12.661933,
+              "Age": 0.0943120000000004,
+              "IsCurrent": false
+            },
+            {
+              "X": -148,
+              "Y": 66,
+              "Z": 424,
+              "Value": 6,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -148,
+              "Y": 67,
+              "Z": 424,
+              "Value": 15360,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -148,
+              "Y": 68,
+              "Z": 424,
+              "Value": 15360,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -148,
+              "Y": 66,
+              "Z": 425,
+              "Value": 6,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -148,
+              "Y": 67,
+              "Z": 425,
+              "Value": 15360,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -148,
+              "Y": 68,
+              "Z": 425,
+              "Value": 15360,
+              "SourceObservationId": "ad61ceb0-97a4-4909-8a15-53da7f57b2fa",
+              "ObservedAt": 12.756245,
+              "Age": 0,
+              "IsCurrent": true
+            }
+          ]
+        }
+      ],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-c",
+      "sourceSha256": "36a623d4624a3b25a9d6c6f26a4b94d4f27eb301214cd52e62afcf6c8ee0faea",
+      "results": [
+        {
+          "kind": "result",
+          "passed": false,
+          "reason": "scenario finished",
+          "seconds": 8.484476,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 0,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 0,
+        "Blocked": 0,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "navigation_mode_unavailable",
+          "mode": "mounted",
+          "parentTemplate": "Boat",
+          "reason": "land Survey requires ground actor; no observed safe dismount policy yet",
+          "actualParent": true
+        }
+      ],
+      "routeResults": [],
+      "routeProofSample": [],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-d",
+      "sourceSha256": "0a5e0ec63cb83b84840a56b840139072a206a8860984031cec968668275c5256",
+      "results": [
+        {
+          "kind": "result",
+          "passed": false,
+          "reason": "scenario finished",
+          "seconds": 41.8322146,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 64,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 60,
+        "Blocked": 4,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "model_search_goal",
+          "decision": {
+            "SessionId": "5c548301-064c-4a40-b1f9-4b7830d2b78b",
+            "ActorId": "c66025ad-ff6f-48f2-96f4-b264798dc569",
+            "ObservationId": "1f1ed716-8271-4c7b-8efc-ab5552d7a8d3",
+            "DecisionId": "8c17a578-2dc3-41c4-b630-dfda8b99d4e8",
+            "Goal": "FindFood",
+            "Skill": "Survey",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": null
+          },
+          "metrics": {
+            "WallSeconds": 8.8582786,
+            "PeakSampledRssBytes": 4411797504,
+            "SampledCpuSeconds": 26.8,
+            "PromptTokens": 240,
+            "BackendGenerationEvaluations": 10,
+            "PromptMilliseconds": 4827.05,
+            "GenerationMilliseconds": 993.46,
+            "Response": "{\"skill\":\"Survey\",\"candidate_index\":0}"
+          },
+          "policy": "model chooses Survey/FindFood; bounded local skill selects evidence-supported short routes"
+        }
+      ],
+      "routeResults": [
+        {
+          "kind": "local_route_result",
+          "choice": "73b4a7d1-423f-4726-accd-fcb136ca874e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.03604125976562,
+            "Y": 65,
+            "Z": 104.9660873413086
+          },
+          "outcome": "Arrived",
+          "routeMoves": 1
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "53ea50b0-6f4a-470b-ac32-dbb53abcdea2",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.8020782470703,
+            "Y": 65,
+            "Z": 104.91095733642578
+          },
+          "outcome": "Arrived",
+          "routeMoves": 2
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4f36319e-e454-4c1c-8425-1255eddfc742",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -172.38485717773438,
+            "Y": 65,
+            "Z": 104.41343688964844
+          },
+          "outcome": "Arrived",
+          "routeMoves": 3
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "255811a0-af3b-4201-a2ee-f47bbc44d726",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -172.91268920898438,
+            "Y": 65,
+            "Z": 103.86740112304688
+          },
+          "outcome": "Arrived",
+          "routeMoves": 4
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ad4319ae-1971-4c0d-89a6-fe179bbda053",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -173.44924926757812,
+            "Y": 65,
+            "Z": 103.33453369140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 5
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5ddf1f0a-a15f-4e87-93ad-0ddb82e02222",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -173.98391723632812,
+            "Y": 65,
+            "Z": 102.79914093017578
+          },
+          "outcome": "Arrived",
+          "routeMoves": 6
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "46a7acc7-e4dc-4a58-82a4-ef6bf62b196e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -174.52249145507812,
+            "Y": 65,
+            "Z": 102.26065826416016
+          },
+          "outcome": "Arrived",
+          "routeMoves": 7
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ca872d5f-6924-407a-aa1c-5fe5bc862136",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -175.06146240234375,
+            "Y": 65,
+            "Z": 101.72167205810547
+          },
+          "outcome": "Arrived",
+          "routeMoves": 8
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4803f830-65d6-4f9f-96b4-5c8ee13c6966",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -175.11920166015625,
+            "Y": 65,
+            "Z": 100.95545959472656
+          },
+          "outcome": "Arrived",
+          "routeMoves": 9
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "f415891b-a0d8-4acd-9984-c69f204e08d4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -175.01727294921875,
+            "Y": 65,
+            "Z": 100.8520278930664
+          },
+          "outcome": "Blocked",
+          "routeMoves": 10
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "9ba776c0-cd9e-47ec-9f79-ff00d9d4b686",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -174.8025665283203,
+            "Y": 65,
+            "Z": 100.91902923583984
+          },
+          "outcome": "Blocked",
+          "routeMoves": 11
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "f382180a-edbf-4875-9b3b-a560deda039f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -174.0384521484375,
+            "Y": 65,
+            "Z": 100.98023986816406
+          },
+          "outcome": "Arrived",
+          "routeMoves": 12
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b3e79c84-966e-43cf-99f5-5414623b75a9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -173.28074645996094,
+            "Y": 65,
+            "Z": 100.9679946899414
+          },
+          "outcome": "Arrived",
+          "routeMoves": 13
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "45409374-fcb7-4677-8b41-5472c86c2a9f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -172.51943969726562,
+            "Y": 65,
+            "Z": 100.9703369140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 14
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "96d2d7a2-5ed8-4226-a381-f09d5d79ba23",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.7591094970703,
+            "Y": 65,
+            "Z": 100.9698486328125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 15
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0e00cee3-2d56-48e7-bf52-8d3fbc9071e7",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.0010223388672,
+            "Y": 65,
+            "Z": 100.96990203857422
+          },
+          "outcome": "Arrived",
+          "routeMoves": 16
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "91688944-ead3-4573-9b1c-db5434cbe6d4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -170.24339294433594,
+            "Y": 65,
+            "Z": 100.96990203857422
+          },
+          "outcome": "Arrived",
+          "routeMoves": 17
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "837954a0-94bb-4f5e-b15f-0b2dd858fd41",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.66506958007812,
+            "Y": 65,
+            "Z": 100.47173309326172
+          },
+          "outcome": "Arrived",
+          "routeMoves": 18
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4c77509c-22d0-4faf-85ef-34fbc5e13543",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.616455078125,
+            "Y": 65,
+            "Z": 99.70657348632812
+          },
+          "outcome": "Arrived",
+          "routeMoves": 19
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c41f5429-7648-47cd-99f6-7e0525c9052e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.62631225585938,
+            "Y": 65,
+            "Z": 98.94647979736328
+          },
+          "outcome": "Arrived",
+          "routeMoves": 20
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "25149929-b210-4feb-be0d-6c5c7b5c0f1b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.62442016601562,
+            "Y": 65,
+            "Z": 98.19036102294922
+          },
+          "outcome": "Arrived",
+          "routeMoves": 21
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c9bb2449-77a7-4fda-9b21-086a66a2747a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 97.4322509765625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 22
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ebadd2f7-5bcc-4bc5-b1cf-ea7db99f90ea",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 96.67463684082031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 23
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c243edc3-900e-46b4-9a85-c138d5935250",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 95.91463470458984
+          },
+          "outcome": "Arrived",
+          "routeMoves": 24
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2c29ca4c-650f-4d0d-b0eb-7a08f6b9007f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 95.1488265991211
+          },
+          "outcome": "Arrived",
+          "routeMoves": 25
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "452e3928-35ff-4101-bd71-e92ddb2b68cc",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 94.3841323852539
+          },
+          "outcome": "Arrived",
+          "routeMoves": 26
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "dc2ac8f9-01bc-48c0-9d3f-a44590e15c37",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 93.6212387084961
+          },
+          "outcome": "Arrived",
+          "routeMoves": 27
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1c58520e-fca7-43a9-8c79-ccede88e7f1e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 92.86344146728516
+          },
+          "outcome": "Arrived",
+          "routeMoves": 28
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4b734ac7-417b-45c6-9152-fa4c45e71e50",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 92.10094451904297
+          },
+          "outcome": "Arrived",
+          "routeMoves": 29
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8dd36418-52eb-464d-8a32-79d069a6b2d7",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 91.33999633789062
+          },
+          "outcome": "Arrived",
+          "routeMoves": 30
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2370ee02-744d-490c-97ac-29e5a2a19914",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 90.57007598876953
+          },
+          "outcome": "Arrived",
+          "routeMoves": 31
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "95e3d3f0-b7ec-4d75-9ab2-fa5237f733e9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 89.81005096435547
+          },
+          "outcome": "Arrived",
+          "routeMoves": 32
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "545f6dfa-f577-4569-bde8-25448abd8a84",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 89.05305480957031
+          },
+          "outcome": "Arrived",
+          "routeMoves": 33
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b01a67f0-9065-4213-8ee0-fab2dad293ab",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 88.2942886352539
+          },
+          "outcome": "Arrived",
+          "routeMoves": 34
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c6767f6e-92be-473b-b19b-07454ae1df99",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 87.53675079345703
+          },
+          "outcome": "Arrived",
+          "routeMoves": 35
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "43ebd727-4efd-4811-b23c-f0756a920d82",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 86.77389526367188
+          },
+          "outcome": "Arrived",
+          "routeMoves": 36
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "87ed99fe-029c-40c3-a73f-76becf2cf126",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 86.0147476196289
+          },
+          "outcome": "Arrived",
+          "routeMoves": 37
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0471c476-b567-41df-84ec-6cf97d2ca6af",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 85.25820922851562
+          },
+          "outcome": "Arrived",
+          "routeMoves": 38
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "57fc1efc-0382-4262-888b-4ef15b0a8080",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 84.50064849853516
+          },
+          "outcome": "Arrived",
+          "routeMoves": 39
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "927c0234-a911-41b8-9577-602ad201f322",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 83.74158477783203
+          },
+          "outcome": "Arrived",
+          "routeMoves": 40
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "cb6374e4-e89a-4a77-b2bd-fbe834555a03",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 82.98152923583984
+          },
+          "outcome": "Arrived",
+          "routeMoves": 41
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "3a6157c4-ee1f-4ba5-b911-e94c4e19a47a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 82.2165298461914
+          },
+          "outcome": "Arrived",
+          "routeMoves": 42
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "3ad6018c-91ba-485c-b48f-032db375fd8f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 81.45638275146484
+          },
+          "outcome": "Arrived",
+          "routeMoves": 43
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5ecd891c-2a63-4ec6-8e70-ae335a5109b0",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 80.69677734375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 44
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "e0211e34-86ef-4c10-9d02-ac455ee51adb",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 79.93899536132812
+          },
+          "outcome": "Arrived",
+          "routeMoves": 45
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "81f22333-a764-43fa-98e1-f8c58af426e8",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 79.18331146240234
+          },
+          "outcome": "Arrived",
+          "routeMoves": 46
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0e752def-fe1b-4d3a-8ddf-d6f78e412c60",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 78.41987609863281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 47
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0e2f28c4-fbb1-4fd7-9625-d9fb6c197482",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 77.65843200683594
+          },
+          "outcome": "Arrived",
+          "routeMoves": 48
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "cb258a68-235c-495c-91b7-c7d99aa35fe6",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 76.8982162475586
+          },
+          "outcome": "Arrived",
+          "routeMoves": 49
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0f32ce47-3e78-4621-a413-108ccfb28e1d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 76.1348648071289
+          },
+          "outcome": "Arrived",
+          "routeMoves": 50
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "fea5c438-8ac2-470f-806f-4c12e23bf3e6",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 75.37683868408203
+          },
+          "outcome": "Arrived",
+          "routeMoves": 51
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "04aa3f55-0ba7-4821-87b5-a582450680f0",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 74.61664581298828
+          },
+          "outcome": "Arrived",
+          "routeMoves": 52
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2f834be8-8e3e-48fc-a4d0-45814388ec36",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 73.84565734863281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 53
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "71808589-c9b4-4d43-8dd8-2367a28e8773",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -169.6248779296875,
+            "Y": 65,
+            "Z": 73.0826416015625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 54
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "83d4a537-552c-4a9f-a656-9a7f8c08c41f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -170.1253662109375,
+            "Y": 65,
+            "Z": 72.50409698486328
+          },
+          "outcome": "Arrived",
+          "routeMoves": 55
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8d02c7a6-6f68-4151-99e5-a426f9822049",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -170.89266967773438,
+            "Y": 65,
+            "Z": 72.45526885986328
+          },
+          "outcome": "Arrived",
+          "routeMoves": 56
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "207301b3-7b10-4220-9283-ca953d191fb6",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.65151977539062,
+            "Y": 65,
+            "Z": 72.46509552001953
+          },
+          "outcome": "Arrived",
+          "routeMoves": 57
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "76224f6c-e7d4-4582-821d-6e119e197dcd",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -172.41195678710938,
+            "Y": 65,
+            "Z": 72.46320343017578
+          },
+          "outcome": "Arrived",
+          "routeMoves": 58
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0af8340d-c6c4-4bd6-8245-e5926a60b3f1",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -172.5215301513672,
+            "Y": 65,
+            "Z": 72.3631362915039
+          },
+          "outcome": "Blocked",
+          "routeMoves": 59
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6fb2afb4-4eef-4636-8d90-8ad6008bd0ca",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -172.02174377441406,
+            "Y": 65,
+            "Z": 71.783447265625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 60
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "dc1b747a-b532-48d7-be3d-5d7bdff079f9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.96629333496094,
+            "Y": 65,
+            "Z": 71.00799560546875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 61
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5c66c529-ed4d-499a-9816-a06b8b84e25d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.46847534179688,
+            "Y": 65,
+            "Z": 70.42733001708984
+          },
+          "outcome": "Arrived",
+          "routeMoves": 62
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1689aecd-ba9e-4d28-8a23-486c0f2521e4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -171.40756225585938,
+            "Y": 65,
+            "Z": 69.66419219970703
+          },
+          "outcome": "Arrived",
+          "routeMoves": 63
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "41b601a8-0936-4cee-b084-e2e95ff68fad",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -171.513671875,
+            "Y": 65,
+            "Z": 69.55958557128906
+          },
+          "outcome": "Blocked",
+          "routeMoves": 64
+        }
+      ],
+      "routeProofSample": [
+        {
+          "kind": "local_route_started",
+          "route": {
+            "ChoiceId": "73b4a7d1-423f-4726-accd-fcb136ca874e",
+            "SessionId": "5c548301-064c-4a40-b1f9-4b7830d2b78b",
+            "ActorId": "c66025ad-ff6f-48f2-96f4-b264798dc569",
+            "ObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+            "EvidenceId": "8625071b-0a3b-42c3-af35-259dea6997ff",
+            "Origin": {
+              "X": -170.5,
+              "Y": 65,
+              "Z": 105.5
+            },
+            "Destination": {
+              "X": -171.20710678118655,
+              "Y": 65,
+              "Z": 104.79289321881345
+            },
+            "PriorVisits": 0,
+            "Reason": "observed_frontier_hops=0; lowest_visits_then_avoid_recent_return_and_keep_heading; blocked_edges_excluded"
+          },
+          "routeKind": "Flat",
+          "routeMoves": 1,
+          "proofCells": 12,
+          "provenance": [
+            {
+              "X": -172,
+              "Y": 64,
+              "Z": 104,
+              "Value": 6,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -172,
+              "Y": 65,
+              "Z": 104,
+              "Value": 15360,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -172,
+              "Y": 66,
+              "Z": 104,
+              "Value": 15360,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -172,
+              "Y": 64,
+              "Z": 105,
+              "Value": 6,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -172,
+              "Y": 65,
+              "Z": 105,
+              "Value": 15360,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -172,
+              "Y": 66,
+              "Z": 105,
+              "Value": 15360,
+              "SourceObservationId": "d2d36231-5d66-4678-8767-28bc65a4e58a",
+              "ObservedAt": 12.9442027,
+              "Age": 0.08402779999999943,
+              "IsCurrent": false
+            },
+            {
+              "X": -171,
+              "Y": 64,
+              "Z": 104,
+              "Value": 6,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -171,
+              "Y": 65,
+              "Z": 104,
+              "Value": 15360,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -171,
+              "Y": 66,
+              "Z": 104,
+              "Value": 15360,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -171,
+              "Y": 64,
+              "Z": 105,
+              "Value": 6,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -171,
+              "Y": 65,
+              "Z": 105,
+              "Value": 15360,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -171,
+              "Y": 66,
+              "Z": 105,
+              "Value": 15360,
+              "SourceObservationId": "97f62a3f-8595-4bce-a8b5-e0419e66943d",
+              "ObservedAt": 13.0282305,
+              "Age": 0,
+              "IsCurrent": true
+            }
+          ]
+        }
+      ],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-e",
+      "sourceSha256": "85af82ad2c83269c5f5bbe6dbf4bd380a3b97ab4966b23d2c6413b2d12a753de",
+      "results": [
+        {
+          "kind": "result",
+          "passed": false,
+          "reason": "scenario finished",
+          "seconds": 43.4899574,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 64,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 51,
+        "Blocked": 12,
+        "Interrupted": 1
+      },
+      "events": [
+        {
+          "kind": "model_search_goal",
+          "decision": {
+            "SessionId": "812504bb-6ca6-41bb-a306-f8955cb7a165",
+            "ActorId": "24646b2a-a12b-4612-97b0-aa0a8e050f3b",
+            "ObservationId": "4d7c6b94-bc34-4c16-99ac-07b0b2fd7e82",
+            "DecisionId": "c817de70-009c-43c9-8fa7-6aee33728fc0",
+            "Goal": "FindFood",
+            "Skill": "Survey",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": null
+          },
+          "metrics": {
+            "WallSeconds": 9.322325,
+            "PeakSampledRssBytes": 4411912192,
+            "SampledCpuSeconds": 28.62,
+            "PromptTokens": 241,
+            "BackendGenerationEvaluations": 10,
+            "PromptMilliseconds": 5219.81,
+            "GenerationMilliseconds": 1056.12,
+            "Response": "{\"skill\":\"Survey\",\"candidate_index\":0}"
+          },
+          "policy": "model chooses Survey/FindFood; bounded local skill selects evidence-supported short routes"
+        }
+      ],
+      "routeResults": [
+        {
+          "kind": "local_route_result",
+          "choice": "d2bd8f99-8ffa-4e5d-ab09-2760c7ee8fbf",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -120.2544174194336,
+            "Y": 66,
+            "Z": 385.50299072265625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 1
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d2900e7d-b5d1-4993-aa88-55764658bff3",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -121.01412963867188,
+            "Y": 66,
+            "Z": 385.5024719238281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 2
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "24cd150f-bef8-4c0f-87d9-bb8c42a35174",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -121.77371215820312,
+            "Y": 66,
+            "Z": 385.5024719238281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 3
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d78e6d27-5799-4aed-a58f-30f956887cf5",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -122.53279876708984,
+            "Y": 66,
+            "Z": 385.5024719238281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 4
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "aa91764c-293a-42c0-aa39-c2f019590a1d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -123.29312133789062,
+            "Y": 66,
+            "Z": 385.5024719238281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 5
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "eb310573-f71d-4e6a-a4c9-cd1297feaa8d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -124.0494384765625,
+            "Y": 66,
+            "Z": 385.5024719238281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 6
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8f3d9915-7d46-4e3b-a613-93a39da400a3",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -124.15249633789062,
+            "Y": 66,
+            "Z": 385.4205322265625
+          },
+          "outcome": "Blocked",
+          "routeMoves": 7
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "692cb2b2-e458-45ae-ab27-5a2caaec8a8b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -124.1631851196289,
+            "Y": 66,
+            "Z": 386.1722106933594
+          },
+          "outcome": "Arrived",
+          "routeMoves": 8
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "93c4e115-de1f-4835-8d87-cc7b40c697ef",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -124.15959930419922,
+            "Y": 66,
+            "Z": 386.9291687011719
+          },
+          "outcome": "Arrived",
+          "routeMoves": 9
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "90b84e06-4679-40bb-84f0-c56978c645e2",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -124.16020965576172,
+            "Y": 66,
+            "Z": 387.68695068359375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 10
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "a173128a-d648-4811-8a9e-12ad8fe299b9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -124.16012573242188,
+            "Y": 66,
+            "Z": 388.4481201171875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 11
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4d334eb6-b1d5-45c7-9a20-aa9fccdcfa1b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -124.06401824951172,
+            "Y": 66,
+            "Z": 388.5533752441406
+          },
+          "outcome": "Blocked",
+          "routeMoves": 12
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6a474cf4-e4ee-4a39-889a-5e871d00acaf",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -123.48544311523438,
+            "Y": 66,
+            "Z": 388.0555419921875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 13
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2cd1d3ba-7d94-4bf7-943d-8f2dee4744ae",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -122.95672607421875,
+            "Y": 66,
+            "Z": 387.50897216796875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 14
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "920a3e63-6e89-4970-8504-6717e547a156",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -122.41913604736328,
+            "Y": 66,
+            "Z": 386.9747619628906
+          },
+          "outcome": "Arrived",
+          "routeMoves": 15
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4690ede5-dc7d-45be-8f34-e6b01afebcae",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -121.65567016601562,
+            "Y": 66,
+            "Z": 386.9207458496094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 16
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ade7fed2-794a-4558-bac1-b88992088d46",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -120.89863586425781,
+            "Y": 66,
+            "Z": 386.931884765625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 17
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ce5e331f-21a9-4099-bad7-24532ba4b773",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -120.1407699584961,
+            "Y": 66,
+            "Z": 386.9294128417969
+          },
+          "outcome": "Arrived",
+          "routeMoves": 18
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "fec79c36-e029-4037-8414-f428e7a8b809",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -119.38232421875,
+            "Y": 66,
+            "Z": 386.9295349121094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 19
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ed74f4f4-1b18-43bc-aff9-79042c88ee72",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -118.62218475341797,
+            "Y": 66,
+            "Z": 386.9295349121094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 20
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "dc762d59-3808-4cc1-b3fb-df1f4db79a89",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.85777282714844,
+            "Y": 66,
+            "Z": 386.9295349121094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 21
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6d0cec1b-ef8c-4c00-89cf-113949c12ec3",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.09626007080078,
+            "Y": 66,
+            "Z": 386.9295349121094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 22
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1aaaf4c9-2172-4e8d-ac1f-6b233444f04c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -116.52000427246094,
+            "Y": 66,
+            "Z": 386.42840576171875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 23
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6de3ed6e-8f19-4cbe-aa1b-34b948af8421",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -116.47341918945312,
+            "Y": 66,
+            "Z": 385.6674499511719
+          },
+          "outcome": "Arrived",
+          "routeMoves": 24
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "947e653d-36b2-4cda-8420-c655807dcf8b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -116.57989501953125,
+            "Y": 66,
+            "Z": 385.56353759765625
+          },
+          "outcome": "Blocked",
+          "routeMoves": 25
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1e108409-52f7-4d0f-a9cf-4ec23e8b1551",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -116.80226135253906,
+            "Y": 66,
+            "Z": 385.6396484375
+          },
+          "outcome": "Blocked",
+          "routeMoves": 26
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "daaddb0e-d568-479f-abe8-6de48b9352c5",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -116.90550994873047,
+            "Y": 66,
+            "Z": 385.8445129394531
+          },
+          "outcome": "Blocked",
+          "routeMoves": 27
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "296a7ee2-72be-4664-812e-f140542e6b22",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.47633361816406,
+            "Y": 66,
+            "Z": 385.5062561035156
+          },
+          "outcome": "Arrived",
+          "routeMoves": 28
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "fd766042-cb0c-4594-aed5-96b848f9e104",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -118.0150146484375,
+            "Y": 66,
+            "Z": 384.96661376953125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 29
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d58ff49a-ef37-4c61-863c-4c1d49d3d29c",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -118.01988983154297,
+            "Y": 66,
+            "Z": 384.82452392578125
+          },
+          "outcome": "Blocked",
+          "routeMoves": 30
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "2678cc9c-a213-485e-acb8-47ac38cab4a4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -118.00257873535156,
+            "Y": 66,
+            "Z": 385.575439453125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 31
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "aeca25cc-e6de-4a19-90d0-4bb0c1b7ef54",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.45037078857422,
+            "Y": 66,
+            "Z": 385.0612487792969
+          },
+          "outcome": "Arrived",
+          "routeMoves": 32
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "db9ba0e9-a872-418d-b361-b8c4288a4275",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -117.38011169433594,
+            "Y": 66,
+            "Z": 385.0372314453125
+          },
+          "outcome": "Interrupted",
+          "routeMoves": 33
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8256b9ee-2fe6-48e8-9572-b1eb0eeaa0bd",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34837341308594,
+            "Y": 66,
+            "Z": 384.3455810546875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 34
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "76eecb1b-86df-4d86-9bfc-8f4ba276890d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 383.58843994140625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 35
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d75b08b3-7cc5-4767-a715-d627c6513771",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 382.8321533203125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 36
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "abac5a1a-9a78-4543-887e-4444d39c91c8",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 382.07452392578125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 37
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "20ca5718-ce74-4c74-9666-c008bcb341ba",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 381.3143310546875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 38
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "82f5413f-aeb0-4812-87dd-6206ca14579e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 380.544189453125
+          },
+          "outcome": "Arrived",
+          "routeMoves": 39
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "62565312-1240-420d-9d4c-758eeff6796a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 379.78070068359375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 40
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d23e4080-c3c5-4c5d-a0f5-270c8c4fcc5d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 379.0205993652344
+          },
+          "outcome": "Arrived",
+          "routeMoves": 41
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "469d5570-2228-4887-921d-367d8ce06692",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 378.25848388671875
+          },
+          "outcome": "Arrived",
+          "routeMoves": 42
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "29962e55-f1f3-4a9e-90bf-31a805dd74d8",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 377.4967956542969
+          },
+          "outcome": "Arrived",
+          "routeMoves": 43
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c8c2927a-5e5a-413d-8db5-92272bb51a0b",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 376.7379150390625
+          },
+          "outcome": "Arrived",
+          "routeMoves": 44
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "aedf6afd-6bee-456b-a8b1-e6ba313471af",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -117.34859466552734,
+            "Y": 66,
+            "Z": 375.9812927246094
+          },
+          "outcome": "Arrived",
+          "routeMoves": 45
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "ddd3e1bb-0dad-4198-bca9-e933794dad28",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -117.264404296875,
+            "Y": 66,
+            "Z": 375.877685546875
+          },
+          "outcome": "Blocked",
+          "routeMoves": 46
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "fb7c6242-ac8c-4c03-8102-904fd9719bdf",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -117.02517700195312,
+            "Y": 66,
+            "Z": 375.9719543457031
+          },
+          "outcome": "Blocked",
+          "routeMoves": 47
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b699f502-e832-41de-a0a3-7831271b5eb6",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -116.92174530029297,
+            "Y": 66,
+            "Z": 376.1910705566406
+          },
+          "outcome": "Blocked",
+          "routeMoves": 48
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b79aa980-22ce-49f2-8330-7762c5ea14e8",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -116.86621856689453,
+            "Y": 66,
+            "Z": 376.283447265625
+          },
+          "outcome": "Blocked",
+          "routeMoves": 49
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8c9a7fd3-d066-4977-a6f5-1b0d87d1c1d7",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -116.10669708251953,
+            "Y": 66,
+            "Z": 376.2814636230469
+          },
+          "outcome": "Arrived",
+          "routeMoves": 50
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5b060055-9361-4feb-bff8-7fafd8d75810",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -115.52886962890625,
+            "Y": 66,
+            "Z": 375.7774963378906
+          },
+          "outcome": "Arrived",
+          "routeMoves": 51
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "f6addca8-60a1-4b41-83cb-3ebd9d5fcba4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -114.76557159423828,
+            "Y": 66,
+            "Z": 375.7202453613281
+          },
+          "outcome": "Arrived",
+          "routeMoves": 52
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "a443c55a-50bf-4986-81e9-d105ba595c08",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -114.0050277709961,
+            "Y": 66,
+            "Z": 375.7326354980469
+          },
+          "outcome": "Arrived",
+          "routeMoves": 53
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "6a33cb06-ed23-4d19-9b28-8ffb6d644240",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -113.2435531616211,
+            "Y": 66,
+            "Z": 375.7301330566406
+          },
+          "outcome": "Arrived",
+          "routeMoves": 54
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "1b898f16-4efe-47d7-a374-5bf3ce35954d",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -112.48554229736328,
+            "Y": 66,
+            "Z": 375.7304382324219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 55
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "8a4e7db1-8d55-43cf-87ff-60aeb0685c4a",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -111.72733306884766,
+            "Y": 66,
+            "Z": 375.7304382324219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 56
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "046d274e-556b-4af3-9578-cdc4cb6e6948",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -110.96585083007812,
+            "Y": 66,
+            "Z": 375.7304382324219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 57
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5076797b-d2e9-4c09-be1e-9ea72f4afca9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -110.20320892333984,
+            "Y": 66,
+            "Z": 375.7304382324219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 58
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "476d3e19-61bf-41a7-8666-38b9c89a2f17",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -109.44388580322266,
+            "Y": 66,
+            "Z": 375.7304382324219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 59
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "d999aec8-d08b-4d8f-babe-4b7415ac94d7",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -108.68512725830078,
+            "Y": 66,
+            "Z": 375.7304382324219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 60
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "b546b0a6-8fb2-4831-85df-6e8ea5b64a23",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -107.92587280273438,
+            "Y": 66,
+            "Z": 375.7304382324219
+          },
+          "outcome": "Arrived",
+          "routeMoves": 61
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "c998b298-82cf-4edc-ac96-914f3266322f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -107.82257843017578,
+            "Y": 66,
+            "Z": 375.6413879394531
+          },
+          "outcome": "Blocked",
+          "routeMoves": 62
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "558b82cb-4388-4668-a9aa-4542687dc8e5",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -107.81112670898438,
+            "Y": 66,
+            "Z": 376.3929443359375
+          },
+          "outcome": "Arrived",
+          "routeMoves": 63
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "4a1fa053-9fec-49fe-9b4e-eafa454cddf9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -107.90351867675781,
+            "Y": 66,
+            "Z": 376.4958801269531
+          },
+          "outcome": "Blocked",
+          "routeMoves": 64
+        }
+      ],
+      "routeProofSample": [
+        {
+          "kind": "local_route_started",
+          "route": {
+            "ChoiceId": "d2bd8f99-8ffa-4e5d-ab09-2760c7ee8fbf",
+            "SessionId": "812504bb-6ca6-41bb-a306-f8955cb7a165",
+            "ActorId": "24646b2a-a12b-4612-97b0-aa0a8e050f3b",
+            "ObservationId": "a8a9b0f6-afbe-4346-9bc1-fd7a7e707b47",
+            "EvidenceId": "1c4a5add-ce8c-4b17-9b0b-06142bd897e5",
+            "Origin": {
+              "X": -119.5,
+              "Y": 66,
+              "Z": 385.5
+            },
+            "Destination": {
+              "X": -120.5,
+              "Y": 66,
+              "Z": 385.5
+            },
+            "PriorVisits": 0,
+            "Reason": "observed_frontier_hops=0; lowest_visits_then_avoid_recent_return_and_keep_heading; blocked_edges_excluded"
+          },
+          "routeKind": "Flat",
+          "routeMoves": 1,
+          "proofCells": 6,
+          "provenance": [
+            {
+              "X": -121,
+              "Y": 65,
+              "Z": 385,
+              "Value": 7,
+              "SourceObservationId": "a8a9b0f6-afbe-4346-9bc1-fd7a7e707b47",
+              "ObservedAt": 13.5404346,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -121,
+              "Y": 66,
+              "Z": 385,
+              "Value": 15360,
+              "SourceObservationId": "a8a9b0f6-afbe-4346-9bc1-fd7a7e707b47",
+              "ObservedAt": 13.5404346,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -121,
+              "Y": 67,
+              "Z": 385,
+              "Value": 15360,
+              "SourceObservationId": "a8a9b0f6-afbe-4346-9bc1-fd7a7e707b47",
+              "ObservedAt": 13.5404346,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -120,
+              "Y": 65,
+              "Z": 385,
+              "Value": 7,
+              "SourceObservationId": "a8a9b0f6-afbe-4346-9bc1-fd7a7e707b47",
+              "ObservedAt": 13.5404346,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -120,
+              "Y": 66,
+              "Z": 385,
+              "Value": 15360,
+              "SourceObservationId": "a8a9b0f6-afbe-4346-9bc1-fd7a7e707b47",
+              "ObservedAt": 13.5404346,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -120,
+              "Y": 67,
+              "Z": 385,
+              "Value": 15360,
+              "SourceObservationId": "a8a9b0f6-afbe-4346-9bc1-fd7a7e707b47",
+              "ObservedAt": 13.5404346,
+              "Age": 0,
+              "IsCurrent": true
+            }
+          ]
+        }
+      ],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-f",
+      "sourceSha256": "b22c5a817112da3e7af884092f5d0ad7e65af191bec8ecda58cf47a866978e36",
+      "results": [
+        {
+          "kind": "result",
+          "passed": false,
+          "reason": "scenario finished",
+          "seconds": 22.6447768,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 3,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 1,
+        "Blocked": 2,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "model_search_goal",
+          "decision": {
+            "SessionId": "4ea9f0df-21e9-4748-aea1-2ab0d93c38cc",
+            "ActorId": "b0a8b085-de0c-41ad-af0e-d4621c5158f8",
+            "ObservationId": "c2cf7f72-9f7f-4fc1-8534-298f7dbc44ac",
+            "DecisionId": "73a31c5e-fe72-4bd4-a44b-425b6d7e8cea",
+            "Goal": "FindFood",
+            "Skill": "Survey",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": null
+          },
+          "metrics": {
+            "WallSeconds": 8.4318291,
+            "PeakSampledRssBytes": 4412100608,
+            "SampledCpuSeconds": 25.77,
+            "PromptTokens": 241,
+            "BackendGenerationEvaluations": 10,
+            "PromptMilliseconds": 4726.36,
+            "GenerationMilliseconds": 947.33,
+            "Response": "{\"skill\":\"Survey\",\"candidate_index\":0}"
+          },
+          "policy": "model chooses Survey/FindFood; bounded local skill selects evidence-supported short routes"
+        },
+        {
+          "kind": "no_safe_route",
+          "routeMoves": 3,
+          "scan": 17,
+          "meaning": "unknown terrain is not permission to walk"
+        }
+      ],
+      "routeResults": [
+        {
+          "kind": "local_route_result",
+          "choice": "e8cd31f1-7b64-45af-bdcf-efef0e653d1f",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -40.25643539428711,
+            "Y": 69,
+            "Z": -120.50315856933594
+          },
+          "outcome": "Arrived",
+          "routeMoves": 1
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "5180e2b5-f20b-464e-a5b6-7b55331d2ee4",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -40.36057662963867,
+            "Y": 69,
+            "Z": -120.59056854248047
+          },
+          "outcome": "Blocked",
+          "routeMoves": 2
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "0816f007-507d-4c99-83fe-f246fc86dd1e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -40.315093994140625,
+            "Y": 69,
+            "Z": -120.69468688964844
+          },
+          "outcome": "Blocked",
+          "routeMoves": 3
+        }
+      ],
+      "routeProofSample": [
+        {
+          "kind": "local_route_started",
+          "route": {
+            "ChoiceId": "e8cd31f1-7b64-45af-bdcf-efef0e653d1f",
+            "SessionId": "4ea9f0df-21e9-4748-aea1-2ab0d93c38cc",
+            "ActorId": "b0a8b085-de0c-41ad-af0e-d4621c5158f8",
+            "ObservationId": "b3175e31-115b-41ca-a173-56c28a77d10e",
+            "EvidenceId": "f06dedc2-820a-450b-8b97-3a25785ecc54",
+            "Origin": {
+              "X": -39.5,
+              "Y": 69,
+              "Z": -120.5
+            },
+            "Destination": {
+              "X": -40.5,
+              "Y": 69,
+              "Z": -120.5
+            },
+            "PriorVisits": 0,
+            "Reason": "observed_frontier_hops=0; lowest_visits_then_avoid_recent_return_and_keep_heading; blocked_edges_excluded"
+          },
+          "routeKind": "Flat",
+          "routeMoves": 1,
+          "proofCells": 6,
+          "provenance": [
+            {
+              "X": -41,
+              "Y": 68,
+              "Z": -121,
+              "Value": 7,
+              "SourceObservationId": "b3175e31-115b-41ca-a173-56c28a77d10e",
+              "ObservedAt": 14.5559993,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -41,
+              "Y": 69,
+              "Z": -121,
+              "Value": 13312,
+              "SourceObservationId": "b3175e31-115b-41ca-a173-56c28a77d10e",
+              "ObservedAt": 14.5559993,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -41,
+              "Y": 70,
+              "Z": -121,
+              "Value": 13312,
+              "SourceObservationId": "b3175e31-115b-41ca-a173-56c28a77d10e",
+              "ObservedAt": 14.5559993,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -40,
+              "Y": 68,
+              "Z": -121,
+              "Value": 7,
+              "SourceObservationId": "b3175e31-115b-41ca-a173-56c28a77d10e",
+              "ObservedAt": 14.5559993,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -40,
+              "Y": 69,
+              "Z": -121,
+              "Value": 14336,
+              "SourceObservationId": "b3175e31-115b-41ca-a173-56c28a77d10e",
+              "ObservedAt": 14.5559993,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -40,
+              "Y": 70,
+              "Z": -121,
+              "Value": 14336,
+              "SourceObservationId": "b3175e31-115b-41ca-a173-56c28a77d10e",
+              "ObservedAt": 14.5559993,
+              "Age": 0,
+              "IsCurrent": true
+            }
+          ]
+        }
+      ],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-wall",
+      "sourceSha256": "f60e8423bdf060a20b25b71f07282d8cf763abd41075cf36ef416d4065dd89e1",
+      "results": [
+        {
+          "kind": "result",
+          "passed": true,
+          "reason": "scenario finished",
+          "seconds": 20.0538051,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 0,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 0,
+        "Blocked": 0,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "model_search_goal",
+          "decision": {
+            "SessionId": "af3960d9-7ee6-447a-ba7a-859d9a63b5d7",
+            "ActorId": "00f7f96b-220a-4b0d-afcd-da45613dfdd4",
+            "ObservationId": "692e57d8-99ad-45ee-92ff-328b06f1fcc9",
+            "DecisionId": "a2356560-a6c3-4682-9c0d-4beb4a49240e",
+            "Goal": "FindFood",
+            "Skill": "Survey",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": null
+          },
+          "metrics": {
+            "WallSeconds": 8.445064,
+            "PeakSampledRssBytes": 4411891712,
+            "SampledCpuSeconds": 25.64,
+            "PromptTokens": 240,
+            "BackendGenerationEvaluations": 10,
+            "PromptMilliseconds": 4584.62,
+            "GenerationMilliseconds": 1005.9,
+            "Response": "{\"skill\":\"Survey\",\"candidate_index\":0}"
+          },
+          "policy": "model chooses Survey/FindFood; bounded local skill selects evidence-supported short routes"
+        },
+        {
+          "kind": "no_safe_route",
+          "routeMoves": 0,
+          "scan": 17,
+          "meaning": "unknown terrain is not permission to walk"
+        }
+      ],
+      "routeResults": [],
+      "routeProofSample": [],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-obstacle",
+      "sourceSha256": "2bfc264e05c42aa3b38e8afc2d209212552b83ec0292eefb808d037e0d7ca92b",
+      "results": [
+        {
+          "kind": "result",
+          "passed": true,
+          "reason": "scenario finished",
+          "seconds": 17.2556512,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 2,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 1,
+        "Blocked": 1,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "model_search_goal",
+          "decision": {
+            "SessionId": "57af320e-80f7-4931-938a-9a4dde9993c4",
+            "ActorId": "9fd31dfe-7fe2-41d2-abc7-87c921e59854",
+            "ObservationId": "1f7b9f2b-ccd3-4956-b2a7-10a736e81561",
+            "DecisionId": "db5a7750-c961-49a9-8534-52e0200142eb",
+            "Goal": "FindFood",
+            "Skill": "Survey",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": null
+          },
+          "metrics": {
+            "WallSeconds": 8.6053524,
+            "PeakSampledRssBytes": 4412100608,
+            "SampledCpuSeconds": 26.37,
+            "PromptTokens": 241,
+            "BackendGenerationEvaluations": 10,
+            "PromptMilliseconds": 4805.35,
+            "GenerationMilliseconds": 1001.43,
+            "Response": "{\"skill\":\"Survey\",\"candidate_index\":0}"
+          },
+          "policy": "model chooses Survey/FindFood; bounded local skill selects evidence-supported short routes"
+        },
+        {
+          "kind": "obstacle_recovery_verified",
+          "obstacleStops": 1,
+          "blockedFailures": 0,
+          "routeFailures": 1,
+          "routeArrivals": 1,
+          "routeMoves": 2
+        }
+      ],
+      "routeResults": [
+        {
+          "kind": "local_route_result",
+          "choice": "31c8c689-2dd3-43ff-9003-960d0198b22e",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Cancelled",
+          "failure": "None",
+          "position": {
+            "X": -104.89179992675781,
+            "Y": 67,
+            "Z": -4.75
+          },
+          "outcome": "Blocked",
+          "routeMoves": 1
+        },
+        {
+          "kind": "local_route_result",
+          "choice": "03877903-1e3a-46e2-9a73-5924db9421d9",
+          "routeKind": "Flat",
+          "stepCheck": null,
+          "status": "Succeeded",
+          "failure": "None",
+          "position": {
+            "X": -105.65419006347656,
+            "Y": 67,
+            "Z": -4.747213840484619
+          },
+          "outcome": "Arrived",
+          "routeMoves": 2
+        }
+      ],
+      "routeProofSample": [
+        {
+          "kind": "local_route_started",
+          "route": {
+            "ChoiceId": "31c8c689-2dd3-43ff-9003-960d0198b22e",
+            "SessionId": "57af320e-80f7-4931-938a-9a4dde9993c4",
+            "ActorId": "9fd31dfe-7fe2-41d2-abc7-87c921e59854",
+            "ObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+            "EvidenceId": "2d68ddfa-c3aa-41a1-ae4e-51d9ad3417df",
+            "Origin": {
+              "X": -104.5,
+              "Y": 67,
+              "Z": -4.5
+            },
+            "Destination": {
+              "X": -105.20710678118655,
+              "Y": 67,
+              "Z": -5.207106781186548
+            },
+            "PriorVisits": 0,
+            "Reason": "observed_frontier_hops=0; lowest_visits_then_avoid_recent_return_and_keep_heading; blocked_edges_excluded"
+          },
+          "routeKind": "Flat",
+          "routeMoves": 1,
+          "proofCells": 12,
+          "provenance": [
+            {
+              "X": -106,
+              "Y": 66,
+              "Z": -6,
+              "Value": 2,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -106,
+              "Y": 67,
+              "Z": -6,
+              "Value": 15360,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -106,
+              "Y": 68,
+              "Z": -6,
+              "Value": 15360,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -106,
+              "Y": 66,
+              "Z": -5,
+              "Value": 2,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -106,
+              "Y": 67,
+              "Z": -5,
+              "Value": 15360,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -106,
+              "Y": 68,
+              "Z": -5,
+              "Value": 15360,
+              "SourceObservationId": "addf7361-a76a-4b17-b2de-f315a7694a84",
+              "ObservedAt": 12.6956293,
+              "Age": 0.08831409999999984,
+              "IsCurrent": false
+            },
+            {
+              "X": -105,
+              "Y": 66,
+              "Z": -6,
+              "Value": 2,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -105,
+              "Y": 67,
+              "Z": -6,
+              "Value": 15360,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -105,
+              "Y": 68,
+              "Z": -6,
+              "Value": 15360,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -105,
+              "Y": 66,
+              "Z": -5,
+              "Value": 2,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -105,
+              "Y": 67,
+              "Z": -5,
+              "Value": 15360,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            },
+            {
+              "X": -105,
+              "Y": 68,
+              "Z": -5,
+              "Value": 15360,
+              "SourceObservationId": "9fb39f04-bc02-4dc3-b9f0-772303f33cec",
+              "ObservedAt": 12.7839434,
+              "Age": 0,
+              "IsCurrent": true
+            }
+          ]
+        }
+      ],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-fixture",
+      "sourceSha256": "17ec32a59be037069ada6fef52348b3a4e68c3894a3e10ed6e80aa6cef86b8f6",
+      "results": [
+        {
+          "kind": "result",
+          "passed": true,
+          "reason": "checkpoint published at safe task boundary",
+          "seconds": 19.1059033,
+          "updateFailures": 0
+        },
+        {
+          "kind": "result",
+          "passed": true,
+          "reason": "scenario finished",
+          "seconds": 3.2173329,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 0,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 0,
+        "Blocked": 0,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "resource_observed",
+          "observation": "3047d3b3-1bd2-41c5-a509-709e524cc2da",
+          "target": {
+            "X": 570,
+            "Y": 65,
+            "Z": -136,
+            "ExpectedValue": 15491
+          },
+          "moves": 0,
+          "scan": 0,
+          "natural": false
+        },
+        {
+          "kind": "model_decision",
+          "decision": {
+            "SessionId": "5296f355-6f3c-4307-aaee-b99c7dbad457",
+            "ActorId": "e47efaea-eadf-4639-8c9c-1b25ae597908",
+            "ObservationId": "3047d3b3-1bd2-41c5-a509-709e524cc2da",
+            "DecisionId": "a89c8fd8-79b4-419d-b53a-1b99c9d8d2a6",
+            "Goal": "SatisfyHunger",
+            "Skill": "ForageOne",
+            "Slot": -1,
+            "ExpectedValue": 0,
+            "Target": {
+              "X": 570,
+              "Y": 65,
+              "Z": -136,
+              "ExpectedValue": 15491
+            }
+          },
+          "currentObservation": "ce0c5632-db58-422e-9bf7-9382ae506ae1",
+          "metrics": {
+            "WallSeconds": 8.1756704,
+            "PeakSampledRssBytes": 4406906880,
+            "SampledCpuSeconds": 24.3299999,
+            "PromptTokens": 201,
+            "BackendGenerationEvaluations": 12,
+            "PromptMilliseconds": 4114.41,
+            "GenerationMilliseconds": 1169.06,
+            "Response": "{\"skill\":\"ForageOne\",\"candidate_index\":0}"
+          }
+        },
+        {
+          "kind": "native_pickup_confirmed",
+          "slot": 0,
+          "value": 131203,
+          "count": 1
+        },
+        {
+          "kind": "restored_meal_verified",
+          "task": {
+            "version": 2,
+            "status": "succeeded",
+            "completedSteps": 2,
+            "totalSteps": 2,
+            "lastProgressTime": 0.10000000149011612,
+            "failure": "none",
+            "steps": [
+              {
+                "index": 0,
+                "name": "Wait",
+                "status": "succeeded",
+                "attempts": 1,
+                "retriesRemaining": 0,
+                "minimumAffectedCount": 0,
+                "affectedCount": 0,
+                "atomicFailure": "none"
+              },
+              {
+                "index": 1,
+                "name": "Eat",
+                "status": "succeeded",
+                "attempts": 1,
+                "retriesRemaining": 0,
+                "minimumAffectedCount": 1,
+                "affectedCount": 1,
+                "atomicFailure": "none"
+              }
+            ],
+            "taskId": "91c8874d-c0ba-4213-a708-ac4d93b450d0"
+          },
+          "foodBefore": 0.54544365,
+          "foodAfter": 0.69540894,
+          "eaten": 1,
+          "itemsBefore": 1,
+          "itemsAfter": 0
+        }
+      ],
+      "routeResults": [],
+      "routeProofSample": [],
+      "stepTicks": []
+    },
+    {
+      "run": "mixed-step-final",
+      "sourceSha256": "e3f6922d5bfc83e4da1659c93cd4e64ab52c31958bbd24ede016bac5e2ed29e7",
+      "results": [
+        {
+          "kind": "result",
+          "passed": true,
+          "reason": "native step finished",
+          "seconds": 8.8976814,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 0,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 0,
+        "Blocked": 0,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "fixture",
+          "up": true,
+          "origin": "570.5,65,-132.5",
+          "target": "571.5,66,-132.5",
+          "teleportOnlyForSetup": true,
+          "perimeterWaterBarrier": true
+        },
+        {
+          "kind": "step_started",
+          "chosen": {
+            "Id": "0dbde59b-c50e-4834-81d6-0750bf8d88e0",
+            "SessionId": "9dfa57d0-5307-44a6-bada-2b7c7b4437ca",
+            "ActorId": "3b1b2b01-da1e-42be-ad3f-c04ecc72f980",
+            "ObservationId": "5ebfdcf6-540a-4252-be06-5779bc18676e",
+            "ObservedAt": 4.1206988,
+            "Origin": {
+              "X": 570.5,
+              "Y": 65,
+              "Z": -132.5
+            },
+            "Destination": {
+              "X": 571.5,
+              "Y": 66,
+              "Z": -132.5
+            },
+            "Kind": 0,
+            "Evidence": [
+              {
+                "X": 570,
+                "Y": 64,
+                "Z": -133,
+                "Value": 3,
+                "SourceObservationId": "563807bb-6d14-4ecb-a352-f1f6ec9b2e18",
+                "ObservedAt": 3.8881905,
+                "Age": 0.23250830000000056,
+                "IsCurrent": false
+              },
+              {
+                "X": 570,
+                "Y": 65,
+                "Z": -133,
+                "Value": 14336,
+                "SourceObservationId": "563807bb-6d14-4ecb-a352-f1f6ec9b2e18",
+                "ObservedAt": 3.8881905,
+                "Age": 0.23250830000000056,
+                "IsCurrent": false
+              },
+              {
+                "X": 570,
+                "Y": 66,
+                "Z": -133,
+                "Value": 14336,
+                "SourceObservationId": "563807bb-6d14-4ecb-a352-f1f6ec9b2e18",
+                "ObservedAt": 3.8881905,
+                "Age": 0.23250830000000056,
+                "IsCurrent": false
+              },
+              {
+                "X": 571,
+                "Y": 65,
+                "Z": -133,
+                "Value": 3,
+                "SourceObservationId": "563807bb-6d14-4ecb-a352-f1f6ec9b2e18",
+                "ObservedAt": 3.8881905,
+                "Age": 0.23250830000000056,
+                "IsCurrent": false
+              },
+              {
+                "X": 570,
+                "Y": 67,
+                "Z": -133,
+                "Value": 14336,
+                "SourceObservationId": "5ebfdcf6-540a-4252-be06-5779bc18676e",
+                "ObservedAt": 4.1206988,
+                "Age": 0,
+                "IsCurrent": true
+              },
+              {
+                "X": 570,
+                "Y": 68,
+                "Z": -133,
+                "Value": 14336,
+                "SourceObservationId": "5ebfdcf6-540a-4252-be06-5779bc18676e",
+                "ObservedAt": 4.1206988,
+                "Age": 0,
+                "IsCurrent": true
+              },
+              {
+                "X": 571,
+                "Y": 66,
+                "Z": -133,
+                "Value": 15360,
+                "SourceObservationId": "5ebfdcf6-540a-4252-be06-5779bc18676e",
+                "ObservedAt": 4.1206988,
+                "Age": 0,
+                "IsCurrent": true
+              },
+              {
+                "X": 571,
+                "Y": 67,
+                "Z": -133,
+                "Value": 15360,
+                "SourceObservationId": "5ebfdcf6-540a-4252-be06-5779bc18676e",
+                "ObservedAt": 4.1206988,
+                "Age": 0,
+                "IsCurrent": true
+              },
+              {
+                "X": 571,
+                "Y": 68,
+                "Z": -133,
+                "Value": 15360,
+                "SourceObservationId": "5ebfdcf6-540a-4252-be06-5779bc18676e",
+                "ObservedAt": 4.1206988,
+                "Age": 0,
+                "IsCurrent": true
+              }
+            ],
+            "MaximumAge": 0.23250830000000056
+          },
+          "status": "Running",
+          "jumpSpeed": 4.5
+        }
+      ],
+      "routeResults": [],
+      "routeProofSample": [],
+      "stepTicks": [
+        {
+          "kind": "step_tick",
+          "position": "570.5001,65.01302,-132.5",
+          "velocity": "0.049679168,4.7505794,0",
+          "standing": null,
+          "jump": 1,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.5311,65.37267,-132.5",
+          "velocity": "0.58060145,3.8084292,0",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.56226,65.530754,-132.5",
+          "velocity": "0.79991406,3.3235724,0",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.6139,65.69779,-132.5",
+          "velocity": "1.0317005,2.7254362,0",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.74554,65.92266,-132.5",
+          "velocity": "1.3745416,1.5989681,0",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.849,66,-132.5",
+          "velocity": "1.6282687,0,0",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.94366,66,-132.5",
+          "velocity": "1.8391472,0,0",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.0504,66,-132.5",
+          "velocity": "1.8559488,0,2.4497533E-15",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.1278,66,-132.5",
+          "velocity": "1.7636739,0,5.640139E-15",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.1992,66,-132.5",
+          "velocity": "1.617754,0,4.001304E-15",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.2651,66,-132.5",
+          "velocity": "1.4354748,0,3.2540422E-15",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.2856,66,-132.5",
+          "velocity": "1.3537357,0,3.5105924E-15",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Succeeded",
+          "failure": "None"
+        }
+      ]
+    },
+    {
+      "run": "mixed-step-down",
+      "sourceSha256": "5d1e5d05d0336bcd71303f6f04b534197b8f75895d91f7697e983bd15d54176d",
+      "results": [
+        {
+          "kind": "result",
+          "passed": true,
+          "reason": "native step finished",
+          "seconds": 9.3843961,
+          "updateFailures": 0
+        }
+      ],
+      "routeKinds": {
+        "Flat": 0,
+        "Up": 0,
+        "Down": 0
+      },
+      "outcomes": {
+        "Arrived": 0,
+        "Blocked": 0,
+        "Interrupted": 0
+      },
+      "events": [
+        {
+          "kind": "fixture",
+          "up": false,
+          "origin": "570.74,65,-132.5",
+          "target": "571.5,64,-132.5",
+          "teleportOnlyForSetup": true,
+          "perimeterWaterBarrier": true
+        },
+        {
+          "kind": "step_started",
+          "chosen": {
+            "Id": "c19bcf29-5f94-4da4-a3fa-29e860a542a6",
+            "SessionId": "55d52159-a3fc-427c-9a26-093b8abd94e5",
+            "ActorId": "542acc44-ddb6-4760-adb0-f8951a8402e6",
+            "ObservationId": "27861f5f-46c2-48bc-90d7-eb129ee99367",
+            "ObservedAt": 4.4911812,
+            "Origin": {
+              "X": 570.739990234375,
+              "Y": 65,
+              "Z": -132.5
+            },
+            "Destination": {
+              "X": 571.5,
+              "Y": 64,
+              "Z": -132.5
+            },
+            "Kind": 1,
+            "Evidence": [
+              {
+                "X": 570,
+                "Y": 64,
+                "Z": -133,
+                "Value": 3,
+                "SourceObservationId": "27861f5f-46c2-48bc-90d7-eb129ee99367",
+                "ObservedAt": 4.4911812,
+                "Age": 0,
+                "IsCurrent": true
+              },
+              {
+                "X": 570,
+                "Y": 65,
+                "Z": -133,
+                "Value": 14336,
+                "SourceObservationId": "27861f5f-46c2-48bc-90d7-eb129ee99367",
+                "ObservedAt": 4.4911812,
+                "Age": 0,
+                "IsCurrent": true
+              },
+              {
+                "X": 570,
+                "Y": 66,
+                "Z": -133,
+                "Value": 14336,
+                "SourceObservationId": "27861f5f-46c2-48bc-90d7-eb129ee99367",
+                "ObservedAt": 4.4911812,
+                "Age": 0,
+                "IsCurrent": true
+              },
+              {
+                "X": 571,
+                "Y": 63,
+                "Z": -133,
+                "Value": 3,
+                "SourceObservationId": "57b3a549-887c-4db8-9b4f-1d949cd9450d",
+                "ObservedAt": 3.8724695,
+                "Age": 0.6187117,
+                "IsCurrent": false
+              },
+              {
+                "X": 571,
+                "Y": 64,
+                "Z": -133,
+                "Value": 15360,
+                "SourceObservationId": "57b3a549-887c-4db8-9b4f-1d949cd9450d",
+                "ObservedAt": 3.8724695,
+                "Age": 0.6187117,
+                "IsCurrent": false
+              },
+              {
+                "X": 571,
+                "Y": 65,
+                "Z": -133,
+                "Value": 15360,
+                "SourceObservationId": "57b3a549-887c-4db8-9b4f-1d949cd9450d",
+                "ObservedAt": 3.8724695,
+                "Age": 0.6187117,
+                "IsCurrent": false
+              },
+              {
+                "X": 571,
+                "Y": 66,
+                "Z": -133,
+                "Value": 15360,
+                "SourceObservationId": "99d82706-4253-4c3e-8354-f58afd0fcd9c",
+                "ObservedAt": 4.092954,
+                "Age": 0.3982272,
+                "IsCurrent": false
+              }
+            ],
+            "MaximumAge": 0.6187117
+          },
+          "status": "Running",
+          "jumpSpeed": 4.5
+        }
+      ],
+      "routeResults": [],
+      "routeProofSample": [],
+      "stepTicks": [
+        {
+          "kind": "step_tick",
+          "position": "570.7408,65,-132.50006",
+          "velocity": "0.092319466,0,-0.0063040224",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.8194,65,-132.5093",
+          "velocity": "0.91249704,0,-0.058852218",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "570.9637,65,-132.51758",
+          "velocity": "1.5119665,0,-0.064501695",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.1024,65,-132.52254",
+          "velocity": "1.6257827,0,-0.050113454",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.211,65,-132.52542",
+          "velocity": "1.4751817,0,-0.03313215",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.3042,64.97769,-132.52737",
+          "velocity": "1.352231,-0.6534788,-0.027045874",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.3902,64.91033,-132.52904",
+          "velocity": "1.1889561,-1.3133737,-0.02179651",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.4781,64.76955,-132.53061",
+          "velocity": "0.9633417,-2.096517,-0.016629718",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.55237,64.54887,-132.53183",
+          "velocity": "0.7537842,-2.9163942,-0.012398431",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.61145,64.264275,-132.53276",
+          "velocity": "0.6447961,-3.7013464,-0.009314157",
+          "standing": null,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Running",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.65546,64,-132.53328",
+          "velocity": "0.60138637,0,-0.007274485",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Succeeded",
+          "failure": "None"
+        },
+        {
+          "kind": "step_tick",
+          "position": "571.65546,64,-132.53328",
+          "velocity": "0.60138637,0,-0.007274485",
+          "standing": 3,
+          "jump": 0,
+          "nativeSmoothRise": 0.51,
+          "knownSupportContactUsed": false,
+          "inside": true,
+          "expired": false,
+          "status": "Succeeded",
+          "failure": "None"
+        }
+      ]
+    }
+  ]
+}
