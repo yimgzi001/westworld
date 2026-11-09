@@ -1,0 +1,10 @@
+{
+  "source": "work/tool-contract13/FileController.test.log",
+  "sha256": "967c53bddb14ba5b5a03c9c2ef5b3a5689685234355f1f31f5f5e45a04201507",
+  "bytes": 214,
+  "suiteOutcome": "failed",
+  "failureReportedBy": "parent coordinator actual batch execution",
+  "failure": "FileController Program.cs line 78: deadline marker bound identity",
+  "stdoutLimitation": "This tee log contains stdout only, ending with intermediate PASS36. Failure exception was on stderr, not present in this file. Intermediate PASS does not mean complete suite or all17 passed.",
+  "diagnosis": "Pending actor_contract_review; no cause or fix claimed."
+}

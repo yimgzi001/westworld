@@ -42,3 +42,11 @@ Before each native case use batch-recovery begin, then normal dot terminal run.s
 ### 下一语义改进建议（本批未改源码）
 
 将规划请求明确标为 `AfterPrecedingSuccess`，单列前序工具、目标、请求 ID，以及“真实当前状态仅为规划时背景；这些候选只会在前序成功且新观察复验后执行”。告诉模型不必返回等待来保护仍在运行的前序，宿主已保证不会提前抢占；应根据总体目标提出成功之后的下一项工作。空计划仍合法，用于目标完成或缺乏证据，不能强制有动作，也不默认复制任何下一导航。应继续展示真实当前观测，不能将预计终点伪装成已发生事实。下一轮分别评估：有无真实推理重叠、有用后继占比、停稳到下一动作延迟，不能只看 endpoint PASS 或 prefetchTaken=1。
+
+## 13：明确规划阶段后的接线回归
+
+新增 `PlanningPhaseContext`，预取事实明确标注 AfterPrecedingSuccess；保留真实前序模型目标、工具原参数、实际导航请求 ID / receipt sequence、真实 running 状态、当前 observation ID 与剩余期限。普通决策和执行复验不带此未来条件阶段。没有构造未来位置或库存，空步骤仍合法，前序成功/新观察/截止/所有权门不变。handoff 的顶层人工夹具标签修正为 true，12 原证据不回写。
+
+`tool-prefetch13-early` 是确定性 file driver 接线回归，不是模型优化效果：13.901641 秒 PASS，更新异常 0，两次导航、一次交接；pending 期间实际身体移动 0.598480 米、Moving 采样覆盖 0.265306 秒。16 套历史纯回归通过；后续完整17套在FileController期限分类测试失败，待修复验收，新 helper 正式套件 16/16，另由 helper 作者完成 Terra12 第二请求状态回放 1 项。日志、七份源码快照和部署 DLL 哈希在 evidence；随后 Terra13 已准备独立空世界目录，是否真正改善后继计划要以其实际模型响应判断。
+
+最终回归：期限取消分类修复后，work/tool-contract13-fixed 的17套669项全部通过。修后分类仅纯测，Terra13仍对应修前sources13，不能声称原生重测；修后日志与源码hash另见contract13-fixed-manifest.json。首次失败证据保留。

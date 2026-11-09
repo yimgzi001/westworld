@@ -1,0 +1,12 @@
+{
+  "rawBytes": 24641,
+  "rawSHA256": "d3ea6bf0dca9dddb4cb814bb39867cd64cbbedaeac39cf33ed1cf8b328d18d2e",
+  "gzipSHA256": "d51b142a98632dfb11e571a1a2032e65bcf6600249d072bb7b5c54fda7cfb3da",
+  "parts": [
+    {
+      "file": "planning-phase-replay13.gz.b64.part001",
+      "bytes": 7136,
+      "sha256": "9fff592c9574b5f173bd600d2552e4a091f7cbdd8e8d0df539491eb7172d62d3"
+    }
+  ]
+}

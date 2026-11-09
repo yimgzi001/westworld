@@ -44,7 +44,7 @@ free03 was accidentally staged from old DLLs after a failed parallel build repor
 
 ## Reproducible verification
 
-`bash experiments/scapi-tool-agent/run-contract-tests.sh` builds and runs eight pure suites, failing immediately on any build/test error. Dependencies must already be restored. These do not prove native world or model outcomes. Run them between resource-measured model trials, not during a trial.
+`bash experiments/scapi-tool-agent/run-contract-tests.sh` builds and runs seventeen pure suites, failing immediately on any build/test error. Dependencies must already be restored. These do not prove native world or model outcomes. Run them between resource-measured model trials, not during a trial.
 
 `bash experiments/scapi-tool-agent/stage.sh <fresh-label> <existing-runtime-assets-directory>` serially builds and stages four modes only after a successful build. Each fresh directory records source/DLL hashes, and its run.sh verifies installed DLL hashes before execution. Launch that run.sh through the authorized dot desktop terminal. Do not reuse existing world/evidence directories.
 
@@ -69,3 +69,7 @@ Final free05 results: craft199.60s failed on oversized observation context after
 Marker ledger-local-navigation08 adds explicit host_navigate_local/status/cancel via the same NativeToolSession ledger. The original act_MoveTo remains unchanged. A single same-player actions/skill/lease is attached, with fresh navigation status provided to offer construction. Host polls host_navigation_status until arrived/failed/cancelled; it never substitutes native action_status for skill completion. Owner quarantine fails closed. Health/budget cancellation uses precise navigation request ID then continues per-frame drain; absolute602s closure cannot claim clean shutdown if still active. The original595s work budget remains.
 
 Native ledger behavior was verified separately in scapi-navigation-ledger-gate (flat3m/cancel/wall); this ToolAgent integration is compiled, not yet a real model selecting the new tool. CanPrefetchNavigation is only an eligibility hook, and final audit explicitly says prefetchImplemented=false. Real-model AsyncDecisionHandoff remains the next step; do not describe current ToolAgent as overlapping inference and movement.
+
+## PlanningPhase 回归接入
+
+批测 runner 已加入 `Westworld.PlanningPhase.Tests`（实际 csproj/assembly 名均带 Westworld 前缀），默认共17套。新增16条纯断言检查前序真实运行状态与身份、原始目标/参数保留、非未来事实说明及剩余预算边界。不启动模型/游戏；不证明提前规划实测成功。可单独运行 `dotnet tests/Westworld.PlanningPhase.Tests/bin/Release/net10.0/Westworld.PlanningPhase.Tests.dll`。构建失败与测试失败均中止批测，不跳过此套。历史8套统计仍是当时的运行记录，不追溯改成17套。

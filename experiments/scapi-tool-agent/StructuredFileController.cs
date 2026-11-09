@@ -14,7 +14,9 @@ public sealed class StructuredFileController {
   if(budget<=TimeSpan.Zero||budget>TimeSpan.FromSeconds(120))throw new ArgumentOutOfRangeException(nameof(remainingBudget));
   if(requestId==Guid.Empty)throw new ArgumentException("Nonempty host request ID required",nameof(requestId));
   cancellation.ThrowIfCancellationRequested();
+  CancellationToken callerCancellation=cancellation;
   using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancellation);deadline.CancelAfter(budget);cancellation=deadline.Token;
+  string CancellationReason()=>ClassifyCancellation(callerCancellation.IsCancellationRequested,deadline.IsCancellationRequested,Stopwatch.GetElapsedTime(startedTicks)>=budget);
   void CheckDeadline(){cancellation.ThrowIfCancellationRequested();if(Stopwatch.GetElapsedTime(startedTicks)>=budget)throw new OperationCanceledException("Controller request deadline expired",cancellation);}
   Guid request=requestId??Guid.NewGuid();
   lock(requestLock){if(issuedRequests.Count>=4096)throw new InvalidOperationException("Controller request identity budget exhausted");if(!issuedRequests.Add(request))throw new InvalidOperationException("Controller request ID already used");}
@@ -26,7 +28,7 @@ public sealed class StructuredFileController {
   publishedTicks=Stopwatch.GetTimestamp();
   log(new{kind="controller_request_published",controller="file",requestId=request,ordinal=n,sessionId=session,actorId=actor,observationId=observation,wallUtc=published,monotonicTicks=publishedTicks,monotonicFrequency=Stopwatch.Frequency,gameTime,requestPath=ready});
   CheckDeadline();
-  }catch(OperationCanceledException){WriteCancellation(dir,request,Stopwatch.GetElapsedTime(startedTicks)>=budget?"deadline_expired":"canceled");throw;}
+  }catch(OperationCanceledException){WriteCancellation(dir,request,CancellationReason());throw;}
   string response=Path.Combine(dir,"response.json");int rejected=0;var seen=new HashSet<string>();
   try{while(true){CheckDeadline();
     if(rejected>=32){log(new{kind="controller_request_failed",requestId=request,reason="response_attempt_budget_exhausted",receivedAttempts=rejected,monotonicTicks=Stopwatch.GetTimestamp(),elapsedSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds});throw new InvalidDataException("Response attempt budget exhausted");}
@@ -43,8 +45,12 @@ public sealed class StructuredFileController {
      try{CheckDeadline();}catch(OperationCanceledException){File.Delete(Path.Combine(dir,"accepted.json"));throw;}return result;
     }catch(Exception e)when(e is not OperationCanceledException){log(new{kind="controller_response_rejected",requestId=request,wallUtc=DateTimeOffset.UtcNow,responseFile=claimed,monotonicTicks=Stopwatch.GetTimestamp(),error=e.Message});}
    }await Task.Delay(100,cancellation);}
-  }catch(OperationCanceledException){WriteCancellation(dir,request,Stopwatch.GetElapsedTime(startedTicks)>=budget?"deadline_expired":"canceled");log(new{kind="controller_request_canceled",requestId=request,wallUtc=DateTimeOffset.UtcNow,monotonicTicks=Stopwatch.GetTimestamp(),elapsedSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds});throw;}
+  }catch(OperationCanceledException){WriteCancellation(dir,request,CancellationReason());log(new{kind="controller_request_canceled",requestId=request,wallUtc=DateTimeOffset.UtcNow,monotonicTicks=Stopwatch.GetTimestamp(),elapsedSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds});throw;}
  }
+ // Timer cancellation is authoritative even when OS timer granularity fires just
+ // before the exact Stopwatch boundary. Never confuse it with caller cancellation.
+ public static string ClassifyCancellation(bool callerCanceled,bool linkedCanceled,bool elapsedExpired)=>
+  callerCanceled?"canceled":linkedCanceled||elapsedExpired?"deadline_expired":"canceled";
  static void WriteCancellation(string directory,Guid request,string reason){
   // Best effort lifecycle hint for external controllers, never an API cancellation guarantee.
   string temporary=Path.Combine(directory,"canceled.tmp"),ready=Path.Combine(directory,"canceled.json");

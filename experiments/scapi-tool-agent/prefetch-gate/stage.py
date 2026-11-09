@@ -7,7 +7,7 @@ cases=['early','late','failure','cancel','expired'];assert all(not (r/f'work/{la
 for case in cases:
  d=r/f'work/{label}-{case}';shutil.copytree(out,d);shutil.copy2(r/'work/nav-handoff02-late/Content.zip',d/'Content.zip')
  sources=d/'sources';sources.mkdir()
- for n in ['Program.cs','ToolAgentScenario.Prefetch.cs','ToolAgentScenario.HandoffFixture.cs','StructuredFileController.cs','NativeToolOffers.cs','DecisionDispatchWindow.cs']:
+ for n in ['Program.cs','ToolAgentScenario.Prefetch.cs','ToolAgentScenario.HandoffFixture.cs','StructuredFileController.cs','NativeToolOffers.cs','DecisionDispatchWindow.cs','PlanningPhaseContext.cs']:
   shutil.copy2(r/'experiments/scapi-tool-agent'/n,sources/n)
  (sources/'manifest.json').write_text(json.dumps({p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sources.glob('*.cs')},indent=2))
  (d/'installed-hashes.json').write_text(json.dumps({p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in d.glob('*.dll')},indent=2))

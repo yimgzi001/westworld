@@ -58,5 +58,29 @@
   "sources12": {
     "manifest": "sources12-manifest.json",
     "sha256": "f4f5c969ebdcf087d8e03c60644cedca9a1901161345c4d687aa06071c4bc76f"
+  },
+  "13-early": {
+    "manifest": "13-early-manifest.json",
+    "sha256": "59c3d84969f812b5683752bcde8b1a454ddd91be3cc83099f00eb5506205a5e3"
+  },
+  "sources13": {
+    "manifest": "sources13-manifest.json",
+    "sha256": "8fe0ed796232193edfe30fc2ab5d45cd5f48ebac1e16e5c081b5857603c6bdbe"
+  },
+  "13-terra": {
+    "manifest": "13-terra-manifest.json",
+    "sha256": "aeee67d62c4c5743e8557dfa8c326c629b88cd1d3be11f0f4d21a92d8dff5f77"
+  },
+  "13-terra-api": {
+    "manifest": "13-terra-api-manifest.json",
+    "sha256": "1cb218df184cce0bdeafa479b82cae944f5509a3a809f4d4d0ccdbb0abba706d"
+  },
+  "13-replay": {
+    "manifest": "13-replay-manifest.json",
+    "sha256": "d12404f3dd7f76ab111bfa81884a0f6009bf5c56514050f7455d6c3f06c90680"
+  },
+  "contract13-fixed": {
+    "manifest": "contract13-fixed-manifest.json",
+    "sha256": "db91f2e0ec3ad0f02a01d813e743b39cf7c88f604ed44e967a340521614516ec"
   }
 }

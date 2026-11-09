@@ -82,3 +82,9 @@ var markerTask=markerFault.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToEl
 string markerDir=Directory.GetDirectories(markerFaultRoot).Single();Directory.CreateDirectory(Path.Combine(markerDir,"canceled.tmp"));markerCancel.Cancel();
 try{await markerTask;throw new Exception("cancel swallowed");}catch(OperationCanceledException){Check(true,"marker write failure preserves cancellation");}
 Console.WriteLine($"PASS {passed}/{passed} file controller checks including lifecycle markers");
+
+Check(StructuredFileController.ClassifyCancellation(false,true,false)=="deadline_expired","early timer tick classified as deadline not caller cancellation");
+Check(StructuredFileController.ClassifyCancellation(true,true,false)=="canceled","actual caller cancellation classified");
+Check(StructuredFileController.ClassifyCancellation(false,false,true)=="deadline_expired","monotonic boundary classified without timer callback");
+Check(StructuredFileController.ClassifyCancellation(true,true,true)=="canceled","simultaneous caller cancellation precedence");
+Console.WriteLine($"PASS {passed}/{passed} file controller including deterministic cancellation source classification");

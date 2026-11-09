@@ -1,0 +1,12 @@
+{
+  "rawBytes": 2406,
+  "rawSHA256": "bf606428bac94a0639a5a36f11246fd17c2c87a6837ff52ab08f8f44c78c6fa8",
+  "gzipSHA256": "8e3c62c58c15e7eeafa23de35b37aafc9db0f67688193c5e2eeaccacda370f40",
+  "parts": [
+    {
+      "file": "api-13-terra.gz.b64.part001",
+      "bytes": 1212,
+      "sha256": "03423464dbd5fd1ab32df545723c0d254ba015f8819301f0095427f650509084"
+    }
+  ]
+}
