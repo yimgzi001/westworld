@@ -29,4 +29,6 @@ The missing-coordinate regression initially failed because record-struct deseria
 
 Next integration gate: connect these identities and interests to real SCAPI entities and chunk/spawn activity; prove five real bodies with zero AI views and 0/1 human view, then save/reload native state. No MaxPlayers hack, dummy animals or hidden rendered AI views count as that gate.
 
-Independent review found remove/re-add could reset revision and accept an old request in the same session. Persisted retired-ID tombstones now reject reuse both before and after restart; regression covers this. Final cloud result:49/49 pure contract checks, no native game integration tested.
+Independent review found remove/re-add could reset revision and accept an old request in the same session. Persisted retired-ID tombstones now reject reuse both before and after restart; regression covers this. Identity-stage cloud result:49/49 pure contract checks, no native game integration tested.
+
+Activity-center stage: InterestCoordinator and IInterestBackend now separate actor activity from camera state.70/70 pure core checks pass; native adapter details and remaining world-test gaps are in ../Westworld.Scapi.Adapter/README.md.

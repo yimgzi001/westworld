@@ -47,3 +47,5 @@
 [Actor/视口/模拟活动中心核心契约](../runtime/Westworld.Runtime.Core/README.md)：云端49项纯契约检查，身份与可选人类视口分离、恢复先对账；不是五个真实游戏角色运行证明。
 
 [无图形宿主边界核查](research/2026-11-09-headless-boundaries.md)：Bootstrap、时钟、内容与呈现的实际耦合及下一步改造路线。
+
+[SCAPI活动中心与区块/实体适配边界](../runtime/Westworld.Scapi.Adapter/README.md)：70项纯核心与7项编译原生钩子检查；真实地形/生存actor运行仍待验收，命令shell与整台云桌面能力分开核查。

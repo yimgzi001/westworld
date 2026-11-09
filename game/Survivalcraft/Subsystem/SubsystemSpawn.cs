@@ -13,6 +13,14 @@ namespace Game {
 
         public SubsystemGameWidgets m_subsystemViews;
 
+        // Optional game-thread simulation host source. Null retains original camera-driven behavior.
+        // A non-null empty source deliberately means no active simulation centers, not camera fallback.
+        public Func<IEnumerable<Vector3>> SimulationCentersProvider;
+
+        public virtual Vector3[] GetSimulationCenters() => SimulationCentersProvider is null
+            ? m_subsystemViews.GameWidgets.Select(v => v.ActiveCamera.ViewPosition).ToArray()
+            : SimulationCentersProvider().ToArray();
+
         public SubsystemTerrain m_subsystemTerrain;
 
         public SubsystemTime m_subsystemTime;
@@ -154,8 +162,11 @@ namespace Game {
         }
 
         public virtual void UpdateLastVisitedTime() {
-            foreach (ComponentPlayer componentPlayer in m_subsystemPlayers.ComponentPlayers) {
-                Vector2 v = new(componentPlayer.ComponentBody.Position.X, componentPlayer.ComponentBody.Position.Z);
+            IEnumerable<Vector3> centers = SimulationCentersProvider is null
+                ? m_subsystemPlayers.ComponentPlayers.Select(p => p.ComponentBody.Position)
+                : GetSimulationCenters();
+            foreach (Vector3 center in centers) {
+                Vector2 v = new(center.X, center.Z);
                 Vector2 p = v - new Vector2(VisitedRadius);
                 Vector2 p2 = v + new Vector2(VisitedRadius);
                 Point2 point = Terrain.ToChunk(p);
@@ -173,8 +184,8 @@ namespace Game {
 
         public virtual void SpawnChunks() {
             //List<SpawnChunk> list = new();
-            foreach (GameWidget gameWidget in m_subsystemViews.GameWidgets) {
-                Vector2 v = new(gameWidget.ActiveCamera.ViewPosition.X, gameWidget.ActiveCamera.ViewPosition.Z);
+            foreach (Vector3 center in GetSimulationCenters()) {
+                Vector2 v = new(center.X, center.Z);
                 Vector2 p = v - new Vector2(SpawnRadius);
                 Vector2 p2 = v + new Vector2(SpawnRadius);
                 Point2 point = Terrain.ToChunk(p);
@@ -211,14 +222,14 @@ namespace Game {
 
         public virtual void DespawnChunks() {
             List<ComponentSpawn> list = new(0);
+            Vector3[] centers = GetSimulationCenters();
             foreach (ComponentSpawn key in m_spawns.Keys) {
                 if (key.AutoDespawn
                     && !key.IsDespawning) {
                     bool flag = true;
                     Vector3 position = key.ComponentFrame.Position;
                     Vector2 v = new(position.X, position.Z);
-                    foreach (GameWidget gameWidget in m_subsystemViews.GameWidgets) {
-                        Vector3 viewPosition = gameWidget.ActiveCamera.ViewPosition;
+                    foreach (Vector3 viewPosition in centers) {
                         Vector2 v2 = new(viewPosition.X, viewPosition.Z);
                         if (Vector2.DistanceSquared(v, v2) <= DespawnRadius * DespawnRadius) {
                             flag = false;

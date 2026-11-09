@@ -58,4 +58,37 @@ Reject(()=>ActorRegistry.Restore(JsonSerializer.Serialize(invalidRetirement),wor
 invalidRetirement=r.Capture() with {RetiredIds=new[]{ids[2],ids[2]}};
 Reject(()=>ActorRegistry.Restore(JsonSerializer.Serialize(invalidRetirement),world),"duplicate retired identity rejected");
 Check(afterRemoval.Capture().RetiredIds.Contains(ids[2]),"tombstone retained in checkpoint");
+var interestsRegistry=new ActorRegistry(Guid.NewGuid());var backend=new RecordingBackend();
+var interestIds=Enumerable.Range(0,5).Select(_=>Guid.NewGuid()).ToArray();
+foreach(var (id,i) in interestIds.Select((id,i)=>(id,i)))interestsRegistry.Add(id,"body-"+i,new(i*100,65,0));
+var coordinator=new InterestCoordinator(interestsRegistry,backend,new(32,64));coordinator.Sync();
+Check(backend.Published==1,"complete batch explicitly published");
+Check(backend.Centers.Count==5,"five active centers submitted with zero views");
+Check(backend.Centers.Values.All(x=>x.Radii==new InterestRadii(32,64)),"explicit readiness/content radii");
+interestsRegistry.SetView(Guid.NewGuid(),new(5000,100,5000));coordinator.Sync();
+Check(backend.Centers.Count==5&&!backend.Centers.Values.Any(x=>x.Center.X==5000),"camera never becomes simulation center");
+interestsRegistry.Update(interestsRegistry.SessionId,interestIds[0],0,new(-123,66,55),true);coordinator.Sync();
+Check(backend.Centers[interestIds[0]].Center.X==-123,"native observation moves active center");
+interestsRegistry.Update(interestsRegistry.SessionId,interestIds[1],0,new(100,65,0),false);coordinator.Sync();
+Check(!backend.Centers.ContainsKey(interestIds[1]),"inactive center released");
+interestsRegistry.Remove(interestIds[2]);coordinator.Sync();Check(backend.Centers.Count==3,"removed center released");
+int publishedBeforeFailure=backend.Published;backend.FailRemove=true;Reject(()=>coordinator.Release(),"release error visible");Check(backend.Centers.Count==3,"failed release remains tracked");Check(backend.Published==publishedBeforeFailure,"failed batch not published");
+backend.FailRemove=false;coordinator.Release();Check(backend.Centers.Count==0,"release retry clears all leases");coordinator.Release();
+coordinator.Sync();Check(backend.Centers.Count==3,"coordinator can reattach after release");
+Reject(()=>new InterestCoordinator(interestsRegistry,backend,new(0,64)),"zero full-ready radius rejected");
+Reject(()=>new InterestCoordinator(interestsRegistry,backend,new(64,32)),"content smaller than full-ready rejected");
+Reject(()=>new InterestCoordinator(interestsRegistry,backend,new(float.NaN,64)),"NaN radius rejected");
+bool badThread=Task.Run(()=>{try{coordinator.Sync();return false;}catch(InvalidOperationException){return true;}}).GetAwaiter().GetResult();Check(badThread,"background synchronization rejected");
+var unboundRegistry=ActorRegistry.Restore(interestsRegistry.Serialize(),interestsRegistry.WorldId);var emptyBackend=new RecordingBackend();new InterestCoordinator(unboundRegistry,emptyBackend,new(32,64)).Sync();Check(emptyBackend.Centers.Count==0,"unreconciled restored bodies not activated");
+var partialBackend=new RecordingBackend {FailUpsertAfterWrite=true};var partialCoordinator=new InterestCoordinator(interestsRegistry,partialBackend,new(32,64));
+Reject(()=>partialCoordinator.Sync(),"partially applied upsert failure visible");Check(partialBackend.Centers.Count==1&&partialBackend.Published==0,"partial upsert does not publish batch");
+partialCoordinator.Release();Check(partialBackend.Centers.Count==0,"failed upsert is still tracked for release");
+partialBackend.FailUpsertAfterWrite=false;partialCoordinator.Sync();Check(partialBackend.Centers.Count==3,"retry after partial upsert reconciles centers");
 Console.WriteLine($"{checks}/{checks} actor/view contract checks passed; NO native game integration tested");
+
+sealed class RecordingBackend : IInterestBackend {
+ public readonly Dictionary<Guid,(Position Center,InterestRadii Radii)> Centers=new();public bool FailRemove,FailUpsertAfterWrite;public int Published;
+ public void Publish()=>Published++;
+ public void Upsert(Guid id,Position p,InterestRadii r){Centers[id]=(p,r);if(FailUpsertAfterWrite)throw new InvalidOperationException("injected partial write");}
+ public void Remove(Guid id){if(FailRemove)throw new InvalidOperationException("injected remove failure");Centers.Remove(id);}
+}
