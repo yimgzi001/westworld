@@ -88,9 +88,11 @@ def http_post(payload, key, timeout):
 
 # The worker is fixed reviewed source, never model-generated code. Credentials
 # travel solely in the anonymous stdin pipe, not argv/env/disk.
-def isolated_http_post(payload, key, timeout):
+def isolated_http_post(payload, key, timeout, *, canceled=None):
     if not 0 < timeout <= 45:
         raise ControllerError("timeout_bound")
+    if canceled is not None and canceled():
+        raise ControllerError("host_canceled")
     packet = compact({"payload": payload, "key": key, "timeout": timeout}).encode()
     if len(packet) > MAX_BYTES or not isinstance(key, str) or not key or len(key) > 8192:
         raise ControllerError("worker_input_bound")
@@ -123,7 +125,26 @@ def isolated_http_post(payload, key, timeout):
     reader.start()
     try:
         try:
-            process.communicate(input=packet, timeout=max(0, deadline - time.monotonic()))
+            if canceled is None:
+                process.communicate(input=packet, timeout=max(0, deadline - time.monotonic()))
+            else:
+                first = True
+                while True:
+                    # A completed response keeps its real usage even if cancellation
+                    # arrives simultaneously. Delivery is independently checked later.
+                    if not first and process.poll() is not None:
+                        process.communicate()
+                        break
+                    if canceled():
+                        raise ControllerError("host_canceled")
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired(process.args, timeout)
+                    try:
+                        process.communicate(input=packet if first else None, timeout=min(.05, remaining))
+                        break
+                    except subprocess.TimeoutExpired:
+                        first = False
         except subprocess.TimeoutExpired:
             process.kill()
             process.communicate()  # reap the fixed worker; no retries
@@ -143,10 +164,18 @@ def isolated_http_post(payload, key, timeout):
         if process.poll() is None:
             process.kill()
             process.wait()
+        # communicate(timeout=...) may leave stdin open while input is partial.
+        # Kill/reap first so closing a buffered pipe cannot wait on a live reader.
+        stdin = getattr(process, "stdin", None)
+        if stdin is not None and not stdin.closed:
+            try:
+                stdin.close()
+            except (BrokenPipeError, OSError):
+                pass  # The worker has gone; do not replace the cancellation result.
         reader.join()
         packet = None
 
-SAFE_ERRORS = {"credential_echo_rejected", "redirect_rejected", "destination_changed", "response_bound", "timeout",
+SAFE_ERRORS = {"host_canceled", "credential_echo_rejected", "redirect_rejected", "destination_changed", "response_bound", "timeout",
                "network_error", "worker_failed", "worker_protocol", "worker_output_bound",
                "worker_input_bound", "response_shape", "response_not_completed", "model_refusal",
                "decision_bound", "decision_shape", "goal_bound", "steps_bound", "step_shape",
@@ -195,7 +224,7 @@ def safe_usage(value):
         return None
     return walk(value)
 
-def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport=isolated_http_post):
+def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport=isolated_http_post, canceled=None):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
     validate_input(prompt, schema)
@@ -210,7 +239,7 @@ def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport
              "schemaSha256": hashlib.sha256(compact(schema).encode()).hexdigest(),
              "schemaStrict": False, "effort": reasoning_effort, "usage": None}
     try:
-        body = transport(payload, key, timeout)
+        body = transport(payload, key, timeout) if canceled is None else transport(payload, key, timeout, canceled=canceled)
         if key and key in compact(body):
             raise ControllerError("credential_echo_rejected")
         if not isinstance(body, dict):
@@ -385,7 +414,10 @@ def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12
                     if len(seen) >= max_requests:
                         return
                     continue
-                decision, record = infer(request["prompt"], request["responseSchema"], key, model=model, reasoning_effort=reasoning_effort, timeout=min(45, remaining))
+                decision, record = infer(request["prompt"], request["responseSchema"], key, model=model, reasoning_effort=reasoning_effort, timeout=min(45, remaining),
+                                         canceled=lambda: (root.parent / "exit.txt").exists()
+                                         or time.monotonic() - started >= total_seconds
+                                         or host_remaining(request, path.parent) <= 0)
                 record.update(envelope)
                 publish = decision is not None and not (root.parent / "exit.txt").exists() and host_remaining(request, path.parent) > 0
                 record["delivery"] = "ready_to_publish" if publish else "withheld_or_no_decision"

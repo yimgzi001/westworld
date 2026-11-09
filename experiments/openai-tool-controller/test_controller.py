@@ -300,4 +300,53 @@ class HostDeadlineTests(unittest.TestCase):
             self.assertFalse((p/"response.json").exists())
             self.assertEqual(json.loads((pathlib.Path(d)/"audit").read_text())["usage"]["total_tokens"],17)
 
+
+class InFlightCancellationTests(unittest.TestCase):
+    def run_worker(self, delay, timeout, canceled):
+        original=c.subprocess.Popen; children=[]
+        def spawn(*args,**kwargs):
+            # Test substitute: reads stdin and emits a fixture, never opens a network.
+            script="import sys,time;sys.stdin.buffer.read();time.sleep("+repr(delay)+");sys.stdout.write("+repr(json.dumps({"body":body()}))+")"
+            child=original([c.sys.executable,"-I","-c",script],**kwargs);children.append(child);return child
+        with patch.object(c.subprocess,"Popen",side_effect=spawn):
+            decision,audit=c.infer("p",SCHEMA,"FAKE-ONLY",**OPTIONS,timeout=timeout,canceled=canceled)
+        self.assertTrue(all(p.poll() is not None for p in children))
+        self.assertNotIn("FAKE-ONLY",json.dumps(audit))
+        return decision,audit,children
+    def test_slow_worker_cancel_reaped_unknown_usage(self):
+        start=c.time.monotonic()
+        d,a,kids=self.run_worker(10,2,lambda:c.time.monotonic()-start>.15)
+        self.assertIsNone(d);self.assertEqual(a["error"],"host_canceled");self.assertIsNone(a["usage"])
+        self.assertEqual(len(kids),1);self.assertLess(c.time.monotonic()-start,1.5)
+    def test_worker_deadline_no_retry(self):
+        d,a,kids=self.run_worker(10,.12,lambda:False)
+        self.assertIsNone(d);self.assertEqual(a["error"],"timeout");self.assertIsNone(a["usage"]);self.assertEqual(len(kids),1)
+    def test_completed_response_retains_usage(self):
+        d,a,kids=self.run_worker(0,2,lambda:False)
+        self.assertEqual(d,DECISION);self.assertEqual(a["usage"]["total_tokens"],17);self.assertEqual(len(kids),1)
+    def test_cancel_while_stdin_is_backpressured_closes_all_pipes(self):
+        original=c.subprocess.Popen; original_thread=c.threading.Thread
+        children=[]; streams=[]; threads=[]
+        def spawn(*args,**kwargs):
+            # Deliberately never read stdin; a 200KB packet exceeds pipe capacity.
+            child=original([c.sys.executable,"-I","-c","import time;time.sleep(10)"],**kwargs)
+            children.append(child);streams.extend([child.stdin,child.stdout]);return child
+        def thread(*args,**kwargs):
+            t=original_thread(*args,**kwargs);threads.append(t);return t
+        started=c.time.monotonic()
+        with patch.object(c.subprocess,"Popen",side_effect=spawn),patch.object(c.threading,"Thread",side_effect=thread):
+            with self.assertRaisesRegex(c.ControllerError,"host_canceled"):
+                c.isolated_http_post({"test":"x"*200000},"fake",2,canceled=lambda:c.time.monotonic()-started>.15)
+        self.assertEqual(len(children),1)
+        self.assertIsNotNone(children[0].poll())
+        self.assertTrue(all(stream.closed for stream in streams))
+        self.assertTrue(all(not t.is_alive() for t in threads))
+        self.assertLess(c.time.monotonic()-started,1.5)
+    def test_precanceled_no_worker(self):
+        with patch.object(c.subprocess,"Popen") as spawn:
+            d,a=c.infer("p",SCHEMA,"fake",**OPTIONS,canceled=lambda:True)
+            spawn.assert_not_called()
+        self.assertEqual(a["error"],"host_canceled");self.assertIsNone(a["usage"])
+
 if __name__=="__main__":unittest.main()
+

@@ -23,4 +23,12 @@ Check(current.Coverage.OmittedBlocks==2&&current.Coverage.ReturnedBlocks==curren
 Check(current.Coverage.PickablesTruncated&&!current.Coverage.EntitiesTruncated,"object group truncation independent");
 Check(current.VisibleBlocks[0].Face==null,"sample does not invent placement face");
 Check(current.Inventory.Slots[0].Count==2,"complete inventory slot shape available in same observation");
+var nativeLogPoint=new Vector3(-83.5f,65.2f,-97.5f);
+var nativeLogJson=System.Text.Json.JsonSerializer.Serialize(new{position=NativeLogCoordinates.Position(nativeLogPoint)});
+using(var parsed=System.Text.Json.JsonDocument.Parse(nativeLogJson)){
+ var xyz=parsed.RootElement.GetProperty("position");Check(xyz.GetArrayLength()==3,"real Engine.Vector3 log emits exactly three coordinates without recursion");
+ Check(xyz[0].GetSingle()==nativeLogPoint.X&&xyz[1].GetSingle()==nativeLogPoint.Y&&xyz[2].GetSingle()==nativeLogPoint.Z,"native log coordinate values preserved exactly");
+}
+bool nonfiniteRejected=false;try{NativeLogCoordinates.Position(new Vector3(float.NaN,0,0));}catch(ArgumentException){nonfiniteRejected=true;}
+Check(nonfiniteRejected,"invalid coordinate logging fails explicitly not IgnoreCycles");
 Console.WriteLine($"TOTAL {count}/{count}; pure contract/summary tests only, no native world executed");
