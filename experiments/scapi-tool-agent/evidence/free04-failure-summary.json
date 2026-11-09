@@ -1,0 +1,104 @@
+[
+  {
+    "mode": "craft",
+    "version": "c56936bc",
+    "result": {
+      "kind": "result",
+      "passed": false,
+      "reason": "actor_health_or_view_guard",
+      "seconds": 576.4096487,
+      "updateFailures": 0
+    },
+    "modelRequests": 9,
+    "completedResponses": 8,
+    "knownPromptTokensLowerBound": 21701,
+    "knownInferenceSeconds": 546.6391382,
+    "path": 3.25,
+    "netDisplacement": 3.25,
+    "food": 0.40004703,
+    "health": 0.19999993,
+    "huntAudit": null,
+    "limitation": "in-flight cancellation lacks complete old-provider metrics; artificial fixture, not natural acquisition",
+    "completedProcessesWithMetrics": 8,
+    "modelProtocolFailures": 0
+  },
+  {
+    "mode": "cook",
+    "version": "c56936bc",
+    "result": {
+      "kind": "result",
+      "passed": false,
+      "reason": "actor_health_or_view_guard",
+      "seconds": 504.7010857,
+      "updateFailures": 0
+    },
+    "modelRequests": 9,
+    "completedResponses": 8,
+    "knownPromptTokensLowerBound": 17637,
+    "knownInferenceSeconds": 447.7783968,
+    "path": 3.25,
+    "netDisplacement": 3.25,
+    "food": 0.41960242,
+    "health": 0.19999993,
+    "huntAudit": null,
+    "limitation": "in-flight cancellation lacks complete old-provider metrics; artificial fixture, not natural acquisition",
+    "completedProcessesWithMetrics": 8,
+    "modelProtocolFailures": 0
+  },
+  {
+    "mode": "hunt",
+    "version": "c56936bc",
+    "result": {
+      "kind": "result",
+      "passed": false,
+      "reason": "hunt_fixture_fixture_deadline",
+      "seconds": 505.8048773,
+      "updateFailures": 0
+    },
+    "modelRequests": 9,
+    "completedResponses": 7,
+    "knownPromptTokensLowerBound": 18283,
+    "knownInferenceSeconds": 492.0315982,
+    "path": 10.882067984781315,
+    "netDisplacement": 1.6275824,
+    "food": 0.4193611,
+    "health": 0.4999999,
+    "huntAudit": {
+      "complete": false,
+      "failed": true,
+      "failure": "fixture_deadline",
+      "seconds": 500.0077838199213,
+      "health": 0.4999999,
+      "targetHealth": 1,
+      "actorDamageEvents": 0,
+      "otherDamageEvents": 0,
+      "actorDamageAmount": 0,
+      "deathTime": null,
+      "corpseDuration": 8,
+      "nativeLootDropped": false,
+      "firstDropTime": null,
+      "ownedDropObjects": 0,
+      "totalOwnedMeat": 0,
+      "remainingTargetMeat": 0,
+      "actualMeatGain": 0,
+      "inventory": [
+        {
+          "slot": 0,
+          "value": 122,
+          "count": 1
+        },
+        {
+          "slot": 1,
+          "value": 262306,
+          "count": 1
+        }
+      ],
+      "horizontalPath": 10.882067984781315,
+      "netHorizontalDisplacement": 1.6275824,
+      "views": 0
+    },
+    "limitation": "in-flight cancellation lacks complete old-provider metrics; artificial fixture, not natural acquisition",
+    "completedProcessesWithMetrics": 8,
+    "modelProtocolFailures": 1
+  }
+]

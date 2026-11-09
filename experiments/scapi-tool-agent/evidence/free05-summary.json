@@ -1,0 +1,606 @@
+{
+  "craft": {
+    "result": {
+      "kind": "result",
+      "passed": false,
+      "reason": "prompt_budget_or_schema_failure",
+      "seconds": 199.6044265,
+      "updateFailures": 0
+    },
+    "final": {
+      "kind": "final_audit",
+      "inventory": {
+        "slots": [
+          {
+            "slot": 0,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 1,
+            "value": 262306,
+            "count": 1
+          },
+          {
+            "slot": 2,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 3,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 4,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 5,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 6,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 7,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 8,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 9,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 10,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 11,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 12,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 13,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 14,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 15,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 16,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 17,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 18,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 19,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 20,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 21,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 22,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 23,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 24,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 25,
+            "value": 0,
+            "count": 0
+          }
+        ],
+        "selectedSlot": 0
+      },
+      "rounds": 3,
+      "path": 0,
+      "netDisplacement": 0,
+      "food": 0.4985344,
+      "health": 1,
+      "eaten": 0,
+      "modelInFlight": false,
+      "requiresReconciliation": null,
+      "huntAudit": null
+    },
+    "models": 3,
+    "promptTokens": 7741,
+    "generationEvaluations": 419,
+    "toolCounts": {
+      "read_inventory": 13,
+      "observe": 11,
+      "action_status": 13,
+      "task_status": 12,
+      "read_item": 3,
+      "read_storage": 12,
+      "act_Craft": 1,
+      "find_recipes": 1,
+      "act_Jump": 1,
+      "find_items": 1,
+      "cancel_task": 1,
+      "cancel_action": 1
+    },
+    "attacks": [],
+    "injuries": {},
+    "shutdown": {
+      "kind": "model_shutdown_audit",
+      "audit": {
+        "Started": true,
+        "Outcome": "succeeded",
+        "WallSeconds": 82.6570453,
+        "PeakSampledRssBytes": 4657131520,
+        "SampledCpuSeconds": 320.01,
+        "ExitCode": 0,
+        "CompleteStderr": true,
+        "PromptTokens": 2966,
+        "GenerationEvaluations": 237,
+        "PromptMilliseconds": 54584.57,
+        "GenerationMilliseconds": 24955.38
+      }
+    }
+  },
+  "cook": {
+    "result": {
+      "kind": "result",
+      "passed": false,
+      "reason": "actor_health_guard",
+      "seconds": 534.9532062,
+      "updateFailures": 0
+    },
+    "final": {
+      "kind": "final_audit",
+      "inventory": {
+        "slots": [
+          {
+            "slot": 0,
+            "value": 262232,
+            "count": 1
+          },
+          {
+            "slot": 1,
+            "value": 262306,
+            "count": 1
+          },
+          {
+            "slot": 2,
+            "value": 21,
+            "count": 1
+          },
+          {
+            "slot": 3,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 4,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 5,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 6,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 7,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 8,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 9,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 10,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 11,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 12,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 13,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 14,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 15,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 16,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 17,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 18,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 19,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 20,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 21,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 22,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 23,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 24,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 25,
+            "value": 0,
+            "count": 0
+          }
+        ],
+        "selectedSlot": 0
+      },
+      "rounds": 7,
+      "path": 9.327787443066882,
+      "netDisplacement": 4.5961943,
+      "food": 0.41162536,
+      "health": 0.19999993,
+      "eaten": 0,
+      "modelInFlight": false,
+      "requiresReconciliation": null,
+      "huntAudit": null
+    },
+    "models": 6,
+    "promptTokens": 16908,
+    "generationEvaluations": 1141,
+    "toolCounts": {
+      "read_inventory": 17,
+      "observe": 15,
+      "action_status": 21,
+      "task_status": 16,
+      "read_item": 5,
+      "read_storage": 16,
+      "act_Craft": 3,
+      "find_recipes": 1,
+      "act_MoveTo": 1,
+      "cancel_task": 1,
+      "cancel_action": 1
+    },
+    "attacks": [],
+    "injuries": {
+      "感冒": 8
+    },
+    "shutdown": {
+      "kind": "model_shutdown_audit",
+      "audit": {
+        "Started": true,
+        "Outcome": "canceled",
+        "WallSeconds": 85.7301959,
+        "PeakSampledRssBytes": 4657307648,
+        "SampledCpuSeconds": 333,
+        "ExitCode": 137,
+        "CompleteStderr": false,
+        "PromptTokens": null,
+        "GenerationEvaluations": null,
+        "PromptMilliseconds": null,
+        "GenerationMilliseconds": null
+      }
+    }
+  },
+  "hunt": {
+    "result": {
+      "kind": "result",
+      "passed": false,
+      "reason": "hunt_fixture_fixture_deadline",
+      "seconds": 504.7712523,
+      "updateFailures": 0
+    },
+    "final": {
+      "kind": "final_audit",
+      "inventory": {
+        "slots": [
+          {
+            "slot": 0,
+            "value": 122,
+            "count": 1
+          },
+          {
+            "slot": 1,
+            "value": 262306,
+            "count": 1
+          },
+          {
+            "slot": 2,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 3,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 4,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 5,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 6,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 7,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 8,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 9,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 10,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 11,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 12,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 13,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 14,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 15,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 16,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 17,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 18,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 19,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 20,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 21,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 22,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 23,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 24,
+            "value": 0,
+            "count": 0
+          },
+          {
+            "slot": 25,
+            "value": 0,
+            "count": 0
+          }
+        ],
+        "selectedSlot": 0
+      },
+      "rounds": 7,
+      "path": 8.117088568566032,
+      "netDisplacement": 3.6531074,
+      "food": 0.41921932,
+      "health": 1,
+      "eaten": 0,
+      "modelInFlight": false,
+      "requiresReconciliation": null,
+      "huntAudit": {
+        "complete": false,
+        "failed": true,
+        "failure": "fixture_deadline",
+        "seconds": 500.0098395545501,
+        "health": 1,
+        "targetHealth": 1,
+        "actorDamageEvents": 0,
+        "otherDamageEvents": 0,
+        "actorDamageAmount": 0,
+        "deathTime": null,
+        "corpseDuration": 8,
+        "nativeLootDropped": false,
+        "firstDropTime": null,
+        "ownedDropObjects": 0,
+        "totalOwnedMeat": 0,
+        "remainingTargetMeat": 0,
+        "actualMeatGain": 0,
+        "inventory": [
+          {
+            "slot": 0,
+            "value": 122,
+            "count": 1
+          },
+          {
+            "slot": 1,
+            "value": 262306,
+            "count": 1
+          }
+        ],
+        "horizontalPath": 8.117088568566032,
+        "netHorizontalDisplacement": 3.6531074,
+        "views": 0
+      }
+    },
+    "models": 6,
+    "promptTokens": 15332,
+    "generationEvaluations": 1205,
+    "toolCounts": {
+      "read_inventory": 15,
+      "observe": 13,
+      "action_status": 37,
+      "task_status": 14,
+      "read_item": 3,
+      "read_storage": 13,
+      "act_MoveTo": 3,
+      "cancel_task": 1,
+      "cancel_action": 1
+    },
+    "attacks": [],
+    "injuries": {},
+    "shutdown": {
+      "kind": "model_shutdown_audit",
+      "audit": {
+        "Started": true,
+        "Outcome": "canceled",
+        "WallSeconds": 58.5755486,
+        "PeakSampledRssBytes": 4656742400,
+        "SampledCpuSeconds": 224.22,
+        "ExitCode": 137,
+        "CompleteStderr": false,
+        "PromptTokens": null,
+        "GenerationEvaluations": null,
+        "PromptMilliseconds": null,
+        "GenerationMilliseconds": null
+      }
+    }
+  }
+}

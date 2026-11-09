@@ -6,6 +6,7 @@ JsonElement J(string s)=>JsonDocument.Parse(s).RootElement.Clone();
 ActorToolDefinition Tool(string name,string properties,string required)=>new(name,"native description",J("{\"type\":\"object\",\"properties\":{"+properties+"},\"required\":["+required+"],\"additionalProperties\":false}"));
 var tools=new[]{
 Tool("act_MoveTo","\"destination\":{\"type\":\"string\"},\"bearing\":{\"type\":\"number\"},\"distance\":{\"type\":\"number\"},\"timeout\":{\"type\":\"number\"}",""),
+Tool("act_FaceTowards","\"destination\":{\"type\":\"string\"},\"bearing\":{\"type\":\"number\"},\"pitch\":{\"type\":\"number\"},\"timeout\":{\"type\":\"number\"}",""),
 Tool("act_Dig","\"target\":{\"type\":\"string\"},\"timeout\":{\"type\":\"number\"}","\"target\""),
 Tool("act_MeleeAttack","\"target\":{\"type\":\"string\"}","\"target\""),
 Tool("act_PickUp","\"target\":{\"type\":\"string\"},\"food_value\":{\"type\":\"integer\"},\"count\":{\"type\":\"integer\"}","\"count\""),
@@ -55,4 +56,39 @@ var pickup=nutritionOffers.Single(t=>t.Name=="act_PickUp");
 Check(pickup.Parameters.GetProperty("properties").GetProperty("food_value").GetProperty("enum").EnumerateArray().Select(v=>v.GetInt32()).SequenceEqual(new[]{88}),"food_value needs explicit positive native nutrition");
 Check(pickup.ReferenceValues!["target"].Contains("club")&&pickup.ReferenceValues["target"].Contains("xp"),"non-food target pickup remains available");
 Check(p.Prompt.Contains("PickUp: target XOR food_value"),"pickup branch exclusivity communicated");
+void PlanCheck(ToolDecisionPrompt prompt,string tool,string parameters,bool accepted,string label){
+ bool ok=true;try{prompt.ParseResponse("{\"goal\":\"test\",\"steps\":[{\"tool\":\""+tool+"\",\"arguments\":"+parameters+"}]}");}catch(FormatException){ok=false;}Check(ok==accepted,label);
+}
+PlanCheck(p,"act_MoveTo","""{"destination":"block1","timeout":2}""",true,"move destination branch accepted");
+PlanCheck(p,"act_MoveTo","""{"bearing":0,"distance":1,"timeout":2}""",true,"move relative branch accepted");
+PlanCheck(p,"act_MoveTo","""{"destination":"block1","bearing":0,"distance":1,"timeout":2}""",false,"move both branches rejected");
+PlanCheck(p,"act_MoveTo","""{"timeout":2}""",false,"move neither branch rejected");
+PlanCheck(p,"act_MoveTo","""{"bearing":0,"timeout":2}""",false,"move missing distance rejected");
+PlanCheck(p,"act_MoveTo","""{"distance":1,"timeout":2}""",false,"move missing bearing rejected");
+PlanCheck(p,"act_FaceTowards","""{"destination":"block1","timeout":2}""",true,"face destination accepted");
+PlanCheck(p,"act_FaceTowards","""{"bearing":45,"pitch":-20,"timeout":2}""",true,"face relative pitch accepted");
+PlanCheck(p,"act_FaceTowards","""{"destination":"block1","pitch":-20,"timeout":2}""",false,"face destination plus pitch rejected");
+PlanCheck(p,"act_FaceTowards","""{"destination":"block1","bearing":45,"timeout":2}""",false,"face both branches rejected");
+PlanCheck(p,"act_FaceTowards","""{"timeout":2}""",false,"face no direction rejected");
+var pp=new ToolDecisionPrompt(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),nutritionObs,nutritionOffers);
+PlanCheck(pp,"act_PickUp","""{"target":"club","count":1}""",true,"pickup nonfood target branch accepted");
+PlanCheck(pp,"act_PickUp","""{"food_value":88,"count":1}""",true,"pickup observed food shortcut accepted");
+PlanCheck(pp,"act_PickUp","""{"target":"edible","food_value":88,"count":1}""",false,"pickup both selectors rejected");
+PlanCheck(pp,"act_PickUp","""{"count":1}""",false,"pickup no selector rejected");
+var noRefsPrompt=new ToolDecisionPrompt(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),J("{}"),none);
+PlanCheck(noRefsPrompt,"act_MoveTo","""{"bearing":0,"distance":1,"timeout":2}""",true,"filtered destination retains relative branch");
+PlanCheck(noRefsPrompt,"act_MoveTo","""{"timeout":2}""",false,"filtered branches cannot produce empty movement");
+using(var grammar=JsonDocument.Parse(p.ResponseSchema)){
+ var moveSchema=grammar.RootElement.GetProperty("properties").GetProperty("steps").GetProperty("items").GetProperty("oneOf").EnumerateArray().Single(b=>b.GetProperty("properties").GetProperty("tool").GetProperty("const").GetString()=="act_MoveTo").GetProperty("properties").GetProperty("arguments");
+ Check(moveSchema.GetProperty("oneOf").GetArrayLength()==2,"strict generation grammar contains two disjoint movement objects");
+}
+var semanticTools=new[]{Tool("act_Craft","\"workspace\":{\"type\":\"string\"},\"result_value\":{\"type\":\"integer\"},\"count\":{\"type\":\"integer\"}","\"workspace\",\"result_value\",\"count\""),
+Tool("act_TransferItems","\"source\":{\"type\":\"string\"},\"destination\":{\"type\":\"string\"}","\"source\",\"destination\""),
+Tool("read_storage","\"storage\":{\"type\":\"string\"}","\"storage\"")};
+var semantic=NativeToolOffers.Build(semanticTools,obs,inventory,[recipes,table]);
+Check(semantic.Single(t=>t.Name=="act_Craft").Description.Contains("already correctly arranged")&&semantic.Single(t=>t.Name=="act_Craft").Description.Contains("cannot heat/cook"),"Craft prerequisite and non-cooking semantics retained");
+Check(semantic.Single(t=>t.Name=="act_TransferItems").Description.Contains("destination slot CURRENT value (0 if empty)"),"transfer expected destination value explained without truncation");
+Check(Find("plan_craft").Description.Contains("existing carried/grid materials")&&Find("plan_craft").Description.Contains("no heated/furnace recipes"),"plan_craft does not promise gather or cook");
+Check(semantic.Single(t=>t.Name=="read_storage").Description.Contains("native heat/fuel over time"),"furnace native prerequisites explained");
+Check(Find("find_recipes").Description.Contains("does not mean supplies"),"static recipe knowledge distinguished from resources");
 Console.WriteLine($"{checks}/{checks} linked factory checks passed using native type-shape stub; no game execution.");

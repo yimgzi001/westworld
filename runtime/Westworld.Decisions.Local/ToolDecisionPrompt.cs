@@ -3,8 +3,10 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 namespace Westworld.Decisions.Local;
 
+public sealed record ToolParameterBranch(IReadOnlyList<string> Required,IReadOnlyList<string> Forbidden);
 public sealed record ToolOffer(string Name,string Description,JsonElement Parameters,
- IReadOnlyDictionary<string,IReadOnlyList<string>>? ReferenceValues=null);
+ IReadOnlyDictionary<string,IReadOnlyList<string>>? ReferenceValues=null,
+ IReadOnlyList<ToolParameterBranch>? ParameterBranches=null);
 public sealed record ToolDecisionStep(string Tool,JsonElement Arguments);
 public sealed record ToolDecisionPlan(Guid SessionId,Guid ActorId,Guid ObservationId,string Goal,IReadOnlyList<ToolDecisionStep> Steps);
 
@@ -35,7 +37,29 @@ public sealed class ToolDecisionPrompt {
     if(pair.Value?["type"]?.GetValue<string>()=="string"&&pair.Key is "target" or "destination" or "source" or "workspace" or "recipe" or "reference")
      if(offer.ReferenceValues is null||!offer.ReferenceValues.ContainsKey(pair.Key))throw new ArgumentException("Observed reference field requires explicit binding");
    }
-   var schema=JsonSerializer.SerializeToElement(node);ValidateSchema(schema,0);schemas.Add(offer.Name,schema);
+   JsonNode effective=node;
+   if(offer.ParameterBranches is not null){
+    if(offer.ParameterBranches.Count is <1 or >8)throw new ArgumentException("Invalid parameter branches");
+    var variants=new JsonArray();
+    foreach(var branch in offer.ParameterBranches){
+     if(branch is null||branch.Required is null||branch.Forbidden is null||branch.Required.Count>32||branch.Forbidden.Count>32
+      ||branch.Required.Any(string.IsNullOrWhiteSpace)||branch.Forbidden.Any(string.IsNullOrWhiteSpace)
+      ||branch.Required.Distinct().Count()!=branch.Required.Count||branch.Forbidden.Distinct().Count()!=branch.Forbidden.Count
+      ||branch.Required.Intersect(branch.Forbidden).Any())throw new ArgumentException("Invalid branch fields");
+     // Missing required references were already filtered by the host: this alternative
+     // is unavailable, never turned into an unconstrained empty-arguments branch.
+     if(branch.Required.Any(k=>!props.ContainsKey(k)))continue;
+     var variant=node.DeepClone().AsObject();var vp=variant["properties"]!.AsObject();
+     var needed=variant["required"]?.AsArray().Select(x=>x!.GetValue<string>()).ToHashSet()??new HashSet<string>();
+     if(branch.Forbidden.Any(needed.Contains))continue;
+     foreach(string key in branch.Forbidden)vp.Remove(key);
+     foreach(string key in branch.Required)needed.Add(key);
+     variant["required"]=JsonSerializer.SerializeToNode(needed.Order(StringComparer.Ordinal));variants.Add(variant);
+    }
+    if(variants.Count==0)throw new ArgumentException("No available parameter branch");
+    effective=new JsonObject{["oneOf"]=variants};
+   }
+   var schema=JsonSerializer.SerializeToElement(effective);ValidateSchema(schema,0);schemas.Add(offer.Name,schema);
    signatures.Add(offer.Name+Compact(schema)+" // "+offer.Description);
    branches.Add(new{type="object",properties=new{tool=new{type="string",@const=offer.Name},arguments=schema},required=new[]{"tool","arguments"},additionalProperties=false});
   }

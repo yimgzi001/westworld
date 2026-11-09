@@ -10,6 +10,7 @@ public sealed record LocalInferenceMetrics(double WallSeconds,long PeakSampledRs
 public sealed class LlamaProcessProvider:IDecisionProvider {
  int inFlight;readonly int contextTokens,maxOutputTokens;readonly string executable,model;readonly Func<int,bool> supportedHarvest;readonly TimeSpan timeout;readonly bool allowSurvey;
  public LocalInferenceMetrics? LastMetrics{get;private set;}
+ public LocalInferenceAudit? LastAudit{get;private set;}
  public string? LastFailure{get;private set;}
  public string? LastResponse{get;private set;}
  public LlamaProcessProvider(string executable,string model,Func<int,bool> supportedHarvest,TimeSpan? timeout=null,bool allowSurvey=false,int contextTokens=2048,int maxOutputTokens=96){
@@ -27,36 +28,62 @@ public sealed class LlamaProcessProvider:IDecisionProvider {
  // process, no generated code execution. Callers must serialize requests per instance.
  public async Task<T> CompleteStructuredAsync<T>(string promptText,string responseSchema,Func<string,T> parse,CancellationToken cancellation){
   if(Interlocked.CompareExchange(ref inFlight,1,0)!=0)throw new InvalidOperationException("One local inference per provider instance");
-  LastFailure=null;LastResponse=null;LastMetrics=null;
+  LastFailure=null;LastResponse=null;LastMetrics=null;LastAudit=null;
   try{return await CompleteCoreAsync(promptText,responseSchema,parse,cancellation).ConfigureAwait(false);}
   catch(Exception e){LastFailure=e.GetType().Name+": "+(e.Message.Length<=256?e.Message:e.Message[..256]);throw;}
   finally{Volatile.Write(ref inFlight,0);}
  }
  async Task<T> CompleteCoreAsync<T>(string promptText,string responseSchema,Func<string,T> parse,CancellationToken cancellation){
-  ArgumentNullException.ThrowIfNull(parse);
-  if(string.IsNullOrWhiteSpace(promptText)||promptText.Length>32768)throw new ArgumentException("Bounded prompt required",nameof(promptText));
-  if(string.IsNullOrWhiteSpace(responseSchema)||responseSchema.Length>32768)throw new ArgumentException("Bounded schema required",nameof(responseSchema));
-  LastFailure=null;LastResponse=null;LastMetrics=null;
-  var start=new ProcessStartInfo(executable){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true};
-  string schema=responseSchema;
-  foreach(var arg in new[]{"-m",model,"-c",contextTokens.ToString(CultureInfo.InvariantCulture),"-t","4","-tb","4","-ngl","0","-n",maxOutputTokens.ToString(CultureInfo.InvariantCulture),"--reasoning","off","--single-turn","--simple-io","--no-display-prompt","--temp","0","--seed","42","--json-schema",schema,"-p",promptText})start.ArgumentList.Add(arg);
-  using var stop=CancellationTokenSource.CreateLinkedTokenSource(cancellation);stop.CancelAfter(timeout);
-  using var process=new Process{StartInfo=start};var watch=Stopwatch.StartNew();if(!process.Start())throw new InvalidOperationException("Local inference did not start");
-  var output=BoundedText.ReadAsync(process.StandardOutput,32768,stop.Token);var errors=BoundedText.ReadAsync(process.StandardError,262144,stop.Token);long peak=0;double cpu=0;
+  var watch=Stopwatch.StartNew();bool started=false,sampled=false;long peak=0;double cpu=0;int? exitCode=null;
+  string outcome="preflight_failure";Task<string>? output=null,errors=null;Process? process=null;CancellationTokenSource? stop=null;
+  void Sample(){if(process is null||!started)return;try{process.Refresh();long rss=process.WorkingSet64;double seconds=process.TotalProcessorTime.TotalSeconds;peak=Math.Max(peak,rss);cpu=Math.Max(cpu,seconds);sampled=true;}catch(InvalidOperationException){}catch(System.ComponentModel.Win32Exception){}}
   try{
+   ArgumentNullException.ThrowIfNull(parse);
+   if(string.IsNullOrWhiteSpace(promptText)||promptText.Length>32768)throw new ArgumentException("Bounded prompt required",nameof(promptText));
+   if(string.IsNullOrWhiteSpace(responseSchema)||responseSchema.Length>32768)throw new ArgumentException("Bounded schema required",nameof(responseSchema));
+   cancellation.ThrowIfCancellationRequested();
+   var start=new ProcessStartInfo(executable){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true};
+   foreach(var arg in new[]{"-m",model,"-c",contextTokens.ToString(CultureInfo.InvariantCulture),"-t","4","-tb","4","-ngl","0","-n",maxOutputTokens.ToString(CultureInfo.InvariantCulture),"--reasoning","off","--single-turn","--simple-io","--no-display-prompt","--temp","0","--seed","42","--json-schema",responseSchema,"-p",promptText})start.ArgumentList.Add(arg);
+   stop=CancellationTokenSource.CreateLinkedTokenSource(cancellation);stop.CancelAfter(timeout);
+   process=new Process{StartInfo=start};outcome="start_failure";
+   if(!process.Start())throw new InvalidOperationException("Local inference did not start");started=true;outcome="process_failure";
+   output=BoundedText.ReadAsync(process.StandardOutput,32768,stop.Token);errors=BoundedText.ReadAsync(process.StandardError,262144,stop.Token);
    var exit=process.WaitForExitAsync(stop.Token);
-   while(!exit.IsCompleted){if(output.IsFaulted)await output.ConfigureAwait(false);if(errors.IsFaulted)await errors.ConfigureAwait(false);try{process.Refresh();peak=Math.Max(peak,process.WorkingSet64);cpu=Math.Max(cpu,process.TotalProcessorTime.TotalSeconds);}catch(InvalidOperationException){}await Task.WhenAny(exit,Task.Delay(100,stop.Token)).ConfigureAwait(false);stop.Token.ThrowIfCancellationRequested();}
-   await exit.ConfigureAwait(false);
+   while(!exit.IsCompleted){if(output.IsFaulted)await output.ConfigureAwait(false);if(errors.IsFaulted)await errors.ConfigureAwait(false);Sample();await Task.WhenAny(exit,Task.Delay(100,stop.Token)).ConfigureAwait(false);stop.Token.ThrowIfCancellationRequested();}
+   await exit.ConfigureAwait(false);Sample();exitCode=process.ExitCode;
    string stdout=await output.ConfigureAwait(false),stderr=await errors.ConfigureAwait(false);
-   if(process.ExitCode!=0)throw new InvalidOperationException("Local inference process failed");
-   if(stdout.Length>32768||stderr.Length>262144)throw new InvalidOperationException("Unexpected local inference output size");
-   // This verified runtime appends exactly this fixed marker, not an instruction or JSON wrapper.
+   if(exitCode!=0){outcome="nonzero_exit";throw new InvalidOperationException("Local inference process failed");}
    string response=stdout.Trim();const string end="[end of text]";if(response.EndsWith(end,StringComparison.Ordinal))response=response[..^end.Length].TrimEnd();
    LastResponse=response.Length<=4096?response:response[..4096];
-   var input=Regex.Match(stderr,@"prompt eval time\s*=\s*([\d.]+) ms /\s*(\d+) tokens");
-   var generated=Regex.Match(stderr,@"(?m)^.*(?<!prompt )eval time\s*=\s*([\d.]+) ms /\s*(\d+) runs");
-   double? Ms(Match m)=>m.Success?double.Parse(m.Groups[1].Value,CultureInfo.InvariantCulture):null;int? Count(Match m)=>m.Success?int.Parse(m.Groups[2].Value,CultureInfo.InvariantCulture):null;
-   LastMetrics=new(watch.Elapsed.TotalSeconds,peak,cpu,Count(input),Count(generated),Ms(input),Ms(generated),response);return parse(response);
-  }catch(Exception e){LastFailure=e.GetType().Name+": "+(e.Message.Length<=256?e.Message:e.Message[..256]);stop.Cancel();if(!process.HasExited){process.Kill(entireProcessTree:true);try{await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);}catch{}}try{await Task.WhenAll(output,errors).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);}catch{}throw;}
+   var timing=LocalInferenceTiming.Parse(stderr);
+   LastMetrics=new(watch.Elapsed.TotalSeconds,peak,cpu,timing.PromptTokens,timing.GenerationEvaluations,timing.PromptMilliseconds,timing.GenerationMilliseconds,response);
+   outcome="parser_failure";T result=parse(response);outcome="succeeded";return result;
+  }catch{
+   if(cancellation.IsCancellationRequested)outcome=started?"canceled":"canceled_before_start";
+   else if(stop?.IsCancellationRequested==true)outcome="timeout";
+   Sample();
+   stop?.Cancel();
+   if(started&&process is not null){try{if(!process.HasExited)process.Kill(entireProcessTree:true);await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);exitCode=process.ExitCode;}catch{} }
+   if(output is not null&&errors is not null)try{await Task.WhenAll(output,errors).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);}catch{}
+   throw;
+  }finally{
+   bool complete=errors?.IsCompletedSuccessfully==true;
+   var timing=LocalInferenceTiming.Parse(complete?errors!.Result:null);
+   LastAudit=new(started,outcome,watch.Elapsed.TotalSeconds,sampled?peak:null,sampled?cpu:null,exitCode,complete,timing.PromptTokens,timing.GenerationEvaluations,timing.PromptMilliseconds,timing.GenerationMilliseconds);
+   process?.Dispose();stop?.Dispose();
+  }
+ }
+}
+
+// Numeric diagnostics only; no stderr, prompt, environment or credential retention.
+public sealed record LocalInferenceAudit(bool Started,string Outcome,double WallSeconds,long? PeakSampledRssBytes,double? SampledCpuSeconds,int? ExitCode,bool CompleteStderr,int? PromptTokens,int? GenerationEvaluations,double? PromptMilliseconds,double? GenerationMilliseconds);
+public sealed record LocalInferenceTiming(int? PromptTokens,int? GenerationEvaluations,double? PromptMilliseconds,double? GenerationMilliseconds){
+ public static LocalInferenceTiming Parse(string? stderr){
+  if(stderr is null||stderr.Length>262144)return new(null,null,null,null);
+  var input=Regex.Match(stderr,@"prompt eval time\s*=\s*([\d.]+) ms /\s*(\d+) tokens");
+  var generated=Regex.Match(stderr,@"(?m)^.*(?<!prompt )eval time\s*=\s*([\d.]+) ms /\s*(\d+) runs");
+  double? Ms(Match m)=>m.Success&&double.TryParse(m.Groups[1].Value,NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out double n)&&double.IsFinite(n)&&n>=0?n:null;
+  int? Count(Match m)=>m.Success&&int.TryParse(m.Groups[2].Value,NumberStyles.None,CultureInfo.InvariantCulture,out int n)?n:null;
+  return new(Count(input),Count(generated),Ms(input),Ms(generated));
  }
 }

@@ -18,7 +18,9 @@ out=r/'experiments/scapi-tool-agent/bin/Release/net10.0'
 modes=['inventory','craft','cook','hunt']
 dest=[r/'work'/f'{label}-{m}' for m in modes]
 if any(d.exists() for d in dest):raise SystemExit('Refusing existing run directory')
-files=list((r/'experiments/scapi-tool-agent').glob('*.cs'))+list((r/'runtime/Westworld.Decisions.Local').glob('*.cs'))+list(out.glob('*.dll'))
+files=list(out.glob('*.dll'))
+for directory in ['experiments/scapi-tool-agent','runtime/Westworld.Decisions.Local','runtime/Westworld.Scapi.Adapter','runtime/Westworld.Runtime.Core']:
+ for pattern in ['*.cs','*.csproj']:files+=list((r/directory).glob(pattern))
 manifest={str(p.relative_to(r)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
 for mode,d in zip(modes,dest):
  shutil.copytree(out,d)

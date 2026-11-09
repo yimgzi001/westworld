@@ -44,7 +44,7 @@ free03 was accidentally staged from old DLLs after a failed parallel build repor
 
 ## Reproducible verification
 
-`bash experiments/scapi-tool-agent/run-contract-tests.sh` builds and runs six pure suites, failing immediately on any build/test error. Dependencies must already be restored. These do not prove native world or model outcomes. Run them between resource-measured model trials, not during a trial.
+`bash experiments/scapi-tool-agent/run-contract-tests.sh` builds and runs eight pure suites, failing immediately on any build/test error. Dependencies must already be restored. These do not prove native world or model outcomes. Run them between resource-measured model trials, not during a trial.
 
 `bash experiments/scapi-tool-agent/stage.sh <fresh-label> <existing-runtime-assets-directory>` serially builds and stages four modes only after a successful build. Each fresh directory records source/DLL hashes, and its run.sh verifies installed DLL hashes before execution. Launch that run.sh through the authorized dot desktop terminal. Do not reuse existing world/evidence directories.
 
@@ -55,3 +55,11 @@ fresh04 retains native full observations for validation/audit; the model receive
 Actual repeat: 1769 input tokens (3123 baseline), 44.738s inference (70.459 baseline), 34.128s prefill (62.425 baseline); complete run49.762s, updateFailures0. The model again selected Eat162 itself and native inventory/Food proved consumption. This is still process-per-request, one observation-to-plan round; no claim of persistent pooling, continuous same-actor replanning or natural food acquisition.
 
 A stale-binary fresh03 run was stopped after its prompt proved the optimization absent. It is not counted as an optimization result. Build success now requires actual exit0, not `0 Error(s)` text, plus deployed marker/hash checks. Existing ImageSharp vulnerability warnings remain unresolved.
+
+## free04 failures and free05 boundary
+
+All original free04 scenarios ended: craft576.41s/health guard, cook504.70s/health guard, hunt505.80s/fixture deadline failed with zero update exceptions. Hunt target health remained1 and attributed damage events0. Failure JSONL and summary are preserved; raw planned actions are not executed successes. The summary includes metrics from a failed model parse, but missing canceled-process tokens remain unknown.
+
+free05 source adds real parameter oneOf alternatives, precise production preconditions, native owned-item and personal-grid facts, bounded learned recipe references, local native attack-readiness waiting, split stop reasons, host-only injury auditing, and cancellation/failure inference audit. Eight pure suites324/324 and serial native build passed; separate free05 worlds were staged and launched. Their actual production/hunt/cook outcomes are pending, not inferred from these tests. The attack timing probe compiles but is not independently launched/native-verified. See the Chinese failure analysis and continuous-skill integration roadmap.
+
+Final free05 results: craft199.60s failed on oversized observation context after find_items; cook534.95s failed with native cold/sickness injury audit; hunt504.77s hit fixture deadline with zero dispatched MeleeAttack. All three updateFailureCount0. Full failure data is losslessly stored under evidence/archives/ with hashes; see free05-summary.json. No natural survival success or native cooldown pass is claimed.

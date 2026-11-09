@@ -27,3 +27,7 @@ dotnet tests/Westworld.Scapi.Adapter.Tests/bin/Release/net10.0/Tests.dll
 Core checks cover five centers/zero views, camera isolation, actor movement/activity/removal, release failure/retry, radius bounds, thread ownership and restore gates. Native hook tests instantiate the real compiled SubsystemSpawn without loading a Project and check its provider semantics; they are not terrain/animal/world tests.
 
 Still unverified: live chunk allocation, distant animal spawning/despawning, real body physics/survival, five full actors, native save/reload and0/1human viewport behavior. Current cloud native startup remains blocked by display/socket capabilities. No MaxPlayers constant, hidden AI view or simplified substitute body was introduced.
+
+## Local attack readiness
+
+`LocalAttackReadiness` is a pure bounded timing hint for successive already-requested attacks, not a hunting policy or attack authorization. Use the same native game clock, keep the original wait start and deadline, and wait at most4 game seconds with a separate host wall-clock limit. After Ready, re-observe the same target and invoke the existing native tool; native hooks may still reject. Invalid clocks, cancellation and expiry discard pending work. The timing probe is separately documented as compiled but not native-run.

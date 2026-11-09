@@ -90,10 +90,25 @@ public static class NativeToolOffers {
    if(skip)continue;
    // No string positions or coordinate escape hatch; optional references may be absent.
    if(tool.Name=="act_PickUp"&&!props.ContainsKey("target")&&!props.ContainsKey("food_value"))continue;
-   result.Add(new(tool.Name,tool.Description.Length<=100?tool.Description:tool.Description[..100],JsonSerializer.SerializeToElement(schema),bindings));
+   IReadOnlyList<ToolParameterBranch>? branches=tool.Name switch{
+    "act_MoveTo"=>new[]{new ToolParameterBranch(new[]{"destination"},new[]{"bearing","distance"}),new ToolParameterBranch(new[]{"bearing","distance"},new[]{"destination"})},
+    "act_FaceTowards"=>new[]{new ToolParameterBranch(new[]{"destination"},new[]{"bearing","pitch"}),new ToolParameterBranch(new[]{"bearing"},new[]{"destination"})},
+    "act_PickUp"=>new[]{new ToolParameterBranch(new[]{"target"},new[]{"food_value"}),new ToolParameterBranch(new[]{"food_value"},new[]{"target"})},_=>null};
+   if(branches is not null){branches=branches.Where(b=>b.Required.All(props.ContainsKey)).ToArray();if(branches.Count==0)continue;}
+   result.Add(new(tool.Name,Describe(tool),JsonSerializer.SerializeToElement(schema),bindings,branches));
   }
   return result.AsReadOnly();
  }
+ // Preserve operational prerequisites lost when verbose parameter descriptions are removed.
+ // These explain tool semantics, never prescribe a resource or survival sequence.
+ static string Describe(ActorToolDefinition tool)=>tool.Name switch{
+  "act_Craft"=>"Collect result from an already correctly arranged crafting grid. Does not fill ingredients. Grid crafting cannot heat/cook food.",
+  "plan_craft"=>"Arrange existing carried/grid materials and craft a known recipe at a suitable grid. No material gathering; no heated/furnace recipes.",
+  "act_TransferItems"=>"Move existing items. source_value is source slot CURRENT value; destination_value is destination slot CURRENT value (0 if empty), not the transferred item.",
+  "read_storage"=>"Read actual slots and crafting preview or furnace heat/fuel/progress. Furnaces process matching ingredients with sufficient native heat/fuel over time, not act_Craft.",
+  "find_recipes"=>"Read recipe knowledge: materials, grid/station and heat requirements. Recipe existence does not mean supplies or a usable station exist.",
+  _=>tool.Description.Length<=100?tool.Description:tool.Description[..100]
+ };
  static JsonElement Data(JsonElement e)=>e.ValueKind==JsonValueKind.Object&&e.TryGetProperty("data",out var d)?d:e;
  static IEnumerable<JsonElement> Array(JsonElement e,string key)=>e.ValueKind==JsonValueKind.Object&&e.TryGetProperty(key,out var a)&&a.ValueKind==JsonValueKind.Array?a.EnumerateArray():Enumerable.Empty<JsonElement>();
  static void StripDescriptions(JsonNode node){if(node is JsonObject obj){obj.Remove("description");foreach(var pair in obj.ToArray())if(pair.Value is not null)StripDescriptions(pair.Value);}else if(node is JsonArray array)foreach(var item in array)if(item is not null)StripDescriptions(item);}

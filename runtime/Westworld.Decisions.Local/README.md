@@ -45,3 +45,7 @@ Tests:
 `ToolDecisionPrompt` accepts host-provided native tool schemas and actor-private observed reference bindings. The model chooses its own stage goal and zero to four calls, rather than selecting a prescribed food workflow. The host executes each step on the game thread, revalidates current native references, waits for real asynchronous action/task completion, and provides failures and actual effects for replanning. JSON plans are not generated scripts.
 
 The local provider defaults remain context2048/output96 for existing single-choice calls. The tool-agent experiment explicitly requests context8192/output512 and records real CPU/RSS/prompt tokens. Bounds are 2048..8192 context and64..512 output; larger configured capacity is not a claim of actual tokens used. Calls on one provider instance are serialized; a second overlapping call is rejected. A persistent multi-actor model pool is not implemented.
+
+## Failure audit
+
+`LastAudit` complements (does not replace) `LastMetrics`: it records whether the process started, terminal outcome, actual elapsed wall time, known sampled CPU/RSS, exit code, and only timing counters parsed from completely read stderr. Unknown canceled-call tokens are null, not zero. The host must persist the audit after normal completion, failure and shutdown cancellation. No stderr text or environment is retained by this record.
