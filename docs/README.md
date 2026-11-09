@@ -61,3 +61,5 @@
 [同世界一人类视口与五AI共存验收](../experiments/scapi-actor-gate/COEXISTENCE.md)：六个原生角色、一个视口、动作通道隔离、活动中心与存读档通过；人类角色由程序创建，尚非真人操作/后加入测试。
 
 [原生观察→意图→技能闭环](../experiments/scapi-intent-gate/README.md)：局部遮挡、有限移动真实结算、幂等和运动中取消、移除清理通过；没有模型调用。
+
+[异步高层决策与原生进食](../experiments/scapi-decision-gate/README.md)：延迟确定性替身期间角色继续移动，真实饥饿驱动消费1条背包熟鱼，饥饿改善后转等待；尚未调用模型。

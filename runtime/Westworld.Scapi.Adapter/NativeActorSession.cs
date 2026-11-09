@@ -5,22 +5,16 @@ using GameEntitySystem;
 using Westworld.Runtime.Core;
 namespace Westworld.Scapi.Adapter;
 
-public sealed record SlotObservation(int Slot,int Value,int Count);
-public sealed record CellObservation(int X,int Y,int Z,string Visibility,int? Value);
-public sealed record ActorObservation(Guid SessionId,Guid ActorId,Guid ObservationId,double Time,Position Position,float Health,float Food,SlotObservation[] Inventory,CellObservation[] Cells);
-public sealed record MoveIntent(Guid SessionId,Guid ActorId,Guid ActionId,Guid ObservationId,float Right,float Forward,float Seconds);
-public sealed record SkillResult(Guid SessionId,Guid ActorId,Guid ActionId,string Status,Position Start,Position End,double HorizontalDistance,double ForwardProgress,string Reason);
-
 // Privileged in-process host adapter. Never hand this object/native entities to a model.
 // A network gateway must authenticate an actor scope; this class is not that gateway.
-public sealed class NativeActorSession:IUpdateable,IDisposable {
+public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  sealed class Ticket {
   public required MoveIntent Intent;public required SkillResult Result;public required double AcceptedAt;
   public required Vector2 Direction;public double Elapsed,Settling;public bool CancelRequested;
  }
  readonly Project project;readonly SubsystemTerrain terrain;readonly Stopwatch clock=Stopwatch.StartNew();
  readonly Dictionary<Guid,ComponentPlayer> actors=new();readonly Dictionary<Guid,Ticket> tickets=new();
- readonly Dictionary<Guid,(Guid Actor,Position Origin,double Time)> observations=new();
+ readonly Dictionary<Guid,(Guid Actor,Position Origin,double Time,SlotObservation[] Inventory)> observations=new();
  readonly HashSet<Guid> retiredBindings=new();
  readonly int owner=Environment.CurrentManagedThreadId;bool disposed;
  public ActorRegistry Registry {get;}
@@ -44,9 +38,13 @@ public sealed class NativeActorSession:IUpdateable,IDisposable {
   // Old observations may be retired; action tickets are never evicted or replayed.
   foreach(var id in observations.Where(kv=>clock.Elapsed.TotalSeconds-kv.Value.Time>3).Select(kv=>kv.Key).ToArray())observations.Remove(id);
   if(observations.Count>=128)throw new InvalidOperationException("Observation budget full");
-  var oid=Guid.NewGuid();double now=clock.Elapsed.TotalSeconds;observations.Add(oid,(actorId,origin,now));
   var inventory=p.ComponentMiner.Inventory;
-  return new(SessionId,actorId,oid,now,origin,p.ComponentHealth.Health,p.ComponentVitalStats.Food,Enumerable.Range(0,inventory.SlotsCount).Select(i=>new SlotObservation(i,inventory.GetSlotValue(i),inventory.GetSlotCount(i))).ToArray(),cells.ToArray());
+  var slots=Enumerable.Range(0,inventory.SlotsCount).Select(i=>{
+   int value=inventory.GetSlotValue(i),count=inventory.GetSlotCount(i);float nutrition=BlocksManager.Blocks[Terrain.ExtractContents(value)].GetNutritionalValue(value);
+   return new SlotObservation(i,value,count,nutrition,count>0&&Terrain.ExtractContents(value)==CookedFishBlock.Index&&nutrition>0);
+  }).ToArray();
+  var oid=Guid.NewGuid();double now=clock.Elapsed.TotalSeconds;observations.Add(oid,(actorId,origin,now,slots.ToArray()));
+  return new(SessionId,actorId,oid,now,origin,p.ComponentHealth.Health,p.ComponentVitalStats.Food,slots,cells.ToArray());
  }
  // Conservative visual policy: full opaque voxel occlusion, not collision-box LOS.
  // Transparent blocks do not occlude; sub-voxel holes in opaque blocks are conservatively hidden.
@@ -72,12 +70,13 @@ public sealed class NativeActorSession:IUpdateable,IDisposable {
  public SkillResult Submit(MoveIntent intent){
   Owner();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
   if(tickets.TryGetValue(intent.ActionId,out var previous)){if(previous.Intent!=intent)throw new InvalidOperationException("Action ID payload conflict");return previous.Result;}
+  if(foodTickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID already used for a different skill");
   var p=Actor(intent.SessionId,intent.ActorId);
   if(intent.ActionId==Guid.Empty||!float.IsFinite(intent.Right)||!float.IsFinite(intent.Forward)||!float.IsFinite(intent.Seconds)||intent.Right*intent.Right+intent.Forward*intent.Forward>1||intent.Right*intent.Right+intent.Forward*intent.Forward<0.0001f||intent.Seconds<0.05f||intent.Seconds>1)throw new ArgumentException("Invalid bounded move intent");
   if(!p.PlayerData.IsExternalActor||!p.PlayerData.IsReadyForPlaying||p.ComponentHealth.Health<=0||p.ComponentSleep.SleepFactor>0)throw new InvalidOperationException("Actor unavailable");
   if(!observations.TryGetValue(intent.ObservationId,out var o)||o.Actor!=intent.ActorId||clock.Elapsed.TotalSeconds-o.Time>3||Math.Sqrt(Math.Pow(o.Origin.X-p.ComponentBody.Position.X,2)+Math.Pow(o.Origin.Y-p.ComponentBody.Position.Y,2)+Math.Pow(o.Origin.Z-p.ComponentBody.Position.Z,2))>2)throw new InvalidOperationException("Observation missing, stale or belongs to another actor");
-  if(tickets.Count>=256)throw new InvalidOperationException("Ticket budget full; start a reconciled new session");
-  if(tickets.Values.Any(t=>t.Intent.ActorId==intent.ActorId&&!Terminal(t.Result.Status)))throw new InvalidOperationException("Actor already has an active skill");
+  if(tickets.Count+foodTickets.Count>=256)throw new InvalidOperationException("Ticket budget full; start a reconciled new session");
+  if(FoodBusy(intent.ActorId)||tickets.Values.Any(t=>t.Intent.ActorId==intent.ActorId&&!Terminal(t.Result.Status)))throw new InvalidOperationException("Actor already has an active skill");
   var pos=PositionOf(p);var result=new SkillResult(SessionId,intent.ActorId,intent.ActionId,"Accepted",pos,pos,0,0,"not yet executed");
   tickets.Add(intent.ActionId,new Ticket{Intent=intent,Result=result,AcceptedAt=clock.Elapsed.TotalSeconds,Direction=Vector2.Normalize((p.ComponentBody.Matrix.Right*intent.Right+p.ComponentBody.Matrix.Forward*intent.Forward).XZ)});return result;
  }
@@ -96,8 +95,9 @@ public sealed class NativeActorSession:IUpdateable,IDisposable {
    if(t.Settling>=0.1&&float.IsFinite(speed)&&speed<0.1f)t.Result=t.Result with {Status=t.CancelRequested?"Canceled":t.Result.ForwardProgress>0.01?"Succeeded":"Blocked",Reason="native horizontal settle and direction evidence"};
    else if(t.Settling>2)t.Result=t.Result with {Status="Failed",Reason="physical settle timeout"};
   }
+  UpdateEating();
  }
  static void Stop(ComponentPlayer p){if(p.PlayerData.IsExternalActor)p.ComponentInput.ClearExternalMovement();}
- void FailAll(string reason){foreach(var t in tickets.Values.Where(t=>!Terminal(t.Result.Status))){Stop(actors[t.Intent.ActorId]);t.Result=t.Result with {Status="Failed",Reason=reason};}}
+ void FailAll(string reason){FailEating(reason);foreach(var t in tickets.Values.Where(t=>!Terminal(t.Result.Status))){Stop(actors[t.Intent.ActorId]);t.Result=t.Result with {Status="Failed",Reason=reason};}}
  public void Dispose(){if(disposed)return;Owner();FailAll("session disposed");disposed=true;}
 }
