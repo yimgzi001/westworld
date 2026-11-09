@@ -43,3 +43,7 @@
 [原生挖掘/拾取/放置交接](research/2026-11-09-interaction-handoff.md)：停止本机操作前的成功与失败证据、未提交材料边界；后续仅在dot云电脑测试。
 
 [云端Linux构建门槛与零AI视口风险](research/2026-11-09-cloud-linux-preflight.md)：修复Linux资源打包并构建成功；原生启动仍受无图形平台阻碍，五角色验收未完成。
+
+[Actor/视口/模拟活动中心核心契约](../runtime/Westworld.Runtime.Core/README.md)：云端49项纯契约检查，身份与可选人类视口分离、恢复先对账；不是五个真实游戏角色运行证明。
+
+[无图形宿主边界核查](research/2026-11-09-headless-boundaries.md)：Bootstrap、时钟、内容与呈现的实际耦合及下一步改造路线。
