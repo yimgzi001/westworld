@@ -17,6 +17,7 @@ namespace Game.Westworld {
             Define<FaceTowards>(AtomicActionCategory.Movement),
             Define<SetPosture>(AtomicActionCategory.Movement),
             Define<Jump>(AtomicActionCategory.Movement),
+            Define<StepTo>(AtomicActionCategory.Movement),
             Define<ClimbTo>(AtomicActionCategory.Movement),
             Define<Mount>(AtomicActionCategory.Movement),
             Define<Dismount>(AtomicActionCategory.Movement),

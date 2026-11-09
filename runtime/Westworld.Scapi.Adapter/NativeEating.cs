@@ -12,7 +12,10 @@ public sealed partial class NativeActorSession {
   if(decision.Goal=="Observe"&&decision.Skill=="Wait"&&decision.Slot==-1&&decision.ExpectedValue==0){Actor(decision.SessionId,decision.ActorId);return null;}
   throw new InvalidOperationException("Unsupported high-level decision");
  }
- static bool SupportedFood(int value)=>Terrain.ExtractContents(value)==CookedFishBlock.Index||(Terrain.ExtractContents(value)==PumpkinBlock.Index&&BasePumpkinBlock.GetSize(Terrain.ExtractData(value))==7);
+ static bool SupportedFood(int value) {
+  if(value<0)return false;var block=BlocksManager.Blocks[Terrain.ExtractContents(value)];
+  return FoodCapabilities.AssessObservedItem(new SlotObservation(0,value,1,block.GetNutritionalValue(value),false),block.GetSicknessProbability(value)).Eligible;
+ }
  public EatResult SubmitEat(EatIntent intent)=>SubmitEatCore(intent,null);
  EatResult SubmitEatCore(EatIntent intent,Guid? parent){
   DemandActions();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");

@@ -12,7 +12,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
   public required MoveIntent Intent;public required SkillResult Result;public required double AcceptedAt;
   public required Vector2 Direction;public double Elapsed,Settling;public bool CancelRequested;
  }
- readonly Project project;readonly SubsystemTerrain terrain;readonly Stopwatch clock=Stopwatch.StartNew();
+ readonly int observationAbove;readonly Project project;readonly SubsystemTerrain terrain;readonly Stopwatch clock=Stopwatch.StartNew();
  readonly Dictionary<Guid,ComponentPlayer> actors=new();readonly Dictionary<Guid,Ticket> tickets=new();
  readonly Dictionary<Guid,(Guid Actor,Position Origin,double Time,SlotObservation[] Inventory,CellObservation[] Cells)> observations=new();
  readonly HashSet<Guid> retiredBindings=new();
@@ -22,7 +22,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  public ActorRegistry Registry {get;}
  public Guid SessionId=>Registry.SessionId;
  public float FloatUpdateOrder=>-15;
- public NativeActorSession(Project project,Guid worldId,bool actionsEnabled=true){ActionsEnabled=actionsEnabled;this.project=project??throw new ArgumentNullException(nameof(project));terrain=project.FindSubsystem<SubsystemTerrain>(true);Registry=new ActorRegistry(worldId);}
+ public NativeActorSession(Project project,Guid worldId,bool actionsEnabled=true,int observationAbove=1){if(observationAbove<1||observationAbove>3)throw new ArgumentOutOfRangeException(nameof(observationAbove));this.observationAbove=observationAbove;ActionsEnabled=actionsEnabled;this.project=project??throw new ArgumentNullException(nameof(project));terrain=project.FindSubsystem<SubsystemTerrain>(true);Registry=new ActorRegistry(worldId);}
  void Owner(){if(disposed)throw new ObjectDisposedException(nameof(NativeActorSession));if(Environment.CurrentManagedThreadId!=owner)throw new InvalidOperationException("Game thread required");}
  ComponentPlayer Actor(Guid session,Guid id){Owner();if(session!=SessionId)throw new InvalidOperationException("Stale session");if(retiredBindings.Contains(id)||!actors.TryGetValue(id,out var p)||p.Project!=project||!p.Entity.IsAddedToProject)throw new InvalidOperationException("Actor not bound to live native entity");return p;}
  static Position PositionOf(ComponentPlayer p){var v=p.ComponentBody.Position;return new(v.X,v.Y,v.Z);}
@@ -31,7 +31,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  public ActorObservation Observe(Guid session,Guid actorId){
   var p=Actor(session,actorId);var origin=PositionOf(p);var eye=p.ComponentCreatureModel.EyePosition;var forward=Vector3.Normalize(p.ComponentCreatureModel.EyeRotation.GetForwardVector());
   var cells=new List<CellObservation>();int bx=Terrain.ToCell((float)origin.X),by=Terrain.ToCell((float)origin.Y),bz=Terrain.ToCell((float)origin.Z);
-  for(int x=bx-4;x<=bx+4;x++)for(int z=bz-4;z<=bz+4;z++)for(int y=by-2;y<=by+1;y++){
+  for(int x=bx-4;x<=bx+4;x++)for(int z=bz-4;z<=bz+4;z++)for(int y=by-2;y<=by+observationAbove;y++){
    var target=new Vector3(x+0.5f,y+0.5f,z+0.5f);var delta=target-eye;int? value=null;
    bool candidate=y>=0&&y<TerrainChunk.Height&&delta.Length()<=5f&&(delta.LengthSquared()<=0.0001f||Vector3.Dot(Vector3.Normalize(delta),forward)>=0.5f);
    if(candidate&&LoadedRectangle(eye,target)&&OpaqueVoxelLineOfSight(eye,target))value=terrain.Terrain.GetCellValue(x,y,z);

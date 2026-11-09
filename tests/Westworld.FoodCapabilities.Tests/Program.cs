@@ -1,0 +1,37 @@
+using Game;
+using Westworld.Runtime.Core;
+using Westworld.Scapi.Adapter;
+int n=0;void Check(bool v,string name){n++;if(!v)throw new Exception(name);}
+SlotObservation Item(int value,float nutrition=.5f)=>new(0,value,1,nutrition,false);
+foreach(int v in new[]{78,89,162,177})Check(FoodCapabilities.AssessObservedItem(Item(v),0).Eligible,"reviewed cooked food "+v);
+Check(FoodCapabilities.AssessObservedItem(Item(131,.15f),0).Eligible,"mature pumpkin");
+int small=Terrain.MakeBlockValue(131,0,BasePumpkinBlock.SetSize(0,6));
+Check(!FoodCapabilities.AssessObservedItem(Item(small),0).Eligible,"immature even if inconsistent nutritional input");
+Check(!FoodCapabilities.AssessObservedItem(Item(88),.25f).Eligible,"raw meat risk default");
+Check(FoodCapabilities.AssessObservedItem(Item(88),.25f,FoodRiskPolicy.AllowReportedSickness).Eligible,"raw meat explicit risk");
+Check(!FoodCapabilities.AssessObservedItem(Item(240),.75f,FoodRiskPolicy.AllowReportedSickness).Eligible,"rotten stays excluded");
+Check(!FoodCapabilities.AssessObservedItem(Item(110),0).Eligible,"milk return container deferred");
+Check(!FoodCapabilities.AssessObservedItem(Item(251),0).Eligible,"soup return container deferred");
+int egg=Terrain.MakeBlockValue(118,0,EggBlock.SetIsLaid(0,true));
+Check(!FoodCapabilities.AssessObservedItem(Item(118),0).Eligible,"spawn egg not natural provenance");
+Check(FoodCapabilities.AssessObservedItem(Item(egg,.2f),.1f,FoodRiskPolicy.AllowReportedSickness).Eligible,"laid edible egg explicit risk");
+Check(!FoodCapabilities.AssessObservedItem(Item(egg,0),0).Eligible,"species may not be edible");
+foreach(float risk in new[]{float.NaN,float.PositiveInfinity,-.1f,1.1f})Check(!FoodCapabilities.AssessObservedItem(Item(162),risk).Eligible,"invalid risk");
+Check(!FoodCapabilities.AssessObservedItem(Item(162,float.NaN),0).Eligible,"nan nutrition");
+Check(!FoodCapabilities.AssessObservedItem(Item(162) with{Count=0},0).Eligible,"empty slot");
+Check(FoodCapabilities.AssessObservedHarvest(new(1,64,1,"known",131)).Eligible,"mature visible plant");
+Check(!FoodCapabilities.AssessObservedHarvest(new(1,64,1,"unknown",131)).Eligible,"unknown plant rejected");
+Check(!FoodCapabilities.AssessObservedHarvest(new(1,64,1,"known",small)).Eligible,"immature harvest not food");
+Check(!FoodCapabilities.AssessObservedHarvest(new(1,64,1,"known",226)).Eligible,"urchin hazards default reject");
+Check(FoodCapabilities.AssessObservedHarvest(new(1,64,1,"known",226),true).Eligible,"explicit aquatic classification");
+Check(!FoodCapabilities.AssessObservedHarvest(new(1,64,1,"known",177)).Eligible,"bread not terrain harvest");
+Check(!FoodCapabilities.AssessObservedItem(Item(173),0).Eligible,"rye seeds not direct food");
+// Independently verify baseline nutrition/risk against shipped native resource data.
+var lines=File.ReadAllLines(Path.Combine(AppContext.BaseDirectory,"BlocksData.txt"));var header=lines[0].Split(';');
+int ni=Array.IndexOf(header,"DefaultNutritionalValue"),si=Array.IndexOf(header,"DefaultSicknessProbability"),ti=Array.IndexOf(header,"RequiredToolLevel");
+var rows=lines.Skip(1).Select(x=>x.Split(';')).Where(x=>x.Length>ni).GroupBy(x=>x[0]).ToDictionary(g=>g.Key,g=>g.First());
+float Read(string[] row,int col)=>string.IsNullOrWhiteSpace(row[col])?0:float.Parse(row[col],System.Globalization.CultureInfo.InvariantCulture);
+foreach(string type in new[]{"CookedBirdBlock","CookedMeatBlock","CookedFishBlock","BreadBlock"})Check(Read(rows[type],ni)>0&&Read(rows[type],si)==0,"native baseline low risk "+type);
+Check(Read(rows["SeaUrchinBlock"],ni)==.05f&&Read(rows["SeaUrchinBlock"],si)==.25f&&Read(rows["SeaUrchinBlock"],ti)==0,"urchin native tool/nutrition/risk");
+Check(Read(rows["SeedsBlock"],ni)==0,"native seeds no direct nutrition");
+Console.WriteLine($"{n}/{n} offline food catalogue/native resource assertions passed; no game initialization, harvesting, pickup, or eating executed.");

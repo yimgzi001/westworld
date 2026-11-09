@@ -11,6 +11,8 @@ namespace Game.Westworld {
     public sealed record FaceTowards(Vector3 Point, float Timeout = 5f, float? PitchDegrees = null, bool HorizontalOnly = false) : AtomicAction;
     public sealed record SetPosture(BodyPosture Posture) : AtomicAction;
     public sealed record Jump : AtomicAction;
+    // Local one-cube transition. Caller supplies observation proof; no hidden path search.
+    public sealed record StepTo(Vector3 Destination, float Timeout = 3f) : AtomicAction;
     public sealed record ClimbTo(BlockTarget Ladder, float Height, float Timeout = 15f) : AtomicAction;
     public sealed record Mount(Entity Target) : AtomicAction;
     public sealed record Dismount : AtomicAction;

@@ -22,7 +22,8 @@ model coordinates into this interface. Host retains proof cells for revalidation
 
 Select consumes at most 32 candidates within 4 meters and chooses a different cell
 at least 1 meter away, excluding blocked directed edges. Among remaining safe
-candidates it prefers lower visit counts, then greater distance, then coordinate
+candidates it prefers a bounded observed frontier, lower visit counts, avoiding a
+recent return, least recently visited cells, successful forward heading, distance, then coordinate
 order for deterministic ties. Results carry original scope and evidence plus a new
 choice identity and explanation. The candidate list is copied; its later mutation
 cannot rewrite an issued choice. This is a bounded heuristic, not route planning.
@@ -48,3 +49,32 @@ route avoidance is not. Polling without changing cells does not inflate visits.
 
 Tests use deterministic times and positions only. They do not prove real physics,
 collision safety, food discovery, native locomotion, or model decisions.
+
+
+## Observed-frontier and anti-loop hints
+
+Each retained visited cell records at most 32 directed neighboring cells that were
+actually supplied as known-safe candidates. Hints expire for ranking after 30 seconds;
+unknown terrain is never scanned or inserted. A bounded breadth-first search (at most
+128 expanded visited cells per candidate) ranks routes toward a remembered unvisited
+neighbor. These are fallible exploration hints, not a global path or a proof that an
+old edge is still open. **Every selected first hop must be in the current fresh safe
+candidate array**, even when memory points elsewhere. No historical edge is executed
+automatically. Blocked directed edges are excluded from both ranking and selection.
+
+When frontiers/counts tie, the successful movement heading and visit recency discourage
+short reversals. Dead ends are still allowed to return; direction is a preference,
+not a constraint. Failed or interrupted movement does not establish a new successful
+heading. Choice.Reason exposes the remembered frontier hop count or `none`.
+
+`MemoryCount` continues to count retained visits plus failed edges (<= configured
+capacity). Neighbor hints are nested in visit records and bounded by 32 * capacity;
+`NeighborHintCount` exposes this additional count. Evicting a visit also removes its
+hints. Bounded eviction can make old visited places appear new again; no permanent
+coverage or optimum routing is claimed. No checkpoint persistence is added.
+
+Long deterministic tests cover a 60-step corridor, a 96-step cycle without two-cell
+ping-pong, dead-end return, a remembered branch that beats the former coordinate tie,
+failed first-hop fallback, expired hints and refusal to invent an absent first hop.
+These tests do not prove improved distances in the real game; the host must replay
+native scenarios and report actual coverage separately.

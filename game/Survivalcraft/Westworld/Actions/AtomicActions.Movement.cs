@@ -14,6 +14,7 @@ namespace Game.Westworld {
             m_rider = m_actor.FindComponent<ComponentRider>();
             Register<FaceTowards>(StartFacing, () => m_body != null && m_locomotion is { TurnSpeed: > 0f });
             Register<SetPosture>(StartPosture, () => m_body != null);
+            Register<StepTo>(StartStep, () => m_body != null && m_locomotion is { JumpSpeed: > 0f, WalkSpeed: > 0f });
             Register<Jump>(StartJump, () => m_body != null && m_locomotion is { JumpSpeed: > 0f });
             Register<ClimbTo>(StartClimb, () => m_body != null && m_locomotion is { LadderSpeed: > 0f, WalkSpeed: > 0f });
             Register<Mount>(StartMount, () => m_body != null && m_rider != null && m_locomotion != null);
