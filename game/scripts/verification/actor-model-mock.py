@@ -1,12 +1,9 @@
 import json
 import time
-from threading import Lock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 class Handler(BaseHTTPRequestHandler):
-    rate_lock = Lock()
-    rate_calls = set()
     def do_POST(self):
         try:
             assert self.headers["Authorization"] == "Bearer local-test-key"
@@ -56,32 +53,37 @@ class Handler(BaseHTTPRequestHandler):
         if mode == "observe-ahead":
             self.observation_reply(context)
             return
+        if mode == "observe-world":
+            index = int(actor.split()[1].removesuffix("."))
+            decision = {"reason": "Rest", "task": "keep", "reviewAfter": 120}
+            if index == 0 and ("initial" in context["reasons"] or "nextTask" in context["reasons"]):
+                item = next(item for item in context["inventory"]["slots"] if item["slot"] == 0)
+                eat = {"tool": "act_Eat", "arguments": {"slot": 0, "value": item["value"], "count": 1}}
+                if "initial" in context["reasons"]:
+                    decision.update(reason="Eat once, then wait", task="start", steps=[eat,
+                        {"tool": "act_Wait", "arguments": {"duration": 4}},
+                        {"tool": "act_Wait", "arguments": {"duration": 1}}])
+                else:
+                    decision.update(reason="Eat the remaining portion after waiting", task="start", steps=[eat])
+            if index == 1:
+                time.sleep(7)
+            self.send_global_decision(decision)
+            return
         if mode in ("scale", "scale-action"):
             index = int(actor.removeprefix("scale "))
             assert actor == f"scale {index}" and 0 <= index < 50
             initial = "initial" in context["reasons"]
-            assert initial or (index < 5 and "review" in context["reasons"])
+            assert initial or (mode == "scale-action" and "taskEnded" in context["reasons"]) or (index < 5 and "review" in context["reasons"])
             time.sleep(.3 if index % 5 == 0 else .12)
-            if mode == "scale-action":
-                assert initial and "act_Jump" in context["actions"]
+            if mode == "scale-action" and initial:
+                assert "act_Jump" in context["actions"]
                 self.send_global_decision({"reason": "Test footing", "task": "start", "reviewAfter": 120,
                     "steps": [{"tool": "act_Jump", "arguments": {}}]})
                 return
             self.send_global_decision({"reason": "Wait for the next review", "task": "keep",
                 "reviewAfter": 2 if initial and index < 5 else 120})
             return
-        assert actor in ("cohort 0", "cohort 1")
-        assert {"initial", "taskEnded"}.intersection(context["reasons"])
-        if mode == "rate" and actor == "cohort 0":
-            with self.rate_lock:
-                first = context["id"] not in self.rate_calls
-                self.rate_calls.add(context["id"])
-            if first:
-                self.send_json(429, {"error": {"message": "fixture rate limit"}}, {"Retry-After": "1"})
-                return
-        time.sleep(6 if mode == "ambiguous" else .45 if actor == "cohort 0" else .1)
-        self.send_global_decision({"reason": "Wait briefly", "task": "start", "reviewAfter": 120,
-            "steps": [{"tool": "act_Wait", "arguments": {"duration": .15}}]})
+        raise ValueError("Unknown global fixture mode")
 
     def observation_reply(self, context):
         index = int(context["profile"].split()[1].removesuffix("."))

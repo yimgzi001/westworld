@@ -102,7 +102,7 @@ namespace Game {
                 ProjectData projectData = new(DatabaseManager.GameDatabase, projectNode, valuesDictionary, true);
                 m_project = new Project(DatabaseManager.GameDatabase, projectData);
                 Westworld.ActorTools.RegisterTaskCheckpoint(m_project, projectNode);
-                Westworld.WorldCognitionScheduler.RegisterLoadedCohort(m_project, projectNode);
+                Westworld.WorldCognitionScheduler.RegisterLoadedObservation(m_project, projectNode);
                 m_subsystemUpdate = m_project.FindSubsystem<SubsystemUpdate>(true);
             }
             m_worldInfo = worldInfo;

@@ -132,7 +132,6 @@ namespace Game {
                         return false;
                     }
                 );
-                Westworld.WorldCognitionScheduler.AfterNativeStep(Project, dt);
             }
         }
 

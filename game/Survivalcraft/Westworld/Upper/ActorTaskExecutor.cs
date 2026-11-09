@@ -68,17 +68,27 @@ namespace Game.Westworld {
 
         public float FloatUpdateOrder => 0.6f;
 
-        public ActorTaskView Status => new ActorTaskView(m_version, m_status, m_current < m_stepViews.Length ? m_current : null,
+        public ActorTaskView Status => (m_stepViews.Length == 0 ? LastTerminal : null) ?? new ActorTaskView(
+            m_version, m_status, m_current < m_stepViews.Length ? m_current : null,
             m_completed, m_stepViews.Length, m_lastProgressTime, m_failure, Array.AsReadOnly(m_stepViews.ToArray())) { TaskId = m_taskId };
 
         internal bool IsActive => m_status is ActorTaskStatus.Waiting or ActorTaskStatus.Running or ActorTaskStatus.Blocked;
         internal Guid? ActiveTaskId => IsActive ? m_taskId : null;
         internal int ActorId => m_actor.Id;
         internal ActorTaskView LastTerminal { get; private set; }
+        internal void RestoreLastTerminal(ActorTaskView terminal) {
+            LastTerminal = terminal;
+            if (terminal != null) {
+                m_version = Math.Max(m_version, terminal.Version);
+            }
+        }
         internal event Action<int, Guid, bool> TaskActivityChanged;
         internal bool IsActionRunning => m_actions.IsActionRunning;
         internal bool OwnsRunningAction => m_run?.Result.Status == AtomicActionStatus.Running;
         internal bool CanCaptureCheckpoint => m_actions.IsTaskActorAvailable && m_scheduler.CanCheckpoint(this);
+        internal bool AtCheckpointBoundary => !m_actions.IsActionRunning
+            && (!IsActive || m_status == ActorTaskStatus.Waiting && m_run == null && !m_starting);
+        internal bool HasPendingRetry => m_status == ActorTaskStatus.Blocked;
         internal bool CanRestoreCheckpoint => m_time.GameTime == 0 && CanCaptureCheckpoint;
         internal IReadOnlyList<InventorySlotView> ReceivedItems(int step) => m_stepViews[step].ReceivedItems;
 
@@ -109,9 +119,9 @@ namespace Game.Westworld {
             return true;
         }
 
-        internal ActorTaskSnapshot Capture(bool cohort = false) {
+        internal ActorTaskSnapshot Capture(bool checkpointable = false) {
             if (m_status != ActorTaskStatus.Waiting || m_run != null || m_starting || m_actor.Id <= 0
-                || (!cohort && !m_scheduler.CanCheckpoint(this)) || m_steps.Any(step => step.Plan == null)) {
+                || (!checkpointable && !m_scheduler.CanCheckpoint(this)) || m_steps.Any(step => step.Plan == null)) {
                 throw new InvalidOperationException("A checkpoint requires a data plan between actions in a single active task.");
             }
             return new ActorTaskSnapshot(1, m_actor.Id, m_time.GameTime, m_steps.Select(step => step.Plan).ToArray(), Status);

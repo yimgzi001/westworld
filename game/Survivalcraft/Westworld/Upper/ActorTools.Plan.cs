@@ -110,10 +110,10 @@ namespace Game.Westworld {
         static bool PreservesInventory(string tool) => tool is "act_Wait" or "act_MoveTo" or "act_FaceTowards"
             or "act_SetPosture" or "act_Jump" or "act_ClimbTo" or "act_Sleep" or "act_WakeUp";
 
-        static bool IsCohortTool(string tool) => tool is "act_Wait" or "act_Eat" or "act_SelectItem" or "act_Drop"
+        static bool IsRestorableTool(string tool) => tool is "act_Wait" or "act_Eat" or "act_SelectItem" or "act_Drop"
             or "act_Equip" or "act_Unequip" or "act_SetPosture" or "act_Jump" or "act_Sleep" or "act_WakeUp";
 
-        static bool IsRestorable(ActorPlanStep step) => IsCohortTool(step.Tool)
+        static bool IsRestorable(ActorPlanStep step) => IsRestorableTool(step.Tool)
             || step.Tool is "act_MoveTo" or "act_FaceTowards" && !step.Arguments.TryGetProperty("destination", out _)
             || step.Tool == "act_PickUp" && step.Arguments.TryGetProperty("food_value", out _);
 

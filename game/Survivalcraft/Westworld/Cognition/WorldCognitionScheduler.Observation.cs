@@ -2,13 +2,14 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
+using GameEntitySystem;
 
 namespace Game.Westworld {
     public sealed partial class WorldCognitionScheduler {
-        sealed record ObservationRequest(CognitionAttempt Attempt, string TurnId, SelfView Body) {
+        sealed record ObservationRequest(CognitionAttempt Attempt, string TurnId, ObservationPose Pose) {
             internal Task<ActorModelReply> Task { get; set; }
         }
-        sealed record ObservationFollowUp(ObservationRequest Request, CognitionAttempt Settled, string Decision);
+        sealed record ObservationFollowUp(ObservationRequest Request, CognitionAttempt Settled, bool Recovered = false);
         readonly record struct ObservationReply(ObservationRequest Request, ActorModelReply Reply);
         readonly record struct ObservationTaskEvent(int ActorId, Guid TaskId, bool Started);
 
@@ -18,7 +19,6 @@ namespace Game.Westworld {
         readonly SortedSet<int> m_observationLookAheadReady = [];
         readonly Dictionary<int, DateTimeOffset> m_nextObservationRequest = [];
         Channel<ObservationReply> m_observationReplies;
-        bool m_observing;
         bool m_observationEnded;
         bool m_observationBudgetLimited;
         int m_lastObservationActor;
@@ -37,8 +37,18 @@ namespace Game.Westworld {
         public void StartObservation() => StartObservation(measure: false);
 
         public void StartObservation(bool measure) {
-            Start(resume: false);
-            m_observing = true;
+            Project project = RequireUnboundWorld();
+            if (m_ledger.Exists || m_loadedObservations.TryGetValue(project, out _)) {
+                throw new InvalidOperationException("Use the matching observation checkpoint to resume the existing run.");
+            }
+            m_time = project.FindSubsystem<SubsystemTime>(true);
+            BindWorld(project);
+            InitializeObservation(measure, resume: false);
+            // Publish the experiment identity before its first world checkpoint.
+            StageObservationLedger(m_ledger.Data with { }, () => m_initialLedgerReady = true);
+        }
+
+        void InitializeObservation(bool measure, bool resume) {
             m_observationData = m_ledger.Data;
             // A request holds its slot until the game thread consumes the reply, including during pause.
             m_observationReplies = Channel.CreateBounded<ObservationReply>(new BoundedChannelOptions(m_parallelism) { SingleReader = true });
@@ -47,14 +57,14 @@ namespace Game.Westworld {
             }
             foreach ((int actorId, Actor actor) in m_actors) {
                 actor.Tools.CognitiveTaskActivityChanged += OnObservationTaskActivity;
-                if (actor.Tools.CognitiveActiveTaskId is Guid taskId) {
+                if (!resume && actor.Tools.CognitiveActiveTaskId is Guid taskId) {
                     OnObservationTaskActivity(actorId, taskId, started: true);
                 }
             }
         }
 
         public void StopObservationDispatch() {
-            if (!m_observing || m_disposed) {
+            if (m_project == null || m_disposed) {
                 throw new InvalidOperationException("An active observation run is required.");
             }
             m_observationEnded = true;
@@ -64,7 +74,9 @@ namespace Game.Westworld {
             state = m_fault != null ? "faulted" : m_userPaused ? "userPaused"
                 : m_observationEnded ? "draining" : m_observationBudgetLimited ? "budgetLimited" : "running",
             fault = m_fault,
-            time = m_time.GameTime,
+            time = m_time?.GameTime,
+            checkpointTime = m_checkpointTime,
+            reusedReplies = m_reusedReplies,
             inFlight = m_observationRequests.Count,
             activeTasks = m_actors.Values.Count(actor => actor.Tools.CognitiveTaskActive),
             peak = m_observationPeak,
@@ -91,6 +103,7 @@ namespace Game.Westworld {
             try {
                 ProcessObservation();
                 if (m_fault == null) {
+                    SaveObservationCheckpointWhenReady();
                     WriteObservationBatch();
                 }
             }
@@ -106,7 +119,7 @@ namespace Game.Westworld {
             ProcessObservationTaskEvents();
             if (m_observationEnded && m_observationFollowUps.Count > 0) {
                 foreach (ObservationFollowUp followUp in m_observationFollowUps.Values) {
-                    InstallObservationReply(followUp.Request, followUp.Settled, followUp.Decision);
+                    InstallObservationReply(followUp.Request, followUp.Settled, followUp.Recovered);
                 }
                 m_observationFollowUps.Clear();
             }
@@ -116,8 +129,10 @@ namespace Game.Westworld {
                 m_observationRepliesHandled++;
             }
             ConfirmObservationBatch();
+            ProcessRestoredReplies();
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            if (m_observationEnded || now < m_observationBackoff || now < m_observationRateBackoff
+            if (m_observationEnded || m_checkpointTime == null || m_recoveryLedgerPending
+                || now < m_observationBackoff || now < m_observationRateBackoff
                 || m_observationRequests.Count >= m_parallelism) {
                 return;
             }
@@ -137,15 +152,16 @@ namespace Game.Westworld {
                 Actor actor = m_actors[actorId];
                 Guid? precedingTask = actor.Tools.CognitiveActiveTaskId;
                 bool lookAhead = precedingTask != null;
-                if (m_observationRequests.ContainsKey(actorId) || m_nextObservationRequest.GetValueOrDefault(actorId) > now
+                if (m_observationUncertainActors.Contains(actorId) || m_observationRequests.ContainsKey(actorId)
+                    || m_nextObservationRequest.GetValueOrDefault(actorId) > now
                     || m_observationFollowUps.ContainsKey(actorId) || !actor.Tools.CognitiveWorldIsCurrent
                     || (lookAhead ? lookAheadInFlight >= lookAheadLimit : idleInFlight >= idleLimit)
                     || (lookAhead ? !m_observationLookAheadReady.Contains(actorId) : actor.Tools.CognitiveActionRunning)
-                    || actor.Cognition.PrepareTurn(cohort: true, lookAhead: lookAhead) is not string input) {
+                    || actor.Cognition.PrepareTurn(checkpointable: true, lookAhead: lookAhead) is not string input) {
                     continue;
                 }
-                string turnId = actor.Cognition.ScheduledInput.Context.Id;
-                string schema = actor.Tools.DescribeDecisionTools(cohort: true);
+                string turnId = actor.Cognition.PendingTurn.Context.Id;
+                string schema = actor.Tools.DescribeDecisionTools(checkpointable: true);
                 long estimate = checked((Encoding.UTF8.GetByteCount(input) + Encoding.UTF8.GetByteCount(schema) + 4096L)
                     * m_ledger.Data.InputPrice + OutputTokenLimit * m_ledger.Data.OutputPrice);
                 if (available < estimate) {
@@ -157,10 +173,9 @@ namespace Game.Westworld {
                 if (!actor.Cognition.TryClaimModelTurn(turnId)) {
                     continue;
                 }
-                CognitionAttempt attempt = new(Guid.NewGuid().ToString("N"), turnId, actorId, 1,
+                CognitionAttempt attempt = new(Guid.NewGuid().ToString("N"), turnId, actorId,
                     estimate, "inFlight", DateTimeOffset.UtcNow, PrecedingTask: precedingTask);
-                SelfView body = actor.Tools.CognitiveBody;
-                ObservationRequest request = new(attempt, turnId, body);
+                ObservationRequest request = new(attempt, turnId, new ObservationPose(actor.Tools.CognitiveBody));
                 m_observationRequests.Add(actorId, request);
                 StageObservationLedger(m_observationData with { Attempts = [..m_observationData.Attempts, attempt] },
                     () => SendObservationRequest(request, input, schema));
@@ -221,7 +236,7 @@ namespace Game.Westworld {
                 m_observationLookAheadReady.Remove(task.ActorId);
                 if (m_observationFollowUps.TryGetValue(task.ActorId, out ObservationFollowUp followUp)
                     && followUp.Request.Attempt.PrecedingTask == task.TaskId) {
-                    InstallObservationReply(followUp.Request, followUp.Settled, followUp.Decision);
+                    InstallObservationReply(followUp.Request, followUp.Settled, followUp.Recovered);
                     m_observationFollowUps.Remove(task.ActorId);
                 }
             }
@@ -248,9 +263,10 @@ namespace Game.Westworld {
                 Charge = known ? checked(reply.InputTokens.Value * m_ledger.Data.InputPrice
                     + reply.OutputTokens.Value * m_ledger.Data.OutputPrice) : 0,
                 Model = reply.Model, RequestId = reply.RequestId, InputTokens = reply.InputTokens,
-                OutputTokens = reply.OutputTokens, HttpStatus = reply.Status, Error = error
+                OutputTokens = reply.OutputTokens, HttpStatus = reply.Status, Error = error,
+                Decision = error == null ? reply.DecisionJson : null
             };
-            SaveObservationAttempt(settled, () => ApplyObservationSettlement(request, reply, settled, now));
+            SaveObservationAttempt(settled, () => ApplyObservationSettlement(request, settled, now));
             if (reply.Status == 429) {
                 DateTimeOffset retry = now.AddSeconds(Math.Clamp(reply.RetryAfterSeconds ?? 2, 1, 120));
                 if (retry > m_observationRateBackoff) {
@@ -259,17 +275,17 @@ namespace Game.Westworld {
             }
         }
 
-        void ApplyObservationSettlement(ObservationRequest request, ActorModelReply reply, CognitionAttempt settled, DateTimeOffset now) {
+        void ApplyObservationSettlement(ObservationRequest request, CognitionAttempt settled, DateTimeOffset now) {
             m_observationRequests.Remove(request.Attempt.ActorId);
             if (settled.Error != null) {
                 RejectObservation(request, now);
             }
             else if (!m_observationEnded && AwaitingHandoff(request)) {
-                m_observationFollowUps.Add(request.Attempt.ActorId, new ObservationFollowUp(request, settled, reply.DecisionJson));
+                m_observationFollowUps.Add(request.Attempt.ActorId, new ObservationFollowUp(request, settled));
                 m_lookAheadBuffered++;
             }
             else {
-                InstallObservationReply(request, settled, reply.DecisionJson);
+                InstallObservationReply(request, settled);
             }
         }
 
@@ -278,14 +294,17 @@ namespace Game.Westworld {
             return request.Attempt.PrecedingTask is Guid task && actor.Tools.CognitiveWorldIsCurrent && actor.Tools.CognitiveActiveTaskId == task;
         }
 
-        void InstallObservationReply(ObservationRequest request, CognitionAttempt settled, string decision) {
+        void InstallObservationReply(ObservationRequest request, CognitionAttempt settled, bool recovered = false) {
             Actor actor = m_actors[request.Attempt.ActorId];
             string error = "observation_ended";
             if (!m_observationEnded) {
                 using JsonDocument result = JsonDocument.Parse(actor.Cognition.CommitObservation(
-                    request.TurnId, decision, request.Body, request.Attempt.PrecedingTask));
+                    request.TurnId, settled.Decision, request.Pose, request.Attempt.PrecedingTask));
                 if (result.RootElement.GetProperty("ok").GetBoolean()) {
                     m_observationApplied++;
+                    if (recovered) {
+                        m_reusedReplies++;
+                    }
                     if (request.Attempt.PrecedingTask is Guid task && actor.Tools.CognitiveActiveTaskId is Guid nextTask && nextTask != task) {
                         m_lookAheadStarted++;
                     }
@@ -308,6 +327,7 @@ namespace Game.Westworld {
                 .Select(previous => previous.Id == attempt.Id ? attempt : previous).ToArray() }, confirmed);
 
         void CloseObservation() {
+            ActorTaskScheduler.For(m_project).HoldStarts = false;
             if (m_observationReplies != null) {
                 foreach (Actor actor in m_actors.Values) {
                     actor.Tools.CognitiveTaskActivityChanged -= OnObservationTaskActivity;

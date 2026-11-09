@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory)][ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')][string]$Run,
-    [ValidateSet('suite','scale','scale-action','observe-ahead','observe-ledger-interrupt','observe-ledger-recover','observe-ledger-write-fault',
-        'live','live-session','live-forage','live-observe','parallel','serial','budget','rate','interrupt','resume','ambiguous','unknown')][string]$Mode = 'suite',
+    [ValidateSet('scale','scale-action','observe-ahead','observe-ledger-interrupt','observe-ledger-recover','observe-ledger-write-fault',
+        'observe-world-interrupt','observe-world-resume','live','live-session','live-forage','live-observe')][string]$Mode = 'observe-ahead',
     [ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')][string]$ResumeFrom,
     [ValidateRange(15,120)][int]$ObservationFrameRate,
     [ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')][string]$ObservationBaselineRun
@@ -23,7 +23,7 @@ $timeout = switch ($Mode) {
     default { 70 }
 }
 Invoke-GameSmoke -Runtime $runtime -ResultFile 'global-cognition-result.json' -Environment $environment -TimeoutSeconds $timeout -Prepare {
-    if ($Mode -in 'resume','unknown','observe-ledger-recover' -and !$ResumeFrom) { throw 'Specify the interrupted runtime directory.' }
+    if ($Mode -in 'observe-ledger-recover','observe-world-resume' -and !$ResumeFrom) { throw 'Specify the interrupted runtime directory.' }
     if (($ObservationFrameRate -or $ObservationBaselineRun) -and $Mode -notin 'observe-ahead','live-observe') {
         throw 'Frame-rate control and baseline builds apply only to observation scenarios.'
     }
@@ -56,14 +56,14 @@ Invoke-GameSmoke -Runtime $runtime -ResultFile 'global-cognition-result.json' -E
         Copy-Item -LiteralPath (Join-Path $root "work/$ObservationBaselineRun/Survivalcraft.dll") -Destination $runtime -Force
     }
     $base = [IO.File]::ReadAllText((Join-Path $root 'game/Survivalcraft/init.js'))
-    $fixtureName = if ($Mode -like 'observe-*' -or $Mode -in 'scale','scale-action','live','live-session','live-forage','live-observe') {
-        'global-cognition-scale.js'
-    } else { 'global-cognition-smoke.js' }
-    $fixture = [IO.File]::ReadAllText((Join-Path $PSScriptRoot $fixtureName))
+    $fixture = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'global-cognition-scale.js'))
     [IO.File]::WriteAllText((Join-Path $runtime 'init.js'),$base+[Environment]::NewLine+$fixture)
     [IO.File]::WriteAllText((Join-Path $runtime 'global-mode'),$Mode)
-    if ($Mode -in 'resume','unknown','observe-ledger-recover') {
+    if ($Mode -in 'observe-ledger-recover','observe-world-resume') {
         Copy-Item -LiteralPath (Join-Path $root "work/$ResumeFrom/cognition-run") -Destination $runtime -Recurse
+    }
+    if ($Mode -eq 'observe-world-resume') {
+        Copy-Item -LiteralPath (Join-Path $root "work/$ResumeFrom/global-cognition-result.json") -Destination (Join-Path $runtime 'interrupted-result.json')
     }
     if ($Mode -eq 'observe-ledger-write-fault') {
         New-Item -ItemType Directory -Path (Join-Path $runtime 'cognition-run/ledger.json.tmp') -Force | Out-Null

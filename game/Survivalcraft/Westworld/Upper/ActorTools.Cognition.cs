@@ -8,6 +8,7 @@ namespace Game.Westworld {
         internal int CognitiveActorId => m_tasks.ActorId;
         internal bool CognitiveWorldIsCurrent => GameManager.Project == m_actions.BoundActor.Project && m_actions.IsTaskActorAvailable;
         internal bool CognitiveActionRunning => m_actions.IsActionRunning;
+        internal bool CognitiveAtCheckpointBoundary => m_tasks.AtCheckpointBoundary;
         internal bool CognitiveTaskActive => TaskActive || CognitiveActionRunning;
         internal Guid? CognitiveActiveTaskId => m_tasks.ActiveTaskId;
         internal event Action<int, Guid, bool> CognitiveTaskActivityChanged {
@@ -19,12 +20,13 @@ namespace Game.Westworld {
         internal SelfView CognitiveBody => m_actions.Queries.ReadSelf();
         internal ActorTaskView CognitiveTask => m_tasks.Status;
         internal ActorTaskView CognitiveLastTerminal => m_tasks.LastTerminal;
-        internal string[] CognitiveActions(bool cohort = false) => m_actions.GetCapabilities().Select(action => "act_" + action.Name)
-            .Where(tool => !cohort || IsAvailableCohortTool(tool)).ToArray();
+        internal void RestoreCognitiveLastTerminal(ActorTaskView terminal) => m_tasks.RestoreLastTerminal(terminal);
+        internal string[] CognitiveActions(bool checkpointable = false) => m_actions.GetCapabilities().Select(action => "act_" + action.Name)
+            .Where(tool => !checkpointable || IsAvailableRestorableTool(tool)).ToArray();
 
-        bool IsAvailableCohortTool(string tool) => HasActorNutrition
+        bool IsAvailableRestorableTool(string tool) => HasActorNutrition
             ? tool is "act_MoveTo" or "act_FaceTowards" or "act_PickUp" or "act_Eat" or "act_Wait"
-            : IsCohortTool(tool);
+            : IsRestorableTool(tool);
         internal ActorSocialView[] CognitiveInbox() => DrainSocialViews();
         internal JsonElement CognitiveObservation() {
             ActorObservation observation = Observe(12f, 8f, 8);
@@ -46,9 +48,9 @@ namespace Game.Westworld {
             return ToJson(new { observation.Focus, observation.Entities, observation.Pickables,
                 observation.InventoryReference, observation.CraftingReference });
         }
-        internal string DescribeDecisionTools(bool cohort = false) => JsonSerializer.Serialize(GetTools().Where(tool =>
-            tool.Name == "submit_plan" || (cohort ? IsAvailableCohortTool(tool.Name) : tool.Name.StartsWith("act_", StringComparison.Ordinal)))
-            .Select(tool => cohort && HasActorNutrition ? ForagingTool(tool) : tool), m_json);
+        internal string DescribeDecisionTools(bool checkpointable = false) => JsonSerializer.Serialize(GetTools().Where(tool =>
+            tool.Name == "submit_plan" || (checkpointable ? IsAvailableRestorableTool(tool.Name) : tool.Name.StartsWith("act_", StringComparison.Ordinal)))
+            .Select(tool => checkpointable && HasActorNutrition ? ForagingTool(tool) : tool), m_json);
 
         static ActorToolDefinition ForagingTool(ActorToolDefinition tool) => tool.Name switch {
             "act_MoveTo" => Describe(tool.Name, "Walk in the observed direction on local terrain.", [
@@ -74,7 +76,7 @@ namespace Game.Westworld {
         internal string ValidateCognitiveTask(string operation, JsonElement steps) {
             try {
                 if (operation is "start" or "replace") {
-                    if (CompileSubmittedPlan(steps).Any(step => !IsAvailableCohortTool(step.Plan.Tool) || !IsRestorable(step.Plan))) {
+                    if (CompileSubmittedPlan(steps).Any(step => !IsAvailableRestorableTool(step.Plan.Tool) || !IsRestorable(step.Plan))) {
                         return "checkpoint_unsafe_action";
                     }
                 }
@@ -85,7 +87,7 @@ namespace Game.Westworld {
             }
         }
 
-        internal string RecheckObservationPlan(JsonElement steps, SelfView observed, SelfView current) {
+        internal string RecheckObservationPlan(JsonElement steps, ObservationPose observed, SelfView current) {
             JsonElement first = steps[0];
             string tool = first.GetProperty("tool").GetString();
             JsonElement arguments = first.GetProperty("arguments");

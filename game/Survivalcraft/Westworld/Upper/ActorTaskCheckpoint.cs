@@ -95,21 +95,21 @@ namespace Game.Westworld {
             return project;
         }
 
-        internal ActorTaskSnapshot CaptureCohortTask() {
+        internal ActorTaskSnapshot CaptureWorldTask() {
             if (m_actions.IsActionRunning) {
                 throw new InvalidOperationException("A running atomic action cannot be checkpointed.");
             }
             if (!TaskActive) {
                 return null;
             }
-            ActorTaskSnapshot snapshot = m_tasks.Capture(cohort: true);
+            ActorTaskSnapshot snapshot = m_tasks.Capture(checkpointable: true);
             if (snapshot.Plan.Skip(snapshot.View.CurrentStep.Value).Any(step => !IsRestorable(step))) {
                 throw new InvalidOperationException("The task contains session-bound steps.");
             }
             return snapshot;
         }
 
-        internal bool RestoreCohortTask(ActorTaskSnapshot snapshot) => snapshot == null ||
+        internal bool RestoreWorldTask(ActorTaskSnapshot snapshot) => snapshot == null ||
             (snapshot.Format == 1 && snapshot.ActorId == m_tasks.ActorId && IsValidSnapshot(snapshot)
                 && m_tasks.Restore(CompilePlan(snapshot.Plan, snapshot.View.CurrentStep.Value, restoring: true), snapshot));
 
@@ -173,7 +173,7 @@ namespace Game.Westworld {
                 && result.ReceivedItems.Sum(item => (long)item.Count) == result.AffectedCount;
         }
 
-        internal static void WriteTaskArchive(Project project, string destination, string task, string cognition, string cohort = null) {
+        internal static void WriteTaskArchive(Project project, string destination, string task, string cognition, string observation = null) {
             SubsystemTerrain terrain = project.FindSubsystem<SubsystemTerrain>(true);
             ProjectData projectData = TerrainSerializer23.SaveForCheckpoint(project.Save);
             if (terrain.Terrain.AllocatedChunks.Any(chunk => chunk.ModificationCounter > 0)) {
@@ -192,8 +192,8 @@ namespace Game.Westworld {
                 root.Add(new XElement(CognitionElement, cognition));
             }
 
-            if (cohort != null) {
-                root.Add(new XElement("WestworldCohort", cohort));
+            if (observation != null) {
+                root.Add(new XElement(WorldCognitionScheduler.ObservationElement, observation));
             }
 
             string directory = project.FindSubsystem<SubsystemGameInfo>(true).DirectoryName;
@@ -226,7 +226,7 @@ namespace Game.Westworld {
                     verification.Position = 0;
                     XElement verified = XmlUtils.LoadXmlFromStream(verification, null, true);
                     if (verified.Element(CheckpointElement)?.Value != task || verified.Element(CognitionElement)?.Value != cognition
-                        || verified.Element("WestworldCohort")?.Value != cohort) {
+                        || verified.Element(WorldCognitionScheduler.ObservationElement)?.Value != observation) {
                         throw new InvalidDataException("The checkpoint payload could not be verified.");
                     }
                 }

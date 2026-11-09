@@ -7,25 +7,27 @@
     var interruptLedger = mode === "observe-ledger-interrupt";
     var recoverLedger = mode === "observe-ledger-recover";
     var faultLedger = mode === "observe-ledger-write-fault";
-    var fixedObservation = mode === "observe-ahead" || interruptLedger || recoverLedger || faultLedger;
+    var interruptWorld = mode === "observe-world-interrupt", resumeWorld = mode === "observe-world-resume";
+    var worldRecovery = interruptWorld || resumeWorld;
+    var fixedObservation = mode === "observe-ahead" || interruptLedger || recoverLedger || faultLedger || worldRecovery;
     var observation = mode === "live-observe" || fixedObservation;
     var forage = mode === "live-forage" || observation;
     var live = mode === "live" || mode === "live-session" || mode === "live-forage" || mode === "live-observe";
     var exercise = mode === "live" || mode === "scale-action";
     var sustained = mode === "live-session" || forage;
-    var actorCount = 50, parallelism = exercise || sustained ? 15 : 5, reviewCount = 5;
+    var actorCount = 50, parallelism = exercise || sustained ? 15 : 5;
     var inputPrice = live ? 100 : 10, outputPrice = live ? 500 : 20;
     var sessionSeconds = forage ? 45 : 20, sessionBudget = forage ? 500000000 : 250000000;
     var ledgerPath = "app:cognition-run/ledger.json";
-    var actors = [], bodies = [], health = [], minds = [], tools = [], checks = [], batches = [];
-    var project, time, scheduler, phase = "load", frozen, batchId, pauseFrames = 0, waitFrames = 0, waitingSince;
-    var peakHeight = [], actionDeadline;
-    var sessionStart, sessionStartedAt, sessionEnd, recordedBatch, finalStatus;
+    var actors = [], bodies = [], health = [], minds = [], tools = [], checks = [];
+    var project, time, scheduler, phase = "load", budgetRaised;
+    var sessionStart, sessionStartedAt, sessionEnd, finalStatus;
     var lastSample = -1, actorActivity = [];
     var nutrition = [], foodDrops = [];
     var observationElapsed, inFlightAtCutoff, observedGameTime, advancingWithRequests = 0, advancingWithTasks = 0;
     var inFlightSamples = new Map(), movedDuringOwnRequest = new Map();
     var recoveryTask, ledgerBeforeRecovery;
+    var interruption, requestedCheckpoint, resumedDecision;
     var lastObservationFrameAt, observationFrameGaps = [];
 
     function check(condition, label) {
@@ -36,7 +38,7 @@
     function finish(result, detail) {
         phase = "done";
         Engine.Storage.WriteAllText("app:global-cognition-result.json", JSON.stringify({
-            result, detail, checks, batches, actorCount: actors.length, processId: System.Environment.ProcessId
+            result, detail, checks, actorCount: actors.length, processId: System.Environment.ProcessId
         }, null, 2));
     }
 
@@ -99,6 +101,7 @@
             project.AddEntity(actor);
             var food = foods[i % foods.length];
             if (i % 5 === 0) actor.FindComponent("Inventory", true).AddSlotItems(0, food, 1);
+            if (interruptWorld && i === 0) actor.FindComponent("Inventory", true).AddSlotItems(0, food, 1);
             var forward = body.Matrix.Forward;
             var distance = 2.3 + .3 * (i % 4);
             var drop = new Engine.Vector3(body.Position.X + forward.X * distance, y + .08,
@@ -143,56 +146,6 @@
             var p = body.Position, v = body.Velocity;
             return [p.X, p.Y, p.Z, v.X, v.Y, v.Z, health[i].Health, forage ? nutrition[i].Food : null];
         }));
-    }
-
-    function assertFrozen() {
-        if (time.GameTime !== frozen.time || bodyState() !== frozen.bodies)
-            throw new Error("world time or actor bodies changed during a pause");
-    }
-
-    function version(mind) {
-        return mind.LastDecisionJson ? JSON.parse(mind.LastDecisionJson).version : 0;
-    }
-
-    function inspectBatch(status, expected, priorSpent) {
-        var completed = status.attempts.filter(a => a.state === "completed" && !a.error);
-        check(completed.length === expected && new Set(completed.map(a => a.actorId)).size === expected,
-            "one accepted response per due actor");
-        if (!live) check(status.attempts.length === expected, "local mock received exactly one request per actor");
-        var inputTokens = 0, outputTokens = 0;
-        for (var attempt of status.attempts.filter(a => a.state === "completed")) {
-            inputTokens += attempt.inputTokens;
-            outputTokens += attempt.outputTokens;
-        }
-        check(status.spent === priorSpent + inputTokens * inputPrice + outputTokens * outputPrice
-            && status.spent + status.unknown <= status.budget && status.reserved === 0,
-            "token charges settled within budget with no leftover reservation");
-        var events = status.attempts.flatMap(a => [[a.sentAt, 1], [a.receivedAt, -1]]);
-        events.sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1]);
-        var peak = 0, active = 0;
-        for (var event of events) peak = Math.max(peak, active += event[1]);
-        check(live ? peak > 0 && peak <= parallelism : peak === parallelism, "observed concurrency stayed within the configured cap");
-        batches.push({actors: expected, peak, attempts: status.attempts.length, inputTokens, outputTokens,
-            spent: status.spent, unknown: status.unknown, reserved: status.reserved,
-            frozenFrames: waitFrames, waitMilliseconds: Diagnostics.Stopwatch.GetElapsedTime(waitingSince).TotalMilliseconds});
-    }
-
-    function inspectActions() {
-        var successful = 0;
-        for (var i = 0; i < actorCount; i++) {
-            peakHeight[i] = Math.max(peakHeight[i], bodies[i].Position.Y);
-            var task = JSON.parse(tools[i].InvokeJson("task_status", "{}")).data;
-            if (task.status === "failed" || task.status === "cancelled")
-                throw new Error("actor " + actors[i].Id + " task ended with " + JSON.stringify(task));
-            if (task.status === "succeeded") successful++;
-        }
-        if (successful !== actorCount && time.GameTime < actionDeadline) return;
-        var before = JSON.parse(frozen.bodies);
-        var minRise = Math.min(...peakHeight.map((y, i) => y - before[i][1]));
-        check(successful === actorCount && minRise > .05 && System.Object.ReferenceEquals(getProject(), project),
-            "all 50 jump tasks succeeded and all 50 native bodies rose in the same world");
-        finish("passed", {pauseFrames, requests: batches[0].attempts, completedActions: successful,
-            minimumRise: minRise, spentNanoUsd: batches[0].spent, unknownNanoUsd: batches[0].unknown});
     }
 
     var completedByAction = {};
@@ -247,7 +200,7 @@
         var detail = {
             stopReason: finalStatus.reason, simulatedSeconds: sessionEnd - sessionStart,
             wallSeconds: Diagnostics.Stopwatch.GetElapsedTime(sessionStartedAt).TotalSeconds,
-            requests: batches.reduce((count, batch) => count + batch.attempts, 0),
+            requests: finalStatus.status.requests,
             actorsWithActions, actorsWhoRose, minimumTurns, completedTasks: total("completed"),
             failedTasks: total("failed"), rejectedActions: total("rejected"), restingDecisions: total("resting"),
             multiStepPlans: total("multiStep"),
@@ -265,20 +218,6 @@
             detail.groundFoodRemaining = foodDrops.reduce((sum, drop) => sum + Math.max(drop.Count, 0), 0);
         }
         return detail;
-    }
-
-    function finishSession() {
-        var detail = sessionDetail();
-        if (finalStatus.reason !== "duration" || detail.minimumTurns < 2
-            || (forage ? detail.foodPicked === 0 || detail.foodEaten === 0 :
-                detail.actorsWithActions !== actorCount || detail.actorsWhoRose !== actorCount)
-            || detail.unfinishedTasks > 0 || !System.Object.ReferenceEquals(project, getProject())) {
-            finish("failed", detail);
-            return;
-        }
-        checks.push(forage ? "actors responded to hunger with native foraging actions across multiple decision rounds" :
-            "all 50 actors moved and acted across multiple real decision rounds in one world");
-        finish("passed", detail);
     }
 
     var observationDetail;
@@ -397,50 +336,52 @@
         finish("passed", detail);
     }
 
-    function stopSession(status, reason) {
-        finalStatus = {status, reason};
-        sessionEnd = time.GameTime;
-        scheduler.Dispose();
-        actionDeadline = time.GameTime + 5;
-        phase = "drain";
-    }
-
-    function monitorSession(status) {
-        var reachedDuration = time.GameTime - sessionStart >= sessionSeconds;
-        if (status.batchId !== batchId) {
-            if (reachedDuration && status.attempts.length === 0) {
-                stopSession(status, "duration");
-                return;
-            }
-            batchId = status.batchId;
-            frozen = {time: status.time, bodies: bodyState()};
-            waitFrames = 0;
-            waitingSince = Diagnostics.Stopwatch.GetTimestamp();
-        }
-        if (status.state === "budgetPaused") { stopSession(status, "budget"); return; }
-        if (status.state === "waiting") {
-            assertFrozen();
-            if (status.spent + status.unknown + status.reserved > status.budget)
-                throw new Error("spent plus reserved exceeded budget");
-            waitFrames++;
-            return;
-        }
-        if (status.state === "scheduled" && recordedBatch !== status.batchId) {
-            check(waitFrames > 0 && time.GameTime < frozen.time + 1, "world stayed frozen until the batch settled");
-            inspectBatch(status, status.members.length, batches.length ? batches[batches.length - 1].spent : 0);
-            recordedBatch = status.batchId;
-        }
-        sampleActivity(false);
-        if (status.state === "running" && reachedDuration) stopSession(status, "duration");
-    }
-
     function createScheduler() {
         var endpoint = System.Environment.GetEnvironmentVariable("WENMING_MODEL_ENDPOINT");
-        if (!live) endpoint += "/" + (fixedObservation ? "observe-ahead" : mode) + "/responses";
+        if (!live) endpoint += "/" + (worldRecovery ? "observe-world" : fixedObservation ? "observe-ahead" : mode) + "/responses";
         var client = new W.ActorModelClient(endpoint, System.Environment.GetEnvironmentVariable("WENMING_MODEL"),
             "responses", System.Environment.GetEnvironmentVariable("WENMING_MODEL_API_KEY"));
-        return new W.WorldCognitionScheduler(client, "app:cognition-run", parallelism, observation ? sessionBudget : 1,
+        return new W.WorldCognitionScheduler(client, "app:cognition-run", parallelism, mode === "scale" ? 1 : sessionBudget,
             inputPrice, outputPrice, live ? "openai-luna-standard-2026-11" : "fixture-v1");
+    }
+
+    function monitorStandard(status) {
+        if (mode === "scale" && !budgetRaised && status.state === "budgetLimited") {
+            check(status.requests === 0 && status.spent === 0 && status.reserved === 0,
+                "insufficient budget allowed no sends, charges or reservations");
+            scheduler.IncreaseBudget(sessionBudget);
+            budgetRaised = true;
+        }
+        sampleActivity(false);
+        var ready = mode === "scale" ? status.applied >= 55 :
+            exercise ? actorActivity.every(activity => activity.completed > 0) :
+                time.GameTime - sessionStart >= sessionSeconds
+                    && (forage || actorActivity.every(activity => activity.version >= 2));
+        if (!ready) return;
+        finalStatus = {status, reason: "duration"};
+        sessionEnd = time.GameTime;
+        scheduler.StopObservationDispatch();
+        phase = "observationDrain";
+    }
+
+    function finishStandard(status) {
+        sampleActivity(true);
+        if (status.activeTasks > 0) return;
+        var detail = Object.assign(sessionDetail(), {peak: status.peak, requests: status.requests,
+            spentNanoUsd: status.spent, unknownNanoUsd: status.unknown});
+        check(status.peak > 0 && status.peak <= parallelism && status.reserved === 0,
+            "request cap and final ledger reservations verified");
+        if (mode === "scale") {
+            check(budgetRaised && detail.minimumTurns >= 1 && status.applied >= 55,
+                "all 50 initial turns and five timed reviews ran after increasing budget");
+        } else if (forage) {
+            check(detail.foodPicked > 0 && detail.foodEaten > 0, "native food pickup and eating completed");
+        } else {
+            check(detail.actorsWithActions === actorCount && detail.actorsWhoRose === actorCount,
+                "all 50 jump tasks succeeded and all 50 native bodies rose");
+        }
+        scheduler.Dispose();
+        finish("passed", detail);
     }
 
     function monitorLedgerRecovery() {
@@ -467,6 +408,83 @@
         finish("passed", recovered);
     }
 
+    function monitorWorldRecovery(status) {
+        if (status.state === "faulted") throw new Error("observation checkpoint fault: " + status.fault);
+        // Windows cannot replace a ledger while this fixture has its old file open.
+        if (status.checkpointTime == null || status.ledgerPending) return;
+        var task = JSON.parse(tools[0].InvokeJson("task_status", "{}")).data;
+        var inventory = actors[0].FindComponent("Inventory", true);
+        var ledger = JSON.parse(Engine.Storage.ReadAllText(ledgerPath));
+        if (interruptWorld) {
+            var candidate = ledger.attempts.find(a => a.actorId === actors[0].Id && a.precedingTask === task.taskId
+                && a.state === "completed");
+            if (!requestedCheckpoint && candidate && status.lookAheadBuffered > 0 && task.completedSteps === 1) {
+                check(inventory.GetSlotCount(0) === 1 && task.steps[0].affectedCount === 1,
+                    "the first eat consumed exactly one item before the checkpoint");
+                requestedCheckpoint = status.checkpointTime;
+                scheduler.RequestObservationCheckpoint();
+            }
+            if (requestedCheckpoint != null && status.checkpointTime > requestedCheckpoint && candidate && task.completedSteps >= 1) {
+                var uncertain = ledger.attempts.find(a => a.actorId === actors[1].Id && a.state === "inFlight");
+                check(uncertain && inventory.GetSlotCount(0) === 1 && status.networkInFlight > 0,
+                    "the checkpoint has a paid follow-up and another dispatched request");
+                scheduler.SetPaused(true);
+                finish("passed", {actorIds: actors.map(actor => actor.Id), taskId: task.taskId, completedSteps: task.completedSteps,
+                    turnId: candidate.batchId, attemptId: candidate.id, charge: candidate.charge, uncertainId: uncertain.id,
+                    position: JSON.parse(bodyState())[0].slice(0, 3), time: status.checkpointTime});
+            }
+        } else {
+            var decision = minds[0].LastDecisionJson && JSON.parse(minds[0].LastDecisionJson);
+            if (decision?.input.id === interruption.turnId) resumedDecision = decision;
+            if (!resumedDecision || task.taskId !== resumedDecision.taskId || task.status !== "succeeded") return;
+            check(status.reusedReplies === 1 && resumedDecision.precedingTaskOutcome.taskId === interruption.taskId
+                && resumedDecision.precedingTaskOutcome.completedSteps === 3 && time.GameTime > interruption.time,
+                "the original task finished and the saved reply started the next task");
+            check(task.steps[0].affectedCount === 1 && inventory.GetSlotCount(0) === 0,
+                "the resumed plan consumed only the second item");
+            var attempts = ledger.attempts.filter(a => a.batchId === interruption.turnId);
+            var uncertain = ledger.attempts.find(a => a.id === interruption.uncertainId);
+            check(attempts.length === 1 && attempts[0].id === interruption.attemptId && attempts[0].charge === interruption.charge
+                && uncertain?.state === "unknown" && status.unknown >= uncertain.reserved
+                && ledger.attempts.filter(a => a.actorId === actors[1].Id).length === 1,
+                "the saved reply was charged once and the unresolved dispatch was not retried");
+            finish("passed", {taskId: interruption.taskId, followUpTaskId: task.taskId, reusedReplies: status.reusedReplies,
+                charge: attempts[0].charge, unknown: status.unknown, time: time.GameTime});
+        }
+    }
+
+    function resumeObservationWorld(screen) {
+        interruption = JSON.parse(Engine.Storage.ReadAllText("app:interrupted-result.json")).detail;
+        var stream = Engine.Storage.OpenFile("app:cognition-run/observation.scworld", Engine.OpenFileMode.Read);
+        try {
+            var world = Game.WorldsManager.GetWorldInfo(Game.WorldsManager.ImportWorld(stream));
+            Game.GameManager.LoadProject(world, screen.Children.Find("GamesWidget", true));
+        } finally { stream.Dispose(); }
+        project = getProject();
+        time = findSubsystem("Time");
+        scheduler = createScheduler();
+        interruption.actorIds.forEach(function (id, i) {
+            var actor = project.FindEntity(id), body = actor.FindComponent("Body", true);
+            actors.push(actor);
+            bodies.push(body);
+            health.push(actor.FindComponent("Health", true));
+            nutrition.push(actor.FindComponent("Nutrition", true));
+            bindActor(actor, body, "Forager " + i);
+        });
+        checkCohort();
+        scheduler.ResumeObservation();
+        var task = JSON.parse(tools[0].InvokeJson("task_status", "{}")).data;
+        check(time.GameTime === interruption.time && task.taskId === interruption.taskId
+            && task.completedSteps === interruption.completedSteps && task.steps[0].affectedCount === 1
+            && actors[0].FindComponent("Inventory", true).GetSlotCount(0) === 1
+            && JSON.parse(bodyState())[0].slice(0, 3).every((position, i) => Math.abs(position - interruption.position[i]) < .02),
+            "reloaded the same world time, task ID, completed step and inventory before advancing");
+        time.BasicGameTimeFactor = 3;
+        time.MaxGameTimeDelta = Math.min(time.MaxGameTimeDelta, .05 / 3);
+        Game.ScreensManager.SwitchScreen("Game");
+        phase = "observation";
+    }
+
     frameHandlers.push(function () {
         if (phase === "done" || phase === "spawning") return;
         try {
@@ -474,6 +492,7 @@
             if (phase === "load") {
                 if (Game.ScreensManager.GetScreenName(Game.ScreensManager.CurrentScreen) !== "MainMenu"
                     || Game.ScreensManager.IsAnimating) return;
+                if (resumeWorld) { resumeObservationWorld(Game.ScreensManager.m_screens.get_Item("Game")); return; }
                 var settings = new Game.WorldSettings();
                 settings.Name = "50 Actor Cognition Verification";
                 settings.Seed = "42";
@@ -502,122 +521,40 @@
             }
             if (phase === "settle") {
                 if ((exercise || sustained) && bodies.some(body => body.StandingOnValue == null)) return;
-                if (observation) {
-                    var frameRate = Number(System.Environment.GetEnvironmentVariable("WENMING_OBSERVATION_FRAME_RATE"));
-                    if (frameRate > 0) {
-                        Engine.Window.PresentationInterval = 0;
-                        Engine.Time.FrameDurationLimit = 1 / frameRate;
-                    }
+                var frameRate = Number(System.Environment.GetEnvironmentVariable("WENMING_OBSERVATION_FRAME_RATE"));
+                if (frameRate > 0) {
+                    Engine.Window.PresentationInterval = 0;
+                    Engine.Time.FrameDurationLimit = 1 / frameRate;
+                }
+                if (forage) {
                     time.BasicGameTimeFactor = 3;
                     time.MaxGameTimeDelta = Math.min(time.MaxGameTimeDelta, .05 / 3);
-                    scheduler.StartObservation(true);
-                    sessionStart = observedGameTime = time.GameTime;
-                    sessionStartedAt = lastObservationFrameAt = Diagnostics.Stopwatch.GetTimestamp();
-                    phase = "observation";
-                    return;
                 }
-                scheduler.Start(false);
-                phase = "budget";
-                return;
-            }
-            if (phase === "actions") { inspectActions(); return; }
-            if (phase === "drain") {
-                sampleActivity(true);
-                if (actorActivity.every(activity => !activity.pending) || time.GameTime >= actionDeadline) finishSession();
+                bodies.forEach((body, index) => actorActivity[index].baselineY = actorActivity[index].peakY = body.Position.Y);
+                scheduler.StartObservation(observation);
+                sessionStart = observedGameTime = time.GameTime;
+                sessionStartedAt = lastObservationFrameAt = Diagnostics.Stopwatch.GetTimestamp();
+                phase = "observation";
                 return;
             }
             var status = JSON.parse(scheduler.StatusJson());
-            if (faultLedger && status.state === "faulted") {
-                check(status.fault === "persistence_error" && status.requests === 0 && status.reserved > 0,
-                    "failed reservation write paused the run before any network dispatch");
-                finish("passed", {fault: status.fault, requests: status.requests});
+            if (faultLedger) {
+                if (status.state !== "faulted") return;
+                check(status.fault === "persistence_error" && status.requests === 0,
+                    "failure writing the first ledger snapshot blocked every network dispatch");
+                finish("passed", status);
                 return;
             }
-            if (status.state === "faulted") { finish("failed", status); return; }
-            if (phase === "observation") { monitorObservation(status); return; }
-            if (phase === "observationDrain") {
-                if (status.inFlight === 0 && !status.ledgerPending) finishObservation(status);
+            if (status.state === "faulted") throw new Error("observation fault: " + status.fault);
+            if (phase === "observation") {
+                if (worldRecovery) monitorWorldRecovery(status);
+                else if (observation) monitorObservation(status);
+                else monitorStandard(status);
                 return;
             }
-            if (phase === "session") { monitorSession(status); return; }
-            if (phase === "budget" && status.batchId) {
-                if (pauseFrames === 0) {
-                    batchId = status.batchId;
-                    check(status.members.length === actorCount && status.members.every((member, i) => member.actorId === actors[i].Id),
-                        "all 50 actors due at one simulated instant");
-                    frozen = {time: status.time, bodies: bodyState()};
-                }
-                assertFrozen();
-                if (status.state !== "budgetPaused" || status.attempts.length !== 0 || status.spent !== 0)
-                    throw new Error("a batch with insufficient budget dispatched a request");
-                if (++pauseFrames < 4) return;
-                var ledger = JSON.parse(Engine.Storage.ReadAllText(ledgerPath));
-                var required = ledger.batch.members.reduce((total, member) => total + 2 * member.perAttempt, 0);
-                if (live && required > sessionBudget) throw new Error("the initial batch exceeds the local reservation limit");
-                if (pauseFrames === 4) {
-                    if (forage) {
-                        var inputs = ledger.batch.members.map(member => JSON.parse(member.input));
-                        check(inputs.every(input => input.observation.foodReserve < .5 && input.inventory
-                            && input.actions.includes("act_PickUp") && input.actions.includes("act_Eat")),
-                            "all 50 frozen inputs contain nutrition, an owned inventory, and foraging tools");
-                        check(inputs.filter(input => input.observation.food.length > 0).length >= 40,
-                            "most actors have a locally visible food source");
-                    }
-                    scheduler.IncreaseBudget(required - 1);
-                    return;
-                }
-                if (pauseFrames < 8) return;
-                check(status.budget === required - 1, "one nano-dollar below full reservation still sent zero requests");
-                scheduler.IncreaseBudget(sustained ? sessionBudget : required);
-                waitingSince = Diagnostics.Stopwatch.GetTimestamp();
-                if (sustained) {
-                    sessionStart = frozen.time;
-                    sessionStartedAt = waitingSince;
-                    phase = "session";
-                } else {
-                    phase = "firstWait";
-                }
-            } else if ((phase === "firstWait" || phase === "reviewWait") && status.batchId === batchId) {
-                var expected = phase === "firstWait" ? actorCount : reviewCount;
-                var priorSpent = phase === "firstWait" ? 0 : batches[0].spent;
-                if (status.state === "waiting") {
-                    assertFrozen();
-                    if (status.spent + status.unknown + status.reserved > status.budget)
-                        throw new Error("spent plus reserved exceeded budget");
-                    waitFrames++;
-                } else if (status.state === "scheduled") {
-                    check(waitFrames > 0 && time.GameTime < frozen.time + 1, "world and all bodies stayed frozen during requests");
-                    check(minds.every(mind => version(mind) === (priorSpent ? 1 : 0)), "decisions stayed pending until simulated thinking time");
-                    inspectBatch(status, expected, priorSpent);
-                    phase = priorSpent ? "reviewApply" : "firstApply";
-                }
-            } else if (phase === "firstApply" && minds.every(mind => version(mind) === 1)) {
-                check(time.GameTime >= frozen.time + 1, "all 50 decisions installed and the same world advanced");
-                if (exercise) {
-                    check(status.batchId === batchId || status.attempts.length === 0, "no follow-up request was dispatched");
-                    scheduler.Dispose();
-                    check(minds.every(mind => {
-                        var applied = JSON.parse(mind.LastDecisionJson), steps = applied.decision.steps;
-                        return !applied.actionError && Array.isArray(steps) && steps.length === 1 && steps[0].tool === "act_Jump";
-                    }), "all 50 model decisions installed a native jump task");
-                    peakHeight = bodies.map(body => body.Position.Y);
-                    actionDeadline = time.GameTime + 5;
-                    phase = "actions";
-                    return;
-                }
-                phase = "review";
-            } else if (phase === "review" && status.batchId !== batchId) {
-                check(status.members.length === reviewCount && status.members.every((member, i) => member.actorId === actors[i].Id),
-                    "only the five actors whose reviews were due entered the next batch");
-                batchId = status.batchId;
-                frozen = {time: status.time, bodies: bodyState()};
-                waitFrames = 0;
-                waitingSince = Diagnostics.Stopwatch.GetTimestamp();
-                phase = "reviewWait";
-            } else if (phase === "reviewApply" && minds.every((mind, i) => version(mind) === (i < reviewCount ? 2 : 1))) {
-                check(time.GameTime >= frozen.time + 1 && System.Object.ReferenceEquals(getProject(), project),
-                    "second batch installed in the same world and time advanced again");
-                finish("passed", {pauseFrames, requests: actorCount + reviewCount, spentNanoUsd: status.spent});
+            if (phase === "observationDrain" && status.inFlight === 0 && !status.ledgerPending) {
+                if (observation) finishObservation(status);
+                else finishStandard(status);
             }
         } catch (error) {
             finish("failed", observationDetail ? Object.assign(observationDetail, {error: String(error)}) : String(error));

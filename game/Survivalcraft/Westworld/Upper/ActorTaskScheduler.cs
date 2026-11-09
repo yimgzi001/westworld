@@ -8,11 +8,10 @@ namespace Game.Westworld {
         readonly SortedDictionary<int, ActorTaskExecutor> m_tasks = [];
         readonly List<ActorTaskExecutor> m_ready = [];
         readonly List<ActorTaskExecutor> m_frameTasks = [];
-        readonly Project m_project;
         internal int LastFirstActor { get; set; }
+        internal bool HoldStarts { get; set; }
 
         ActorTaskScheduler(Project project) {
-            m_project = project;
             project.FindSubsystem<SubsystemUpdate>(true).AddUpdateable(this);
         }
 
@@ -28,16 +27,11 @@ namespace Game.Westworld {
         public float FloatUpdateOrder => 0.6f;
 
         public void Update(float dt) {
-            if (!WorldCognitionScheduler.OwnsTaskPhase(m_project)) {
-                RunPhase(dt);
-            }
-        }
-
-        internal void RunPhase(float dt) {
             m_ready.Clear();
             m_frameTasks.AddRange(m_tasks.Values);
             foreach (ActorTaskExecutor task in m_frameTasks) {
-                if (task.Observe(dt)) {
+                // Finish an already attempted step, including its bounded retries, before taking a checkpoint.
+                if (task.Observe(dt) && (!HoldStarts || task.HasPendingRetry)) {
                     m_ready.Add(task);
                 }
             }

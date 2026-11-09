@@ -49,16 +49,17 @@ namespace Game.Westworld {
             }
         }
 
-        // Recover financial history only. Observation has no matching world/actor checkpoint to replay.
+        static CognitionAttempt[] RecoverInterruptedAttempts(CognitionAttempt[] attempts) => attempts.Select(attempt =>
+            attempt.State == "inFlight" ? attempt with { State = "unknown", Error = "send_outcome_unknown" } : attempt).ToArray();
+
+        // Allows reconciling the ledger independently of loading an observation world.
         public Task<string> RecoverObservationLedgerAsync() {
-            if (m_disposed || m_project != null || m_observationRecovery != null
-                || m_ledger.Data.Batch != null || m_ledger.Data.Attempts.Length == 0) {
+            if (m_disposed || m_project != null || m_observationRecovery != null || m_ledger.Data.Attempts.Length == 0) {
                 throw new InvalidOperationException("Open an existing observation ledger without starting a world.");
             }
             CognitionLedgerData original = m_ledger.Data;
             bool interrupted = original.Attempts.Any(attempt => attempt.State == "inFlight");
-            CognitionAttempt[] attempts = original.Attempts.Select(attempt => attempt.State == "inFlight"
-                ? attempt with { State = "unknown", Error = "send_outcome_unknown" } : attempt).ToArray();
+            CognitionAttempt[] attempts = RecoverInterruptedAttempts(original.Attempts);
             m_observationRecovery = Task.Run(() => {
                 if (interrupted) {
                     WriteObservationSnapshot(original with { Attempts = attempts });
