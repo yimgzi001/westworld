@@ -31,3 +31,5 @@
 ## 当前接续验证
 
 [2026-11-09 cjh 接续验证](research/2026-11-09-cjh-resume.md)：SCAPI构建、旧实验回归、新跨tick状态机修复及单角色接入里程碑。尚未完成游戏内AI验证。
+
+[SCAPI 原生单角色短移动与保存重载（2026-11-09）](../experiments/scapi-native-smoke/README.md)：源码游戏内实测，固定脚本，尚无模型接入。
