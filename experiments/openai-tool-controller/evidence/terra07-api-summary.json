@@ -1,0 +1,27 @@
+{
+  "model": "gpt-6.1-terra",
+  "reasoning_effort": "none",
+  "native_rounds": 12,
+  "native_usage": {
+    "input_tokens": 51975,
+    "output_tokens": 930,
+    "total_tokens": 52905,
+    "cached_tokens": 2775,
+    "reasoning_tokens": 0
+  },
+  "native_latency_seconds": {
+    "min": 5.026644350000424,
+    "median": 6.047460679998039,
+    "max": 13.881118098994193
+  },
+  "all_completed_inference_usage": {
+    "input_tokens": 56994,
+    "output_tokens": 1010,
+    "total_tokens": 58004
+  },
+  "estimated_standard_USD_all": 0.05940775,
+  "pricing_not_invoice": true,
+  "pricing_source": "https://developers.openai.com/api/docs/models/gpt-6.1-terra",
+  "LunaInferenceRequests": 0,
+  "note": "First direct-network attempt had no model reply and unknown usage, not included in known token totals. Offline replay and native trials distinct."
+}

@@ -1,0 +1,568 @@
+{
+  "result": {
+    "kind": "result",
+    "passed": false,
+    "reason": "model_round_budget_exhausted",
+    "seconds": 174.4596699,
+    "updateFailures": 0
+  },
+  "final": {
+    "kind": "final_audit",
+    "inventory": {
+      "slots": [
+        {
+          "slot": 0,
+          "value": 21,
+          "count": 2
+        },
+        {
+          "slot": 1,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 2,
+          "value": 23,
+          "count": 4
+        },
+        {
+          "slot": 3,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 4,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 5,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 6,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 7,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 8,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 9,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 10,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 11,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 12,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 13,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 14,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 15,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 16,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 17,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 18,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 19,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 20,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 21,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 22,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 23,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 24,
+          "value": 0,
+          "count": 0
+        },
+        {
+          "slot": 25,
+          "value": 0,
+          "count": 0
+        }
+      ],
+      "selectedSlot": 0
+    },
+    "rounds": 12,
+    "path": 12.350840983781382,
+    "netDisplacement": 4.847903,
+    "food": 0.99657047,
+    "health": 1,
+    "eaten": 1,
+    "modelInFlight": false,
+    "requiresReconciliation": null,
+    "huntAudit": null
+  },
+  "nativeTerminals": [
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 19,
+      "tool": "act_Dig",
+      "status": "succeeded",
+      "wallUtc": "2026-11-09T14:52:27.7971824+00:00",
+      "gameTime": 76.77493469731417,
+      "nativeCallToTerminalObservedSeconds": 5.122383445996093,
+      "executionGameSeconds": 5.132888943888247
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 62,
+      "tool": "act_MoveTo",
+      "status": "succeeded",
+      "wallUtc": "2026-11-09T14:52:45.6947767+00:00",
+      "gameTime": 94.67557565146126,
+      "nativeCallToTerminalObservedSeconds": 0.8516506900050445,
+      "executionGameSeconds": 0.8536292125936598
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 112,
+      "tool": "plan_craft",
+      "status": "succeeded",
+      "wallUtc": "2026-11-09T14:52:58.3268078+00:00",
+      "gameTime": 107.30762299685739,
+      "nativeCallToTerminalObservedSeconds": 0.09847012400132371,
+      "executionGameSeconds": 0.10085913783404976
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 125,
+      "tool": "plan_craft",
+      "status": "succeeded",
+      "wallUtc": "2026-11-09T14:53:03.6583928+00:00",
+      "gameTime": 112.63921544258483,
+      "nativeCallToTerminalObservedSeconds": 0.09887896899454063,
+      "executionGameSeconds": 0.10115740809123963
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 138,
+      "tool": "act_MoveTo",
+      "status": "failed",
+      "wallUtc": "2026-11-09T14:53:13.2973149+00:00",
+      "gameTime": 122.27809091995005,
+      "nativeCallToTerminalObservedSeconds": 4.117480601998977,
+      "executionGameSeconds": 4.119828203460202
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 184,
+      "tool": "act_MoveTo",
+      "status": "succeeded",
+      "wallUtc": "2026-11-09T14:53:28.5409718+00:00",
+      "gameTime": 137.5218804529868,
+      "nativeCallToTerminalObservedSeconds": 3.6179246030005743,
+      "executionGameSeconds": 3.620612174971029
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 210,
+      "tool": "act_FaceTowards",
+      "status": "succeeded",
+      "wallUtc": "2026-11-09T14:53:42.9318592+00:00",
+      "gameTime": 151.91276934649795,
+      "nativeCallToTerminalObservedSeconds": 0.34870907200092915,
+      "executionGameSeconds": 0.3513104061130434
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 229,
+      "tool": "act_MoveTo",
+      "status": "failed",
+      "wallUtc": "2026-11-09T14:53:54.392235+00:00",
+      "gameTime": 163.37306952499785,
+      "nativeCallToTerminalObservedSeconds": 4.116526062003686,
+      "executionGameSeconds": 4.118251765030436
+    },
+    {
+      "kind": "native_terminal_observed",
+      "sequence": 257,
+      "tool": "act_FaceTowards",
+      "status": "succeeded",
+      "wallUtc": "2026-11-09T14:54:01.0217034+00:00",
+      "gameTime": 170.00261083012447,
+      "nativeCallToTerminalObservedSeconds": 0.34846195700083626,
+      "executionGameSeconds": 0.35048123297747225
+    }
+  ],
+  "callTimings": [
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "find_recipes",
+        "Arguments": {
+          "result_value": 122,
+          "limit": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:22.6470964+00:00",
+      "gameTime": 71.62031697889324,
+      "requestToNativeCallSeconds": 70.72827776999475,
+      "replyObservedToNativeCallSeconds": 0.018920517999504227,
+      "goalToFirstNativeCallSeconds": 71.83172370399552,
+      "monotonicSeconds": 43306.174886158
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_Dig",
+        "Arguments": {
+          "target": "474a50e1e48e408aa688511269211025",
+          "timeout": 30
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:22.6748265+00:00",
+      "gameTime": 71.64204575342592,
+      "requestToNativeCallSeconds": 70.75600813199708,
+      "replyObservedToNativeCallSeconds": 0.046650880001834594,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43306.20261652
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_PickUp",
+        "Arguments": {
+          "target": "6ed61c3a4f854257941ae2870c6e1e8e",
+          "count": 1
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:35.5541064+00:00",
+      "gameTime": 84.53185157466214,
+      "requestToNativeCallSeconds": 7.744842553998751,
+      "replyObservedToNativeCallSeconds": 0.007263248997332994,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43319.081896247
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_MoveTo",
+        "Arguments": {
+          "destination": "6ed61c3a4f854257941ae2870c6e1e8e",
+          "range": 0.5,
+          "timeout": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:44.8431469+00:00",
+      "gameTime": 93.8219464388676,
+      "requestToNativeCallSeconds": 9.038168004000909,
+      "replyObservedToNativeCallSeconds": 0.0056186069996329024,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43328.370936816
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "find_recipes",
+        "Arguments": {
+          "result_value": 21,
+          "limit": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:52.3833663+00:00",
+      "gameTime": 101.36252359871287,
+      "requestToNativeCallSeconds": 6.430362316998071,
+      "replyObservedToNativeCallSeconds": 0.00566712499858113,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43335.911157361
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "find_recipes",
+        "Arguments": {
+          "result_value": 23,
+          "limit": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:52.3876415+00:00",
+      "gameTime": 101.36723096075002,
+      "requestToNativeCallSeconds": 6.434637567996106,
+      "replyObservedToNativeCallSeconds": 0.009942375996615738,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43335.915432612
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "find_recipes",
+        "Arguments": {
+          "result_value": 27,
+          "limit": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:52.3926695+00:00",
+      "gameTime": 101.37208975071553,
+      "requestToNativeCallSeconds": 6.4396655629971065,
+      "replyObservedToNativeCallSeconds": 0.014970370997616556,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43335.920460607
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "read_storage",
+        "Arguments": {
+          "storage": "55602f53905047f59bbd83f0e2c878c1"
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:52.3970755+00:00",
+      "gameTime": 101.37623836065177,
+      "requestToNativeCallSeconds": 6.4440716710014385,
+      "replyObservedToNativeCallSeconds": 0.01937647900194861,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43335.924866715
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "plan_craft",
+        "Arguments": {
+          "workspace": "55602f53905047f59bbd83f0e2c878c1",
+          "recipe": "recipe_3b8236de4de34fa0a62f5686b9891294_2",
+          "count": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:52:58.2283562+00:00",
+      "gameTime": 107.20676385902334,
+      "requestToNativeCallSeconds": 5.825291853994713,
+      "replyObservedToNativeCallSeconds": 0.005419887995230965,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43341.756147315
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "plan_craft",
+        "Arguments": {
+          "workspace": "55602f53905047f59bbd83f0e2c878c1",
+          "recipe": "recipe_3b8236de4de34fa0a62f5686b9891294_4",
+          "count": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:53:03.5595302+00:00",
+      "gameTime": 112.53805803449359,
+      "requestToNativeCallSeconds": 5.223692783001752,
+      "replyObservedToNativeCallSeconds": 0.005864358005055692,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43347.087321359
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_MoveTo",
+        "Arguments": {
+          "bearing": 0,
+          "distance": 4,
+          "timeout": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:53:09.1798684+00:00",
+      "gameTime": 118.15826271648984,
+      "requestToNativeCallSeconds": 5.516640018999169,
+      "replyObservedToNativeCallSeconds": 0.004958840996550862,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43352.707658066
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "find_recipes",
+        "Arguments": {
+          "result_value": 21,
+          "limit": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:53:18.8854109+00:00",
+      "gameTime": 127.8643506920198,
+      "requestToNativeCallSeconds": 5.333342266996624,
+      "replyObservedToNativeCallSeconds": 0.004156931994657498,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43362.413202068
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "read_environment",
+        "Arguments": {}
+      },
+      "wallUtc": "2026-11-09T14:53:18.8914869+00:00",
+      "gameTime": 127.87070722284261,
+      "requestToNativeCallSeconds": 5.339418253999611,
+      "replyObservedToNativeCallSeconds": 0.010232918997644447,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43362.419278055
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_MoveTo",
+        "Arguments": {
+          "bearing": 90,
+          "distance": 4,
+          "timeout": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:53:24.9230702+00:00",
+      "gameTime": 133.90126827801578,
+      "requestToNativeCallSeconds": 6.018534625000029,
+      "replyObservedToNativeCallSeconds": 0.0051999720017192885,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43368.450861339
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_FaceTowards",
+        "Arguments": {
+          "bearing": 90,
+          "timeout": 2
+        }
+      },
+      "wallUtc": "2026-11-09T14:53:42.5831695+00:00",
+      "gameTime": 151.5614589403849,
+      "requestToNativeCallSeconds": 14.036943291997886,
+      "replyObservedToNativeCallSeconds": 0.004926784000417683,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43386.110960628
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_Eat",
+        "Arguments": {
+          "slot": 1,
+          "value": 262306,
+          "count": 1
+        }
+      },
+      "wallUtc": "2026-11-09T14:53:50.2666337+00:00",
+      "gameTime": 159.24466550291982,
+      "requestToNativeCallSeconds": 7.325622576994647,
+      "replyObservedToNativeCallSeconds": 0.005312565997883212,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43393.794424787
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_MoveTo",
+        "Arguments": {
+          "bearing": 0,
+          "distance": 4,
+          "timeout": 4
+        }
+      },
+      "wallUtc": "2026-11-09T14:53:50.2757272+00:00",
+      "gameTime": 159.2548177599674,
+      "requestToNativeCallSeconds": 7.334716086996195,
+      "replyObservedToNativeCallSeconds": 0.014406075999431778,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43393.803518297
+    },
+    {
+      "kind": "native_call_started",
+      "controller": "file",
+      "step": {
+        "Tool": "act_FaceTowards",
+        "Arguments": {
+          "bearing": 90,
+          "timeout": 2
+        }
+      },
+      "wallUtc": "2026-11-09T14:54:00.673261+00:00",
+      "gameTime": 169.652129597147,
+      "requestToNativeCallSeconds": 6.026834162999876,
+      "replyObservedToNativeCallSeconds": 0.005103429997689091,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 43404.201052052
+    }
+  ],
+  "notes": [
+    "Artificial two world oak blocks, no inventory injection",
+    "PickUp failed outOfReach; subsequent MoveTo and native automatic pickup acquired oak; second PickUp stale offer rejected",
+    "One log to four planks; two planks to four sticks; final two planks/four sticks, no club",
+    "One initial fish eaten; not naturally acquired food",
+    "Four MoveTo calls: two succeeded, two timeout failures",
+    "First request to dispatch70.728s includes external driver preparation, not API latency",
+    "No hidden fixture facts supplied to external controller; no manual decision intervention"
+  ]
+}

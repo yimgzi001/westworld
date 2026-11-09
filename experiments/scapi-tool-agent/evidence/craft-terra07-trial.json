@@ -1,0 +1,15 @@
+{
+  "controller": "file",
+  "intendedExternalModel": "gpt-6.1-terra",
+  "mode": "craft",
+  "hostBuildMarker": "bounded-memory-post06",
+  "compactBounded": true,
+  "wallBudgetSeconds": 595,
+  "maxRounds": 12,
+  "credentialInHost": false,
+  "localInference": false,
+  "worldCopied": false,
+  "artificialFixture": "two world oak blocks; no inventory injection",
+  "gitHead": "unavailable: cloud source mirror is not a git checkout",
+  "modelSelection": "Parent verified official Terra replay; external driver records exact model ID"
+}
