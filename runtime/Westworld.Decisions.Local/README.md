@@ -1,8 +1,6 @@
 # Local model decision mapping
 
-This project references only Runtime.Core. LocalDecisionPrompt is a pure mapper.
-LlamaProcessProvider is a separate, trusted local-process implementation of IDecisionProvider.
-Neither executes generated code, reads a native world, calls an external API or holds credentials.
+This project references only Runtime.Core. Its prompt/parse classes are pure protocol code; `LlamaProcessProvider` runs the explicitly configured local llama CLI. It does not execute model-generated code, read a world, call a cloud API, or hold credentials.
 
 ```csharp
 var request = LocalDecisionPrompt.Create(observation, isSupportedHarvestValue);
@@ -41,26 +39,9 @@ input. No response is interpreted as a command or script.
 Tests:
 `dotnet run --project tests/Westworld.LocalDecision.Tests/LocalDecision.Tests.csproj -c Release`
 
-## Verified local runtime
-LlamaProcessProvider starts the verified llama-completion binary without a shell,
-uses Qwen3.5-4B Q4_K_M with 2048 context, 4 CPU threads, reasoning off, max96 generated
-tokens and a JSON schema. Stdout may contain exactly the fixed trailing
-[end of text] marker; after removing it the entire remaining text must pass the
-strict mapper. Stderr never becomes an action. Failure is surfaced, not replaced
-with a scripted decision.
 
-Cancellation/60-second deadline kills the finite child process and waits for its
-exit. Stdout/stderr are drained concurrently. Metrics include wall time with model
-loading, 100ms-sampled process RSS/CPU and llama.cpp prompt/evaluation counters
-when present; these are not API billing tokens or total game memory.
+## Composable tool plans
 
-This first integration loads a process per request. The native gate uses a single
-model slot; it is NOT a persistent shared pool or a multi-agent throughput result.
-Use the provenance manifest and native evidence below, not estimates, to compare.
-A slow response is never used to backdate an expired observation: native host
-creates a fresh observation, rechecks the identical target, and records both IDs.
+`ToolDecisionPrompt` accepts host-provided native tool schemas and actor-private observed reference bindings. The model chooses its own stage goal and zero to four calls, rather than selecting a prescribed food workflow. The host executes each step on the game thread, revalidates current native references, waits for real asynchronous action/task completion, and provides failures and actual effects for replanning. JSON plans are not generated scripts.
 
-Final provider reads both streams with pre-append limits and cancellation through EOF;
-cleanup waits are bounded. LastMetrics is per provider, only verified with concurrency=1.
-BackendGenerationEvaluations reports llama.cpp eval runs, not exact final-text token
-count and not billable API output. 54 mapper/stream tests cover limits and canceled EOF.
+The local provider defaults remain context2048/output96 for existing single-choice calls. The tool-agent experiment explicitly requests context8192/output512 and records real CPU/RSS/prompt tokens. Bounds are 2048..8192 context and64..512 output; larger configured capacity is not a claim of actual tokens used. Calls on one provider instance are serialized; a second overlapping call is rejected. A persistent multi-actor model pool is not implemented.

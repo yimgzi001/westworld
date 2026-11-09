@@ -8,12 +8,14 @@ public sealed record LocalInferenceMetrics(double WallSeconds,long PeakSampledRs
 // Transitional, finite process-per-request integration. Not a persistent shared model pool.
 // No shell, network, generated script execution or native game objects.
 public sealed class LlamaProcessProvider:IDecisionProvider {
- int inFlight;readonly string executable,model;readonly Func<int,bool> supportedHarvest;readonly TimeSpan timeout;readonly bool allowSurvey;
+ int inFlight;readonly int contextTokens,maxOutputTokens;readonly string executable,model;readonly Func<int,bool> supportedHarvest;readonly TimeSpan timeout;readonly bool allowSurvey;
  public LocalInferenceMetrics? LastMetrics{get;private set;}
  public string? LastFailure{get;private set;}
  public string? LastResponse{get;private set;}
- public LlamaProcessProvider(string executable,string model,Func<int,bool> supportedHarvest,TimeSpan? timeout=null,bool allowSurvey=false){
+ public LlamaProcessProvider(string executable,string model,Func<int,bool> supportedHarvest,TimeSpan? timeout=null,bool allowSurvey=false,int contextTokens=2048,int maxOutputTokens=96){
   this.allowSurvey=allowSurvey;
+  if(contextTokens<2048||contextTokens>8192||maxOutputTokens<64||maxOutputTokens>512)throw new ArgumentOutOfRangeException(nameof(contextTokens));
+  this.contextTokens=contextTokens;this.maxOutputTokens=maxOutputTokens;
   this.executable=Path.GetFullPath(executable);this.model=Path.GetFullPath(model);this.supportedHarvest=supportedHarvest;
   this.timeout=timeout??TimeSpan.FromSeconds(60);if(this.timeout<=TimeSpan.Zero||this.timeout>TimeSpan.FromSeconds(120))throw new ArgumentOutOfRangeException(nameof(timeout));if(!File.Exists(this.executable)||!File.Exists(this.model))throw new FileNotFoundException("Verified local model/runtime required");
  }
@@ -37,7 +39,7 @@ public sealed class LlamaProcessProvider:IDecisionProvider {
   LastFailure=null;LastResponse=null;LastMetrics=null;
   var start=new ProcessStartInfo(executable){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true};
   string schema=responseSchema;
-  foreach(var arg in new[]{"-m",model,"-c","2048","-t","4","-tb","4","-ngl","0","-n","96","--reasoning","off","--single-turn","--simple-io","--no-display-prompt","--temp","0","--seed","42","--json-schema",schema,"-p",promptText})start.ArgumentList.Add(arg);
+  foreach(var arg in new[]{"-m",model,"-c",contextTokens.ToString(CultureInfo.InvariantCulture),"-t","4","-tb","4","-ngl","0","-n",maxOutputTokens.ToString(CultureInfo.InvariantCulture),"--reasoning","off","--single-turn","--simple-io","--no-display-prompt","--temp","0","--seed","42","--json-schema",schema,"-p",promptText})start.ArgumentList.Add(arg);
   using var stop=CancellationTokenSource.CreateLinkedTokenSource(cancellation);stop.CancelAfter(timeout);
   using var process=new Process{StartInfo=start};var watch=Stopwatch.StartNew();if(!process.Start())throw new InvalidOperationException("Local inference did not start");
   var output=BoundedText.ReadAsync(process.StandardOutput,32768,stop.Token);var errors=BoundedText.ReadAsync(process.StandardError,262144,stop.Token);long peak=0;double cpu=0;
