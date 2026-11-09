@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Official Responses transport only; no game tools, shell tools or generated code."""
+import subprocess, sys, threading
 import argparse, getpass, hashlib, json, os, pathlib, socket, ssl, time, urllib.error, urllib.request, uuid, warnings
 
 URL = "https://api.openai.com/v1/responses"
@@ -85,6 +86,102 @@ def http_post(payload, key, timeout):
     except (OSError, urllib.error.URLError):
         raise ControllerError("network_error") from None
 
+# The worker is fixed reviewed source, never model-generated code. Credentials
+# travel solely in the anonymous stdin pipe, not argv/env/disk.
+def isolated_http_post(payload, key, timeout):
+    if not 0 < timeout <= 45:
+        raise ControllerError("timeout_bound")
+    packet = compact({"payload": payload, "key": key, "timeout": timeout}).encode()
+    if len(packet) > MAX_BYTES or not isinstance(key, str) or not key or len(key) > 8192:
+        raise ControllerError("worker_input_bound")
+    deadline = time.monotonic() + timeout
+    process = subprocess.Popen([sys.executable, "-I", str(pathlib.Path(__file__).resolve()), "--http-worker"],
+                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                               shell=False)
+    stream = process.stdout
+    process.stdout = None  # communicate owns stdin/wait; bounded reader owns stdout.
+    collected = bytearray()
+    overflow = threading.Event()
+    read_failed = threading.Event()
+    def drain():
+        try:
+            while True:
+                chunk = stream.read(4096)
+                if not chunk:
+                    break
+                room = MAX_BYTES - len(collected)
+                collected.extend(chunk[:room])
+                if len(chunk) > room:
+                    overflow.set()
+                    process.kill()
+                    break
+        except Exception:
+            read_failed.set()
+        finally:
+            stream.close()
+    reader = threading.Thread(target=drain, daemon=True)
+    reader.start()
+    try:
+        try:
+            process.communicate(input=packet, timeout=max(0, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()  # reap the fixed worker; no retries
+            raise ControllerError("timeout") from None
+        reader.join()
+        if overflow.is_set():
+            raise ControllerError("worker_output_bound")
+        if read_failed.is_set() or process.returncode != 0:
+            raise ControllerError("worker_failed")
+        reply = decode(collected)
+        if not isinstance(reply, dict) or set(reply) not in ({"body"}, {"error"}):
+            raise ControllerError("worker_protocol")
+        if "error" in reply:
+            raise ControllerError(safe_error(reply["error"]))
+        return reply["body"]
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+        reader.join()
+        packet = None
+
+SAFE_ERRORS = {"credential_echo_rejected", "redirect_rejected", "destination_changed", "response_bound", "timeout",
+               "network_error", "worker_failed", "worker_protocol", "worker_output_bound",
+               "worker_input_bound", "response_shape", "response_not_completed", "model_refusal",
+               "decision_bound", "decision_shape", "goal_bound", "steps_bound", "step_shape",
+               "duplicate_json_field", "nonfinite_json"}
+def safe_error(code):
+    if isinstance(code, str) and (code in SAFE_ERRORS or
+            (code.startswith("http_status_") and len(code) == 15 and code[12:].isdigit())):
+        return code
+    return "invalid_or_transport_response"
+
+def http_worker():
+    # No CLI-selected URL, module, executable or credential storage.
+    try:
+        raw = sys.stdin.buffer.read(MAX_BYTES + 1)
+        if len(raw) > MAX_BYTES:
+            raise ControllerError("worker_input_bound")
+        packet = decode(raw)
+        if not isinstance(packet, dict) or set(packet) != {"payload", "key", "timeout"}:
+            raise ControllerError("worker_protocol")
+        key, timeout = packet["key"], packet["timeout"]
+        if not isinstance(key, str) or not key or len(key) > 8192 or any(c.isspace() for c in key):
+            raise ControllerError("worker_input_bound")
+        if type(timeout) not in (int, float) or not 0 < timeout <= 45:
+            raise ControllerError("worker_input_bound")
+        result = {"body": http_post(packet["payload"], key, timeout)}
+        encoded = compact(result).encode()
+        if len(encoded) > MAX_BYTES:
+            raise ControllerError("response_bound")
+    except Exception as error:
+        encoded = compact({"error": safe_error(str(error)) if isinstance(error, ControllerError)
+                           else "invalid_or_transport_response"}).encode()
+    sys.stdout.buffer.write(encoded)
+    sys.stdout.buffer.flush()
+
+
 def safe_usage(value):
     if value is None:
         return None
@@ -98,7 +195,7 @@ def safe_usage(value):
         return None
     return walk(value)
 
-def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport=http_post):
+def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport=isolated_http_post):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
     validate_input(prompt, schema)
@@ -114,6 +211,8 @@ def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport
              "schemaStrict": False, "effort": reasoning_effort, "usage": None}
     try:
         body = transport(payload, key, timeout)
+        if key and key in compact(body):
+            raise ControllerError("credential_echo_rejected")
         if not isinstance(body, dict):
             raise ControllerError("response_shape")
         model = body.get("model")
@@ -136,7 +235,7 @@ def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport
         audit.update(outcome="received", decision=decision, rawDecision=raw)
         return decision, audit
     except Exception as error:
-        code = str(error) if isinstance(error, ControllerError) else ("timeout" if isinstance(error, TimeoutError) else "invalid_or_transport_response")
+        code = safe_error(str(error)) if isinstance(error, ControllerError) else ("timeout" if isinstance(error, TimeoutError) else "invalid_or_transport_response")
         audit.update(outcome="failed", error=code)
         return None, audit
     finally:
@@ -197,6 +296,32 @@ def wait_for_control(root, deadline):
             raise ControllerError("control_directory_wait_timeout")
         time.sleep(min(.25, remaining))
 
+def claim_request(root, envelope, prompt, schema, model, effort):
+    # Reserve before calling the provider. A crash between reservation and POST
+    # sacrifices availability rather than risking duplicate billing on restart.
+    # This is local crash protection, not a distributed/provider transaction.
+    directory = root / ".request-claims"
+    directory.mkdir(exist_ok=True)
+    checked_control_path(directory)
+    identity = str(uuid.UUID(envelope["requestId"]))
+    claim = directory / (identity + ".json")
+    value = {"state": "reserved_or_submitted_unknown", **envelope,
+             "promptSha256": hashlib.sha256(prompt.encode()).hexdigest(),
+             "schemaSha256": hashlib.sha256(compact(schema).encode()).hexdigest(),
+             "model": model, "effort": effort}
+    try:
+        # O_EXCL also refuses an existing symlink; partial claims remain blocking.
+        with claim.open("x", encoding="utf-8") as output:
+            output.write(compact(value)); output.flush(); os.fsync(output.fileno())
+        fd = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        return True
+    except FileExistsError:
+        return False
+
 def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12, total_seconds=650, wait_seconds=60):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
@@ -229,6 +354,12 @@ def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12
                 if remaining <= 0:
                     return
                 seen.add(identity)  # Including failures: never retry a request automatically.
+                if not claim_request(root, envelope, request["prompt"], request["responseSchema"], model, reasoning_effort):
+                    audit.write(compact(dict(envelope, error="prior_request_requires_reconciliation", usage=None)) + "\n")
+                    audit.flush()
+                    if len(seen) >= max_requests:
+                        return
+                    continue
                 decision, record = infer(request["prompt"], request["responseSchema"], key, model=model, reasoning_effort=reasoning_effort, timeout=min(45, remaining))
                 record.update(envelope)
                 audit.write(compact(record) + "\n"); audit.flush()
@@ -271,7 +402,10 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        if sys.argv[1:] == ["--http-worker"]:
+            http_worker()
+        else:
+            main()
     except Exception as error:
         # No exception repr/tracebacks: those can contain HTTP details.
         print("Controller stopped:", str(error) if isinstance(error, ControllerError) else type(error).__name__)

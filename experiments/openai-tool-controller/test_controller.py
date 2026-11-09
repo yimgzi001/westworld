@@ -166,6 +166,103 @@ class Tests(unittest.TestCase):
     def test_wait_bound(self):
         with self.assertRaisesRegex(c.ControllerError,"wait_bound"):
             c.file_mode(pathlib.Path("/not-created"),"unused",pathlib.Path("/unused"),**OPTIONS,wait_seconds=61)
+
+
+
+
+class WorkerTests(unittest.TestCase):
+    def fake_process(self, raw=b'{"body":{"status":"completed"}}', code=0, timeout=False):
+        import subprocess
+        class Fake:
+            def __init__(self):
+                self.stdout=io.BytesIO(raw);self.returncode=None;self.killed=False;self.reaped=False;self.calls=[]
+            def communicate(self,input=None,timeout=None):
+                self.calls.append((input,timeout))
+                if timeout is not None and fail_timeout:
+                    raise subprocess.TimeoutExpired("fixed-worker",timeout)
+                self.returncode=code;self.reaped=True
+                return None,None
+            def kill(self):self.killed=True;self.returncode=-9
+            def wait(self):self.reaped=True;return self.returncode
+            def poll(self):return self.returncode
+        fail_timeout=timeout
+        return Fake()
+    def test_fixed_argv_pipe_only(self):
+        process=self.fake_process()
+        with patch.object(c.subprocess,"Popen",return_value=process) as start:
+            self.assertEqual(c.isolated_http_post({},"FAKE-SECRET-ONLY",1),{"status":"completed"})
+        args,kwargs=start.call_args
+        self.assertNotIn("FAKE-SECRET-ONLY",repr(args)+repr(kwargs))
+        self.assertEqual(args[0][-1],"--http-worker");self.assertFalse(kwargs["shell"])
+        self.assertEqual(kwargs["stderr"],c.subprocess.DEVNULL)
+        self.assertIn(b"FAKE-SECRET-ONLY",process.calls[0][0]);self.assertTrue(process.reaped)
+    def test_timeout_kill_reap_unknown_usage(self):
+        process=self.fake_process(timeout=True)
+        with patch.object(c.subprocess,"Popen",return_value=process):
+            decision,audit=c.infer("p",SCHEMA,"FAKE-SECRET-ONLY",**OPTIONS)
+        self.assertIsNone(decision);self.assertEqual(audit["error"],"timeout")
+        self.assertIsNone(audit["usage"]);self.assertTrue(process.killed);self.assertTrue(process.reaped)
+        self.assertNotIn("FAKE-SECRET-ONLY",json.dumps(audit))
+        self.assertEqual(len(process.calls),2)
+    def test_output_bounded(self):
+        process=self.fake_process(b'x'*(c.MAX_BYTES+10000))
+        with patch.object(c.subprocess,"Popen",return_value=process):
+            with self.assertRaisesRegex(c.ControllerError,"worker_output_bound"):
+                c.isolated_http_post({},"fake",1)
+        self.assertTrue(process.killed);self.assertTrue(process.reaped)
+    def test_worker_exit(self):
+        process=self.fake_process(code=3)
+        with patch.object(c.subprocess,"Popen",return_value=process):
+            with self.assertRaisesRegex(c.ControllerError,"worker_failed"):c.isolated_http_post({},"fake",1)
+    def test_worker_error_cannot_log_key(self):
+        process=self.fake_process(b'{"error":"FAKE-SECRET-ONLY"}')
+        with patch.object(c.subprocess,"Popen",return_value=process):
+            _,audit=c.infer("p",SCHEMA,"FAKE-SECRET-ONLY",**OPTIONS)
+        self.assertNotIn("FAKE-SECRET-ONLY",json.dumps(audit));self.assertIsNone(audit["usage"])
+    def test_credential_echo_rejected(self):
+        reply=body();reply["model"]="FAKE-SECRET-ONLY"
+        _,audit=c.infer("p",SCHEMA,"FAKE-SECRET-ONLY",**OPTIONS,transport=lambda *a:reply)
+        self.assertEqual(audit["error"],"credential_echo_rejected")
+        self.assertNotIn("FAKE-SECRET-ONLY",json.dumps(audit))
+    def test_real_fixed_worker_invalid_packet_no_http(self):
+        # Fixed entrypoint exits without touching HTTP for malformed stdin.
+        result=c.subprocess.run([c.sys.executable,"-I",str(pathlib.Path(c.__file__).resolve()),"--http-worker"],
+                                input=b'{}',capture_output=True,timeout=5,check=True)
+        self.assertEqual(json.loads(result.stdout),{"error":"worker_protocol"});self.assertEqual(result.stderr,b'')
+
+
+class RecoveryClaimsTests(unittest.TestCase):
+    def test_claim_has_no_prompt_or_key_and_canonical_id(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)
+            envelope={k:str(uuid.uuid4()) for k in c.IDS}
+            self.assertTrue(c.claim_request(root,envelope,"private game text",SCHEMA,**{"model":"gpt-6.1-terra","effort":"none"}))
+            text=next((root/".request-claims").glob("*.json")).read_text()
+            self.assertNotIn("private game text",text)
+            envelope["requestId"]=envelope["requestId"].upper()
+            self.assertFalse(c.claim_request(root,envelope,"changed",SCHEMA,"gpt-6.1-terra","none"))
+    def test_partial_claim_blocks(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);(root/".request-claims").mkdir()
+            envelope={k:str(uuid.uuid4()) for k in c.IDS}
+            (root/".request-claims"/(envelope["requestId"]+".json")).write_text("{")
+            self.assertFalse(c.claim_request(root,envelope,"p",SCHEMA,"gpt-6.1-terra","none"))
+    def test_claim_directory_symlink_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);(root/"elsewhere").mkdir();(root/".request-claims").symlink_to(root/"elsewhere",target_is_directory=True)
+            with self.assertRaises(c.ControllerError):
+                c.claim_request(root,{k:str(uuid.uuid4()) for k in c.IDS},"p",SCHEMA,"gpt-6.1-terra","none")
+    def test_restart_failure_never_reposts(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)/"control";root.mkdir();req=root/"001";req.mkdir()
+            r={"protocol":"westworld-tool-file-v1","prompt":"p","responseSchema":SCHEMA,**{k:str(uuid.uuid4()) for k in c.IDS}}
+            (req/"request.json").write_text(json.dumps(r))
+            with patch.object(c,"infer",return_value=(None,{"error":"timeout"})) as call:
+                c.file_mode(root,"unused",pathlib.Path(d)/"audit1",**OPTIONS,max_requests=1,total_seconds=1)
+                c.file_mode(root,"unused",pathlib.Path(d)/"audit2",**OPTIONS,max_requests=1,total_seconds=1)
+                self.assertEqual(call.call_count,1)
+            record=json.loads((pathlib.Path(d)/"audit2").read_text())
+            self.assertEqual(record["error"],"prior_request_requires_reconciliation")
+            self.assertIsNone(record["usage"])
+
 if __name__=="__main__":unittest.main()
-
-

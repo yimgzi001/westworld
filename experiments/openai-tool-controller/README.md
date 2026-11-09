@@ -37,3 +37,18 @@ file 模式：
 ## 驱动版本可复现性
 
 导入模块时读取一次自身源码SHA256并固定为DRIVER_SOURCE_SHA256，每次infer审计包含driverSourceSha256及maxOutputTokens=512。运行期间即使磁盘文件变化，也不把新文件hash当成已载入代码版本。该字段从本次修改后开始记录，不倒填旧Terra07日志；旧运行没有记录驱动源码hash，不能以当前hash证明旧运行版本。先就绪等待与此版本字段目前仅纯测试，尚未原生复验。
+
+## 每请求独立进程截止预算（本批仅离线验证）
+
+原 urllib socket timeout 不是总墙钟截止。现在默认 infer 为每次 HTTP 启动固定的本文件 Python `-I …/controller.py --http-worker`，不使用 shell、不执行模型生成代码。仅通过匿名 stdin pipe 传 payload/key/timeout，不把 key 放 argv、环境或文件。子进程只可向固定官方 HTTPS 地址发 POST，保持 TLS 验证、拒重定向及响应 262144 字节上限；普通环境 HTTPS 路由保持原样。
+
+父进程用 monotonic 截止与 communicate 的剩余预算（最多 45 秒）；超时杀死并回收该请求进程，不重试。完成 kill/wait 与管道清理仍需要操作系统调度，因此 45 秒是请求执行截止，不声称整个清理函数在任何 OS 故障下严格 45 秒返回。worker 不启动后代进程。stdout 以独立线程有界读取，最多保留 262144 字节，超限杀死；stderr 丢弃，错误仅允许固定安全分类。输入 envelope 也受 262144 字节上限约束。子进程 API 输出若包含本次完整 key，会拒绝并且不保存该输出。
+
+超时、非零 worker 退出、响应超限、协议失败没有可靠 usage 时记录 null，绝不记作 0 或估算消耗；服务器可能已经接收/计费，进程被杀不代表服务端取消。file 模式仍将失败 requestId 记为已尝试，禁止自动重放。
+
+新增离线测试覆盖 timeout→kill→回收、固定 argv/匿名 stdin、超大 stdout、worker 非零退出、错误/结果 credential 回显过滤，以及真实固定 worker 接收非法 envelope 后无 HTTP 退出。当前总 31 项通过；无真实 key、无真实 API。本批没有原生游戏或付费请求验证。直接 `http_post` 仅供固定 worker 和离线 HTTP mock 测试使用，正常 infer 默认必须走 isolated_http_post。
+
+
+## Restart protection
+
+File mode reserves each canonical request UUID in `.request-claims/` before any provider call. The exclusive, fsynced marker contains only identities, prompt/schema hashes, model/effort and `reserved_or_submitted_unknown`, never key or prompt text. Existing or partially written claims block automatic retries, even after driver restart. Outcomes remain in the audit and response files; a claim does not prove a request reached the provider. Reconcile an interrupted run manually; do not delete claims and blindly replay. Keep the control directory and claims together. This protects this local run, not copies across independent machines or provider-side transactions. Replay CLI remains an explicit new one-off request, not automatic recovery.
