@@ -22,7 +22,7 @@ namespace Engine.Media {
             new PngConfigurationModule(),
             new QoiConfigurationModule(),
             new TgaConfigurationModule(),
-            new TiffConfigurationModule(),
+            // Keep TIFF decoding disabled until ImageSharp is upgraded past GHSA-v76p-62qx-wwq2.
             new WebpConfigurationModule()
         ];
 

@@ -66,7 +66,7 @@ namespace Engine.Media {
 
         public static BmpInfo GetInfo(Stream stream) {
             ArgumentNullException.ThrowIfNull(stream);
-            ImageInfo info = SixLabors.ImageSharp.Image.Identify(stream);
+            ImageInfo info = SixLabors.ImageSharp.Image.Identify(Image.DefaultImageSharpDecoderOptions, stream);
             if (info.Metadata.DecodedImageFormat.Name != "BMP") {
                 throw new FormatException($"Image format({info.Metadata.DecodedImageFormat.Name}) is not Bmp");
             }

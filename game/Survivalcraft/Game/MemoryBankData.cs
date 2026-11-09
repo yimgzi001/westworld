@@ -50,7 +50,7 @@ namespace Game {
         public IEditableItemData Copy() => new MemoryBankData { Data = new DynamicArray<byte>(Data), LastOutput = LastOutput };
 
         public void LoadString(string data) {
-            string[] array = data.Split([';'], StringSplitOptions.RemoveEmptyEntries);
+            string[] array = data.Split(';');
             if (array.Length >= 1) {
                 string text = array[0];
                 text = text.TrimEnd('0');
@@ -63,7 +63,7 @@ namespace Game {
                     Data.Add((byte)num);
                 }
             }
-            if (array.Length >= 2) {
+            if (array.Length >= 2 && array[1].Length > 0) {
                 string text2 = array[1];
                 int num2 = m_hexChars.IndexOf(char.ToUpperInvariant(text2[0]));
                 if (num2 < 0) {

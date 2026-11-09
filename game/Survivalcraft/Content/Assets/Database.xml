@@ -3348,6 +3348,30 @@
           </EntityTemplate>
         </Folder>
       </Folder>
+      <EntityTemplate Name="WestworldForager" Guid="4db960c1-f660-4be4-b2b4-75a7e260c001">
+        <MemberComponentTemplate Name="Body" Guid="4db960c1-f660-4be4-b2b4-75a7e260c002" InheritanceParent="8edd1986-0dcc-424f-893a-491c089b821e" />
+        <MemberComponentTemplate Name="Health" Guid="4db960c1-f660-4be4-b2b4-75a7e260c003" InheritanceParent="d7a50718-e128-4d0e-bac1-16f789d50ddd" />
+        <MemberComponentTemplate Name="HumanModel" Guid="4db960c1-f660-4be4-b2b4-75a7e260c004" InheritanceParent="0566662e-bb24-45f9-84d8-f3c1e5d083df">
+          <Parameter Name="ModelName" Guid="4db960c1-f660-4be4-b2b4-75a7e260c010" Value="Models/HumanMale" Type="string" />
+          <Parameter Name="TextureOverride" Guid="4db960c1-f660-4be4-b2b4-75a7e260c011" Value="Textures/Creatures/HumanMale1" Type="string" />
+        </MemberComponentTemplate>
+        <MemberComponentTemplate Name="Locomotion" Guid="4db960c1-f660-4be4-b2b4-75a7e260c005" InheritanceParent="f800ca88-e13e-455d-8def-849c99c615fa" />
+        <MemberComponentTemplate Name="OnFire" Guid="4db960c1-f660-4be4-b2b4-75a7e260c006" InheritanceParent="93590d78-63b9-4cd6-bc41-e66864cbb050" />
+        <MemberComponentTemplate Name="Spawn" Guid="4db960c1-f660-4be4-b2b4-75a7e260c007" InheritanceParent="65268743-4076-4ee3-aefe-f02a54d16b36">
+          <Parameter Name="AutoDespawn" Guid="4db960c1-f660-4be4-b2b4-75a7e260c012" Value="False" Type="bool" />
+        </MemberComponentTemplate>
+        <MemberComponentTemplate Name="CreatureSounds" Guid="4db960c1-f660-4be4-b2b4-75a7e260c008" InheritanceParent="514ed767-c2ba-4572-beae-6e6f285854b9" />
+        <MemberComponentTemplate Name="Creature" Guid="4db960c1-f660-4be4-b2b4-75a7e260c009" InheritanceParent="4c6556e2-af4a-42ae-9543-4f27f9df6f39">
+          <Parameter Name="DisplayName" Guid="4db960c1-f660-4be4-b2b4-75a7e260c00a" Value="Forager" Type="string" />
+          <Parameter Name="Category" Guid="4db960c1-f660-4be4-b2b4-75a7e260c013" Value="LandOther" Type="Game.CreatureCategory" />
+        </MemberComponentTemplate>
+        <MemberComponentTemplate Name="Factors" Guid="4db960c1-f660-4be4-b2b4-75a7e260c00b" InheritanceParent="78b4c0b4-8bea-d601-b589-812d7c982e5f" />
+        <MemberComponentTemplate Name="Miner" Guid="4db960c1-f660-4be4-b2b4-75a7e260c00c" InheritanceParent="8acca888-ba39-464f-bcf5-6ae15e448c62" />
+        <MemberComponentTemplate Name="Inventory" Guid="4db960c1-f660-4be4-b2b4-75a7e260c00d" InheritanceParent="de5c0cb9-42d1-4ee4-b58f-bb9bb668b890" />
+        <MemberComponentTemplate Name="Nutrition" Guid="4db960c1-f660-4be4-b2b4-75a7e260c00e" InheritanceParent="b05700ed-7e4e-4679-98f5-b597f421496b">
+          <Parameter Name="Class" Guid="4db960c1-f660-4be4-b2b4-75a7e260c00f" Value="Game.Westworld.ComponentActorNutrition" Type="string" />
+        </MemberComponentTemplate>
+      </EntityTemplate>
       <EntityTemplate Name="Chest" Guid="08550017-af17-4955-81fa-aafaf97b92bd">
         <MemberComponentTemplate Name="Chest" Guid="0f192a00-ac7d-4b4c-97c7-df652ca11b51" InheritanceParent="7312ec8c-10c7-4133-85b4-4a35bd44c956" />
         <MemberComponentTemplate Name="BlockEntity" Guid="a0d7dc3e-980d-461e-87ac-4358ed7d41b5" InheritanceParent="09a85cba-d94e-41b8-9497-f20ed942c17e" />

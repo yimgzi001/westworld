@@ -46,6 +46,8 @@ namespace Game {
 
         public bool WasOrderIssued { get; set; }
 
+        internal Action<float> AtomicSteeringOrder { get; set; }
+
         public UpdateOrder UpdateOrder => UpdateOrder.Default;
 
         public override float ImportanceLevel => m_importanceLevel;
@@ -156,6 +158,7 @@ namespace Game {
         }
 
         public virtual void ProcessRidingOrders() {
+            AtomicSteeringOrder?.Invoke(m_subsystemTime.GameTimeDelta);
             m_speedLevel = Math.Clamp(m_speedLevel + SpeedOrder, 0, m_speedLevels.Length - 1);
             if (m_speedLevel == m_speedLevels.Length - 1
                 && SpeedOrder > 0) {

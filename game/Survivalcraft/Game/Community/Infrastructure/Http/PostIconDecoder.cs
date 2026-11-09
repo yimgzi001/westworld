@@ -5,7 +5,7 @@ using SixLabors.ImageSharp.Processing;
 namespace Game {
     static class PostIconDecoder {
         public static Image<Rgba32> Decode(byte[] data) {
-            Image<Rgba32> image = Image.Load<Rgba32>(data);
+            Image<Rgba32> image = Image.Load<Rgba32>(Engine.Media.Image.DefaultImageSharpDecoderOptions, data);
             try {
                 if (image.Width > 256
                     || image.Height > 256) {

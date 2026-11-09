@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
     <PropertyGroup>
         <NoWarn>CS1591;CS0067;NU1510</NoWarn>
         <Version>1.9.5.1</Version><!--For NuGet Package-->
@@ -26,11 +26,8 @@
     </PropertyGroup>
     <ItemGroup>
         <!--
-        ImageSharp 3.1.12 为 3.x 最后一个不带许可强制的版本（3.2.0/4.x 起包内嵌 SixLabors_ValidateLicense：
-        Release 构建无 sixlabors.lic 直接失败，社区许可需年度续期）；五条 advisory 修复只落 3.2.0+/4.1.2+。
-        逐条核实过暴露面：两条 TIFF CCITT T4/T6 编码器越界写 = 引擎只 SaveAsPng/Jpeg/Bmp 永不编 TIFF（死路径）；
-        BigTIFF/ICC CLUT/超大内存分配三条 = DoS 级非 RCE，解码输入为内容包+用户自装模组图（半可信）。
-        重评条件：出现 RCE 类 advisory / 输入面引入不可信远程图源 / 引擎开始编码 TIFF / 项目接受年度社区许可（升 4.x 吃 ICC 色彩管理与 SIMD 性能收益）。
+        以下五项为上游已有的审计排除。项目对 GHSA-v76p-62qx-wwq2 保留告警。
+        ImageSharp 3.2.0 起直接引用项目需提供构建许可证，当前内置图片加载关闭 TIFF 解码。
         -->
         <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gwg2-r3hj-4w44" />
         <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j3p4-wp97-rph4" />

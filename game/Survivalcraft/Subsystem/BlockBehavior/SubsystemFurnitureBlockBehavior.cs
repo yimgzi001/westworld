@@ -108,7 +108,47 @@ namespace Game {
             return design;
         }
 
+        internal sealed record FurnitureScan(CellFace Start, int StartValue, FurnitureDesign Design, FurnitureDesign Source,
+            IReadOnlyDictionary<Point3, int> Cells);
+
+        internal enum FurnitureFailure {
+            None = -1,
+            MissingSourceDesign,
+            InvalidMaterial,
+            DesignTooLarge,
+            DesignLimitReached,
+            TerrainUnavailable,
+            InsufficientDurability,
+            NoMaterials,
+            SourceChanged
+        }
+
         public void ScanDesign(CellFace start, Vector3 direction, ComponentMiner componentMiner) {
+            FurnitureScan scan = ScanFurnitureDesign(start, direction, out FurnitureFailure failure);
+            if (scan == null) {
+                DisplayDesignFailure(componentMiner, failure);
+                return;
+            }
+            if (componentMiner.ComponentPlayer != null) {
+                int toolValue = componentMiner.ActiveBlockValue;
+                BuildFurnitureDialog dialog = new(scan.Design, scan.Source, confirmed => {
+                    if (confirmed) {
+                        CompleteFurnitureDesign(scan, componentMiner, toolValue, out FurnitureFailure completionFailure);
+                        DisplayDesignFailure(componentMiner, completionFailure);
+                    }
+                });
+                DialogsManager.ShowDialog(componentMiner.ComponentPlayer.GuiWidget, dialog);
+            }
+        }
+
+        static void DisplayDesignFailure(ComponentMiner componentMiner, FurnitureFailure failure) {
+            if (failure is not (FurnitureFailure.None or FurnitureFailure.SourceChanged)) {
+                componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, (int)failure), Color.White, true, false);
+            }
+        }
+
+        internal FurnitureScan ScanFurnitureDesign(CellFace start, Vector3 direction, out FurnitureFailure failure) {
+            failure = FurnitureFailure.None;
             FurnitureDesign design;
             FurnitureDesign furnitureDesign = null;
             Dictionary<Point3, int> valuesDictionary = new();
@@ -116,18 +156,16 @@ namespace Game {
             Point3 point2 = start.Point;
             int startValue = SubsystemTerrain.Terrain.GetCellValue(start.Point.X, start.Point.Y, start.Point.Z);
             int num = Terrain.ExtractContents(startValue);
-            bool designedFromExistingFurniture = false;
             if (BlocksManager.Blocks[num] is FurnitureBlock) {
                 int designIndex = FurnitureBlock.GetDesignIndex(Terrain.ExtractData(startValue));
                 furnitureDesign = GetDesign(designIndex);
                 if (furnitureDesign == null) {
-                    componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, 0), Color.White, true, false);
-                    return;
+                    failure = FurnitureFailure.MissingSourceDesign;
+                    return null;
                 }
                 design = furnitureDesign.Clone();
                 design.LinkedDesign = null;
                 design.InteractionMode = FurnitureInteractionMode.None;
-                designedFromExistingFurniture = true;
                 valuesDictionary.Add(start.Point, startValue);
             }
             else {
@@ -142,16 +180,16 @@ namespace Game {
                     }
                     int cellValue = SubsystemTerrain.Terrain.GetCellValueFast(key.X, key.Y, key.Z);
                     if (IsValueDisallowed(cellValue)) {
-                        componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, 1), Color.White, true, false);
-                        return;
+                        failure = FurnitureFailure.InvalidMaterial;
+                        return null;
                     }
                     TerrainChunk chunkAtCell = SubsystemTerrain.Terrain.GetChunkAtCell(key.X, key.Z);
                     if (IsValueAllowed(cellValue)) {
                         if (chunkAtCell == null
                             || chunkAtCell.State <= TerrainChunkState.InvalidContents4
                             || (!chunkAtCell.IsLoaded && chunkAtCell.ModificationCounter == 0)) {
-                            componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, 4), Color.White, true, false);
-                            return;
+                            failure = FurnitureFailure.TerrainUnavailable;
+                            return null;
                         }
                         if (key.X < point.X) {
                             point.X = key.X;
@@ -174,8 +212,8 @@ namespace Game {
                         if (MathF.Abs(point.X - point2.X) >= FurnitureDesign.MaxResolution
                             || MathF.Abs(point.Y - point2.Y) >= FurnitureDesign.MaxResolution
                             || MathF.Abs(point.Z - point2.Z) >= FurnitureDesign.MaxResolution) {
-                            componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, 2), Color.White, true, false);
-                            return;
+                            failure = FurnitureFailure.DesignTooLarge;
+                            return null;
                         }
                         valuesDictionary[key] = cellValue;
                         Point3 p1 = new(key.X - 1, key.Y, key.Z);
@@ -205,8 +243,8 @@ namespace Game {
                     }
                 }
                 if (valuesDictionary.Count == 0) {
-                    componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, "6"), Color.White, true, false);
-                    return;
+                    failure = FurnitureFailure.NoMaterials;
+                    return null;
                 }
                 design = new FurnitureDesign(SubsystemTerrain);
                 Point3 point3 = point2 - point;
@@ -224,85 +262,76 @@ namespace Game {
                 Point3 delta = new((point5.X - location.X) / 2, -location.Y, (point5.Z - location.Z) / 2);
                 design.Shift(delta);
             }
-            BuildFurnitureDialog dialog = new(
-                design,
-                furnitureDesign,
-                delegate(bool result) {
-                    if (result) {
-                        design = TryAddDesign(design);
-                        if (design == null) {
-                            componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, 3), Color.White, true, false);
-                        }
-                        else {
-                            bool destroyDesignBlocks = m_subsystemGameInfo.WorldSettings.GameMode != 0;
-                            int value = Terrain.MakeBlockValue(
-                                227,
-                                0,
-                                FurnitureBlock.SetDesignIndex(0, design.Index, design.ShadowStrengthFactor, design.IsLightEmitter)
-                            );
-                            int num3 = Math.Clamp(design.Resolution, 4, 8);
-                            Matrix matrix = componentMiner.ComponentCreature.ComponentBody.Matrix;
-                            Vector3 position = matrix.Translation + 1f * matrix.Forward + 1f * Vector3.UnitY;
-                            int toolDamageCount = 1;
-                            ModsManager.HookAction(
-                                "OnFurnitureDesigned",
-                                modLoader => {
-                                    modLoader.OnFurnitureDesigned(
-                                        design,
-                                        designedFromExistingFurniture,
-                                        ref num3,
-                                        ref destroyDesignBlocks,
-                                        ref toolDamageCount
-                                    );
-                                    return false;
-                                }
-                            );
-                            Block block = BlocksManager.Blocks[Terrain.ExtractContents(componentMiner.ActiveBlockValue)];
-                            int durabilityRemains = block.GetDurability(componentMiner.ActiveBlockValue)
-                                - block.GetDamage(componentMiner.ActiveBlockValue)
-                                + 1;
-                            if (durabilityRemains < toolDamageCount) {
-                                componentMiner.ComponentPlayer?.ComponentGui.DisplaySmallMessage(
-                                    LanguageControl.Get(fName, 5),
-                                    Color.White,
-                                    true,
-                                    false
-                                );
-                            }
-                            else {
-                                componentMiner.DamageActiveTool(toolDamageCount);
-                                if (destroyDesignBlocks) {
-                                    foreach (KeyValuePair<Point3, int> item2 in valuesDictionary) {
-                                        SubsystemTerrain.DestroyCell(
-                                            0,
-                                            item2.Key.X,
-                                            item2.Key.Y,
-                                            item2.Key.Z,
-                                            0,
-                                            true,
-                                            true
-                                        );
-                                    }
-                                }
-                                m_subsystemPickables.AddPickable(value, num3, position, null, null);
-                                componentMiner.Poke(false);
-                                for (int i = 0; i < 3; i++) {
-                                    Time.QueueTimeDelayedExecution(
-                                        Time.FrameStartTime + i * 0.25f,
-                                        delegate { m_subsystemSoundMaterials.PlayImpactSound(startValue, new Vector3(start.Point), 1f); }
-                                    );
-                                }
-                                if (componentMiner.ComponentCreature.PlayerStats != null) {
-                                    componentMiner.ComponentCreature.PlayerStats.FurnitureItemsMade += num3;
-                                }
-                            }
-                        }
-                    }
+            return new FurnitureScan(start, startValue, design, furnitureDesign, valuesDictionary);
+        }
+
+        internal static int CountDesignTriangles(FurnitureDesign design) {
+            static int Count(FurnitureGeometry geometry) =>
+                geometry.SubsetOpaqueByFace.Sum(subset => subset != null ? subset.Indices.Count / 3 : 0)
+                + geometry.SubsetAlphaTestByFace.Sum(subset => subset != null ? subset.Indices.Count / 3 : 0)
+                + geometry.SubsetTransparentByFace.Sum(subset => subset != null ? subset.Indices.Count / 3 : 0);
+
+            FurnitureGeometry geometry = design.Geometry;
+            return Count(geometry) + (geometry.Draws?.Values.Sum(Count) ?? 0);
+        }
+
+        internal Pickable CompleteFurnitureDesign(FurnitureScan scan, ComponentMiner componentMiner, int toolValue, out FurnitureFailure failure) {
+            failure = FurnitureFailure.None;
+            // A player's preview can stay open while another actor changes the scanned cells or inventory.
+            if (componentMiner.ActiveBlockValue != toolValue || scan.Cells.Any(cell =>
+                Terrain.ReplaceLight(SubsystemTerrain.Terrain.GetCellValue(cell.Key), 0) != Terrain.ReplaceLight(cell.Value, 0))) {
+                failure = FurnitureFailure.SourceChanged;
+                return null;
+            }
+            FurnitureDesign design = TryAddDesign(scan.Design);
+            if (design == null) {
+                failure = FurnitureFailure.DesignLimitReached;
+                return null;
+            }
+
+            bool destroyDesignBlocks = m_subsystemGameInfo.WorldSettings.GameMode != GameMode.Creative;
+            int value = Terrain.MakeBlockValue(
+                FurnitureBlock.Index,
+                0,
+                FurnitureBlock.SetDesignIndex(0, design.Index, design.ShadowStrengthFactor, design.IsLightEmitter)
+            );
+            int count = Math.Clamp(design.Resolution, 4, 8);
+            Matrix matrix = componentMiner.ComponentCreature.ComponentBody.Matrix;
+            Vector3 position = matrix.Translation + matrix.Forward + Vector3.UnitY;
+            int toolDamageCount = 1;
+            ModsManager.HookAction(
+                "OnFurnitureDesigned",
+                modLoader => {
+                    modLoader.OnFurnitureDesigned(design, scan.Source != null, ref count, ref destroyDesignBlocks, ref toolDamageCount);
+                    return false;
                 }
             );
-            if (componentMiner.ComponentPlayer != null) {
-                DialogsManager.ShowDialog(componentMiner.ComponentPlayer.GuiWidget, dialog);
+            int activeValue = componentMiner.ActiveBlockValue;
+            Block block = BlocksManager.Blocks[Terrain.ExtractContents(activeValue)];
+            int durabilityRemains = block.GetDurability(activeValue) - block.GetDamage(activeValue) + 1;
+            if (durabilityRemains < toolDamageCount) {
+                failure = FurnitureFailure.InsufficientDurability;
+                return null;
             }
+
+            componentMiner.DamageActiveTool(toolDamageCount);
+            if (destroyDesignBlocks) {
+                foreach (Point3 cell in scan.Cells.Keys) {
+                    SubsystemTerrain.DestroyCell(0, cell.X, cell.Y, cell.Z, 0, true, true);
+                }
+            }
+            Pickable output = m_subsystemPickables.AddPickable(value, count, position, null, null);
+            componentMiner.Poke(false);
+            for (int i = 0; i < 3; i++) {
+                Time.QueueTimeDelayedExecution(
+                    Time.FrameStartTime + i * 0.25f,
+                    () => m_subsystemSoundMaterials.PlayImpactSound(scan.StartValue, new Vector3(scan.Start.Point), 1f)
+                );
+            }
+            if (componentMiner.ComponentCreature.PlayerStats != null) {
+                componentMiner.ComponentCreature.PlayerStats.FurnitureItemsMade += count;
+            }
+            return output;
         }
 
         public void SwitchToNextState(int x, int y, int z, bool playSound) {

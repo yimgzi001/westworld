@@ -46,7 +46,11 @@ namespace Game {
             m_slots[ResultSlotIndex].Count = 0;
         }
 
-        public override int RemoveSlotItems(int slotIndex, int count) {
+        public override int RemoveSlotItems(int slotIndex, int count) => RemoveSlotItems(slotIndex, count, FindInteractingPlayer);
+
+        internal int RemoveCraftingResultForActor(int count, ComponentPlayer player) => RemoveSlotItems(ResultSlotIndex, count, () => player);
+
+        int RemoveSlotItems(int slotIndex, int count, Func<ComponentPlayer> findCrafter) {
             int num = 0;
             int[] originalCount = new int[SlotsCount - 2];
             for (int i = 0; i < originalCount.Length; i++) {
@@ -81,7 +85,7 @@ namespace Game {
                             m_slots[RemainsSlotIndex].Value = m_matchedRecipe.RemainsValue;
                             m_slots[RemainsSlotIndex].Count += num / m_matchedRecipe.ResultCount * m_matchedRecipe.RemainsCount;
                         }
-                        ComponentPlayer componentPlayer = FindInteractingPlayer();
+                        ComponentPlayer componentPlayer = findCrafter();
                         if (componentPlayer != null
                             && componentPlayer.PlayerStats != null) {
                             componentPlayer.PlayerStats.ItemsCrafted += num;
@@ -125,7 +129,23 @@ namespace Game {
             UpdateCraftingResult(true);
         }
 
-        public virtual void UpdateCraftingResult(bool recipeRefindNeeded) {
+        public virtual void UpdateCraftingResult(bool recipeRefindNeeded) => UpdateCraftingResult(recipeRefindNeeded, FindInteractingPlayer);
+
+        internal void UpdateCraftingResultForActor(ComponentPlayer player) {
+            // The next regular update restores the normal player-facing preview.
+            m_recipeUpdateNeeded = true;
+            m_recipeRefindNeeded = true;
+            UpdateCraftingResult(true, () => player);
+        }
+
+        internal (CraftingRecipe Recipe, int Batches) ReadCraftingRecipe(float playerLevel) {
+            string[] ingredients = new string[CraftingRecipe.MaxSize * CraftingRecipe.MaxSize];
+            int batches = CollectIngredients(ingredients);
+            CraftingRecipe recipe = CraftingRecipesManager.FindMatchingRecipe(Project.FindSubsystem<SubsystemTerrain>(true), ingredients, 0f, playerLevel);
+            return (recipe, recipe is { ResultValue: not 0 } ? batches : 0);
+        }
+
+        int CollectIngredients(string[] ingredients) {
             int num = int.MaxValue;
             for (int i = 0; i < m_craftingGridSize; i++) {
                 for (int j = 0; j < m_craftingGridSize; j++) {
@@ -137,15 +157,20 @@ namespace Game {
                     int slotCount = GetSlotCount(slotIndex);
                     if (slotCount > 0) {
                         Block block = BlocksManager.Blocks[num3];
-                        m_matchedIngredients[num2] = $"{block.GetCraftingId(slotValue)}:{num4.ToString(CultureInfo.InvariantCulture)}";
+                        ingredients[num2] = $"{block.GetCraftingId(slotValue)}:{num4.ToString(CultureInfo.InvariantCulture)}";
                         num = MathUtils.Min(num, slotCount);
                     }
                     else {
-                        m_matchedIngredients[num2] = null;
+                        ingredients[num2] = null;
                     }
                 }
             }
-            ComponentPlayer componentPlayer = FindInteractingPlayer();
+            return num;
+        }
+
+        void UpdateCraftingResult(bool recipeRefindNeeded, Func<ComponentPlayer> findCrafter) {
+            int num = CollectIngredients(m_matchedIngredients);
+            ComponentPlayer componentPlayer = findCrafter();
             float playerLevel = componentPlayer?.PlayerData.Level ?? 1f;
             CraftingRecipe craftingRecipe;
             if (recipeRefindNeeded) {

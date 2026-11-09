@@ -580,6 +580,18 @@ namespace Game {
         byte[] m_compressBuffer = new byte[WorstCaseChunkDataSize];
 
         bool m_ioExceptionDealt;
+        [ThreadStatic] static bool m_strictCheckpointSave;
+
+        internal static T SaveForCheckpoint<T>(Func<T> capture) {
+            bool previous = m_strictCheckpointSave;
+            m_strictCheckpointSave = true;
+            try {
+                return capture();
+            }
+            finally {
+                m_strictCheckpointSave = previous;
+            }
+        }
 
         public TerrainSerializer23() {}
 
@@ -639,6 +651,9 @@ namespace Game {
                     m_storage.Save(chunk.Coords, m_storageBuffer, size);
                 }
                 catch (Exception e) {
+                    if (m_strictCheckpointSave) {
+                        throw;
+                    }
                     Log.Error(ExceptionManager.MakeFullErrorMessage($"Error saving chunk ({chunk.Coords.X},{chunk.Coords.Y}).", e));
                 }
                 _ = Time.RealTime;

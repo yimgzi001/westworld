@@ -138,7 +138,7 @@ namespace Game {
         /// </summary>
         /// <param name="stream"></param>
         public static void ValidateBlocksTexture(Stream stream) {
-            ImageInfo imageInfo = SixLabors.ImageSharp.Image.Identify(stream);
+            ImageInfo imageInfo = SixLabors.ImageSharp.Image.Identify(Image.DefaultImageSharpDecoderOptions, stream);
             ValidateBlocksTexture(imageInfo.Width, imageInfo.Height);
         }
 

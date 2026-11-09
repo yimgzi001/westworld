@@ -383,7 +383,7 @@ namespace Engine.Graphics {
         /// 从流创建 sRGB 纹理
         /// </summary>
         public static Texture2D LoadSrgb(Stream stream, int mipLevelsCount = 1) {
-            Image<Rgba32> image = SixLabors.ImageSharp.Image.Load<Rgba32>(stream);
+            Image<Rgba32> image = SixLabors.ImageSharp.Image.Load<Rgba32>(Image.DefaultImageSharpDecoderOptions, stream);
             return LoadSrgb(image, mipLevelsCount);
         }
 
