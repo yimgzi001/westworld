@@ -1,0 +1,6 @@
+{"kind":"start","mode":"flat","artificialFlatFixture":true,"deterministicDecisionNotModel":true}
+{"kind":"binding_guards","sameActor":true,"wrongActorRejected":true,"wrongLeaseRejected":true}
+{"kind":"fixture","position":{"X":-119.5,"Y":65,"Z":-93.5},"noInventoryInjection":true,"soleNativeOwner":true}
+{"kind":"failure","error":"System.InvalidOperationException: Scenario: System.Collections.Generic.KeyNotFoundException: The given key was not present in the dictionary.\n   at System.Text.Json.JsonElement.GetProperty(String propertyName)\n   at Scenario.Update(Single dt) in /workspace/scratch/5b9c67580fe7/westworld-cloud/experiments/scapi-navigation-ledger-gate/Program.cs:line 29\n   at Game.SubsystemUpdate.Update()\n   at Gate.Frame() in /workspace/scratch/5b9c67580fe7/westworld-cloud/experiments/scapi-navigation-ledger-gate/Program.cs:line 12"}
+{"kind":"final","snapshot":{"RequestId":"a8b556b6-de07-4cf4-8c28-1a70e9279a1e","Status":4,"Reason":"segment_start_InvalidOperationException","Busy":false,"Segments":0,"Path":0,"Remaining":2.999908447265625},"health":1,"speed":0.040812097,"hasAiGameWidget":false,"Quarantined":false}
+{"kind":"result","passed":false,"reason":"exception","seconds":5.337417,"cleanupVerified":true,"updateFailureCount":1}

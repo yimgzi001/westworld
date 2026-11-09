@@ -56,3 +56,20 @@ class Tests(unittest.TestCase):
  def test_finish_once(self):
   self.begin();self.result();r.finish(self.root,'case01','passed')
   with self.assertRaisesRegex(r.RecoveryError,'not_running'):r.finish(self.root,'case01','passed')
+
+ def test_existing_result_rejected(self):
+  self.result()
+  with self.assertRaisesRegex(r.RecoveryError,'result_exists_requires_retrospective'):self.begin()
+  self.assertFalse((self.root/'.batch-checkpoints/case01.json').exists())
+ def test_retrospective_explicit(self):
+  self.result();r.begin(self.root,'case01','old-native','dot-cloud',['code.py'],['result.json'],retrospective=True)
+  r.finish(self.root,'case01','passed');self.assertTrue(r.inspect(self.root,'case01')['retrospective'])
+ def test_retrospective_stage_label_not_permission(self):
+  self.result()
+  with self.assertRaisesRegex(r.RecoveryError,'result_exists_requires_retrospective'):
+   r.begin(self.root,'case01','retrospective','dot-cloud',['code.py'],['result.json'])
+ def test_old_schema_stays_readable_unknown_retrospective(self):
+  self.begin();p=self.root/'.batch-checkpoints/case01.json';v=json.loads(p.read_text());del v['retrospective'];p.write_text(json.dumps(v))
+  self.assertIsNone(r.inspect(self.root,'case01')['retrospective']);self.result();r.finish(self.root,'case01','passed');self.assertIsNone(r.inspect(self.root,'case01')['retrospective'])
+ def test_retrospective_not_truthy_string(self):
+  with self.assertRaisesRegex(r.RecoveryError,'retrospective_flag'):r.begin(self.root,'case01','native','dot',['code.py'],['result.json'],retrospective='false')

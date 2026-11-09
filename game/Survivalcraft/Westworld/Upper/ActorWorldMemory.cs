@@ -13,6 +13,8 @@ namespace Game.Westworld {
         IReadOnlyList<ObservedEntity> Entities, IReadOnlyList<ObservedPickable> Pickables, string InventoryReference, string CraftingReference);
     public sealed record RememberedPlace(string Reference, Vector3 Position, double LastSeenGameTime, string Name);
 
+    public sealed record RememberedMapPage(IReadOnlyList<RememberedPlace> Entries, int Offset, int Total, bool HasMore, int? NextOffset, double SnapshotGameTime, string Note);
+
     // This memory and its reference table belong to one actor and are used on the game update thread.
     public sealed class ActorWorldMemory {
         const int MaxRememberedPlaces = 128;
@@ -102,6 +104,18 @@ namespace Game.Westworld {
         }
 
         public IReadOnlyList<RememberedPlace> ReadMap() => m_recentPlaces.Select(item => item.Place).ToArray();
+        public RememberedMapPage ReadMap(int offset, int limit) {
+            ArgumentOutOfRangeException.ThrowIfNegative(offset);
+            if (offset > MaxRememberedPlaces || limit is < 1 or > 32) throw new ArgumentOutOfRangeException();
+            var entries = ReadMap();
+            int total = entries.Count;
+            if (offset > total) throw new ArgumentOutOfRangeException(nameof(offset));
+            var page = entries.Skip(offset).Take(limit).ToArray();
+            int next = offset + page.Length;
+            return new RememberedMapPage(page, offset, total, next < total, next < total ? next : null,
+                m_queries.GameTime, "Historical places only; existence is not current. Live LRU order may change between calls; offset is not a stable snapshot cursor.");
+        }
+
 
         internal string FindObservedEntityReference(Entity entity) =>
             entity == null ? null : m_liveByIdentity.GetValueOrDefault(new LiveReference(new EntityTarget(entity)));

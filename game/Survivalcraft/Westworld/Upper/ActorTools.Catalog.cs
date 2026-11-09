@@ -157,7 +157,9 @@ namespace Game.Westworld {
                 a.m_actions.Queries.ReadBlockSettings(a.BlockReference(p.String("target"))), Target()),
             Query("read_item_settings", "Read settings for an owned editable item.", (a, p) => a.m_actions.Queries.ReadItemSettings(p.OwnItem()),
                 Slot(), Value()),
-            Query("read_map", "Read remembered locations and when you last saw them.", (a, _) => a.m_memory.ReadMap()),
+            Query("read_map", "Read historical places. With offset/limit returns a live-LRU page, not a stable snapshot; no arguments preserves the legacy list.",
+                (a, p) => p.Has("offset") || p.Has("limit") ? (object)a.m_memory.ReadMap(p.Int("offset"), p.Int("limit", 4)) : a.m_memory.ReadMap(),
+                Offset(), Limit()),
             Query("read_social", "Read received speech and handoff events. With a cognitive runtime bound, reading leaves its inbox intact.", (a, _) => a.ReadSocial()),
             Query("read_item", "Read the entry for a known item.", (a, p) => a.Knowledge.ReadItem(p.Int("value")), Value()),
             Query("find_items", "Search items you know about.", (a, p) =>

@@ -14,6 +14,20 @@ public static class ToolResultProjection {
    if(raw.TryGetProperty("hasMore",out var hm)&&hm.ValueKind is JsonValueKind.True or JsonValueKind.False)hasMore=hm.GetBoolean();
   }
   try{
+   if(tool is "host_navigate_local" or "host_navigation_status" or "host_cancel_navigation"){
+    // Explicit rejection is retained as failure evidence, never rewritten to success.
+    bool rejected=data.ValueKind==JsonValueKind.Object&&data.TryGetProperty("status",out var status)&&status.ValueKind==JsonValueKind.String&&status.GetString()=="rejected";
+    if(!rejected&&!ValidNavigationStatus(data))return Result("unsupported_shape",null,0,null);
+    var nav=Result("projected",JsonNode.Parse(data.GetRawText()),0,null);
+    return Fits(nav,maxChars,maxUtf8Bytes)?nav:Result("budget_exceeded",null,1,null);
+   }
+   if(tool=="read_map"){
+    if(!ValidMapPage(data))return Result("unsupported_shape",null,0,null);
+    // Complete actual page; never invent a continuation cursor from a truncated list.
+    var page=Result("projected",JsonNode.Parse(data.GetRawText()),0,data.GetProperty("hasMore").GetBoolean());
+    return Fits(page,maxChars,maxUtf8Bytes)?page:Result("budget_exceeded",null,data.GetProperty("entries").GetArrayLength(),data.GetProperty("hasMore").GetBoolean());
+   }
+
    if(tool is "find_items" or "find_creatures" or "find_recipes"){
     if(data.ValueKind!=JsonValueKind.Array)return Result("unsupported_shape",null,0,hasMore);
     var output=new JsonArray();int total=data.GetArrayLength(),kept=0;
@@ -48,6 +62,32 @@ public static class ToolResultProjection {
   }
   return Wrap("projected");
  }
+ internal static bool ValidNavigationStatus(JsonElement e){
+  if(e.ValueKind!=JsonValueKind.Object||!e.TryGetProperty("busy",out var busy)||busy.ValueKind is not(JsonValueKind.True or JsonValueKind.False)
+   ||!e.TryGetProperty("request_id",out var id)||id.ValueKind!=JsonValueKind.String||!id.TryGetGuid(out var request)
+   ||!e.TryGetProperty("status",out var status)||status.ValueKind!=JsonValueKind.String)return false;
+  string s=status.GetString()!;
+  if(s is not("idle" or "running" or "stopping" or "arrived" or "failed" or "cancelled"))return false;
+  return busy.GetBoolean()?(request!=Guid.Empty&&s is "running" or "stopping"):s is "idle" or "arrived" or "failed" or "cancelled";
+ }
+ internal static bool ValidMapPage(JsonElement e){
+  if(e.ValueKind!=JsonValueKind.Object||!e.TryGetProperty("entries",out var entries)||entries.ValueKind!=JsonValueKind.Array||entries.GetArrayLength()>4
+   ||!Int(e,"offset",out int offset)||!Int(e,"total",out int total)||offset<0||total<0||total>128||offset>total
+   ||!e.TryGetProperty("snapshotGameTime",out var time)||time.ValueKind!=JsonValueKind.Number||!time.TryGetDouble(out double now)||!double.IsFinite(now)||now<0
+   ||!e.TryGetProperty("hasMore",out var more)||more.ValueKind is not(JsonValueKind.True or JsonValueKind.False))return false;
+  bool hasNext=e.TryGetProperty("nextOffset",out var next);
+  int end=offset+entries.GetArrayLength();if(end>total||more.GetBoolean()!=(end<total)||(end<total?(!hasNext||next.ValueKind!=JsonValueKind.Number||!next.TryGetInt32(out int n)||n!=end):(hasNext&&next.ValueKind!=JsonValueKind.Null)))return false;
+  if(end<total&&entries.GetArrayLength()==0)return false;
+  var ids=new HashSet<string>();
+  foreach(var p in entries.EnumerateArray()){
+   if(p.ValueKind!=JsonValueKind.Object||!p.TryGetProperty("reference",out var r)||r.ValueKind!=JsonValueKind.String||r.GetString() is not {Length:>0 and <=160} id||!ids.Add(id)
+    ||!p.TryGetProperty("lastSeenGameTime",out var last)||last.ValueKind!=JsonValueKind.Number||!last.TryGetDouble(out double seen)||!double.IsFinite(seen)||seen<0||seen>now
+    ||!p.TryGetProperty("position",out var pos)||pos.ValueKind!=JsonValueKind.Object)return false;
+   foreach(string axis in new[]{"x","y","z"})if(!pos.TryGetProperty(axis,out var v)||v.ValueKind!=JsonValueKind.Number||!v.TryGetDouble(out double number)||!double.IsFinite(number)||Math.Abs(number)>10000000)return false;
+  }
+  return true;
+ }
+ static bool Int(JsonElement e,string key,out int value){value=0;return e.TryGetProperty(key,out var v)&&v.ValueKind==JsonValueKind.Number&&v.TryGetInt32(out value);}
  static JsonNode Item(JsonElement e)=>Select(e,["name","value","type","craftingId","nutrition","fuelHeat","fuelDuration","maxStack","durability","canWear","canAim"],["name","value","craftingId","nutrition","fuelHeat","fuelDuration"]);
  static JsonNode RecipeReference(JsonElement e){
   var node=Select(e,["reference"],["reference"]);

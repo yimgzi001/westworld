@@ -1,0 +1,7 @@
+{"kind":"start","mode":"ownership","artificialFlatFixture":true,"deterministicDecisionNotModel":true}
+{"kind":"binding_guards","sameActor":true,"wrongActorRejected":true,"wrongLeaseRejected":true}
+{"kind":"fixture","position":{"X":-119.5,"Y":65,"Z":-93.5},"noInventoryInjection":true,"soleNativeOwner":true}
+{"kind":"shared_skill_rejected_without_cancel","foreignRequest":"91adb622-e587-4e90-948f-bde2e7ea4f98","before":5,"after":5}
+{"kind":"local_navigation_settled","RequestId":"91adb622-e587-4e90-948f-bde2e7ea4f98","Status":8,"Reason":"owner_cleanup","ActualHorizontalPath":0}
+{"kind":"final","snapshot":{"RequestId":"00000000-0000-0000-0000-000000000000","Status":0,"Reason":"idle","Busy":false,"Segments":0,"Path":0,"Remaining":151.7316710512344},"health":1,"speed":0,"hasAiGameWidget":false,"Quarantined":false}
+{"kind":"result","passed":true,"reason":"foreign_owner_preserved_then_owner_cancelled","seconds":5.6268943,"cleanupVerified":true,"updateFailureCount":0}

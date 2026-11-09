@@ -8,15 +8,15 @@ using Westworld.Decisions.Local;
 public static class NativeToolOffers {
  static readonly HashSet<string> Profile=new(StringComparer.Ordinal){
   "observe","read_self","read_environment","read_inventory","read_storage","read_item",
-  "find_items","find_creatures","find_recipes","action_status","cancel_action","task_status","cancel_task","plan_craft",
+  "host_navigate_local","host_navigation_status","host_cancel_navigation","read_map","find_items","find_creatures","find_recipes","action_status","cancel_action","task_status","cancel_task","plan_craft",
   "act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
   "act_Dig","act_Place","act_MeleeAttack","act_Craft","act_Jump","act_Sleep","act_WakeUp"
  };
- public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults){
+ public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null){
   ArgumentNullException.ThrowIfNull(native);ArgumentNullException.ThrowIfNull(recentResults);
   if(native.Count>128||recentResults.Count>32)throw new ArgumentException("Bounded native context required");
   observation=Data(observation);inventory=Data(inventory);
-  var positions=new HashSet<string>();var blocks=new HashSet<string>();var entities=new HashSet<string>();var drops=new HashSet<string>();
+  var rememberedPositions=new HashSet<string>();var positions=new HashSet<string>();var blocks=new HashSet<string>();var entities=new HashSet<string>();var drops=new HashSet<string>();
   var storage=new HashSet<string>();var workspaces=new HashSet<string>();var recipes=new HashSet<string>();
   var slots=new HashSet<int>();var values=new HashSet<int>();var allSlots=new HashSet<int>();var allValues=new HashSet<int>();var foodValues=new HashSet<int>();
   void Ref(JsonElement o,string field,params HashSet<string>[] sets){if(o.ValueKind==JsonValueKind.Object&&o.TryGetProperty(field,out var v)&&v.ValueKind==JsonValueKind.String&&v.GetString() is {Length:>0 and <=160} text)foreach(var set in sets)set.Add(text);}
@@ -47,6 +47,10 @@ public static class NativeToolOffers {
    if(wrapped.ValueKind!=JsonValueKind.Object&&wrapped.ValueKind!=JsonValueKind.Array)continue;
    if(wrapped.ValueKind==JsonValueKind.Object&&wrapped.TryGetProperty("ok",out var ok)&&ok.ValueKind!=JsonValueKind.True)continue;
    var data=Data(wrapped);
+   if(wrapped.ValueKind==JsonValueKind.Object&&wrapped.TryGetProperty("tool",out var mapTool)&&mapTool.ValueKind==JsonValueKind.String&&mapTool.GetString()=="read_map"
+    &&wrapped.TryGetProperty("ok",out var mapOk)&&mapOk.ValueKind==JsonValueKind.True&&ToolResultProjection.ValidMapPage(data))
+    foreach(var place in data.GetProperty("entries").EnumerateArray())Ref(place,"reference",rememberedPositions);
+
    // Native find_recipes yields an array of {reference,recipe:{...}}. Never mine
    // arbitrary strings/text or a future-result placeholder for references.
    if(data.ValueKind==JsonValueKind.Array)foreach(var entry in data.EnumerateArray()){
@@ -58,8 +62,23 @@ public static class NativeToolOffers {
     if(data.TryGetProperty("crafting",out var preview)&&preview.ValueKind==JsonValueKind.Object&&wrapped.TryGetProperty("storage",out var st)&&st.ValueKind==JsonValueKind.String&&storage.Contains(st.GetString()!))workspaces.Add(st.GetString()!);
    }
   }
+  bool navKnown=navigationStatus.HasValue&&ToolResultProjection.ValidNavigationStatus(navigationStatus.Value);
+  bool navBusy=navKnown&&navigationStatus!.Value.GetProperty("busy").GetBoolean();
   var result=new List<ToolOffer>();
   foreach(var tool in native.Where(t=>Profile.Contains(t.Name))){
+   if(navBusy&&(tool.Name.StartsWith("act_",StringComparison.Ordinal)||tool.Name is "plan_craft" or "cancel_action" or "cancel_task"))continue;
+   if(tool.Name is "host_navigate_local" or "host_navigation_status" or "host_cancel_navigation"){
+    if(tool.Name=="host_navigate_local"&&(!navKnown||navBusy))continue;
+    if(tool.Name=="host_cancel_navigation"&&(!navKnown||!navBusy))continue;
+    var hostSchema=JsonNode.Parse(tool.Parameters.GetRawText())!.AsObject();StripDescriptions(hostSchema);
+    if(tool.Name=="host_cancel_navigation"){
+     string id=navigationStatus!.Value.GetProperty("request_id").GetString()!;
+     hostSchema["properties"]!["request_id"]!["enum"]=JsonSerializer.SerializeToNode(new[]{id});
+    }
+    string description=tool.Name=="host_navigate_local"?"Bounded local navigation 1-4m. Absolute world bearing: 0=+Z, 90=+X. Does not promise arrival; inspect actual status.":
+     tool.Name=="host_cancel_navigation"?"Cancel this exact active navigation request; stopping is not yet settled. cancel_action does not stop this skill.":tool.Description;
+    result.Add(new(tool.Name,description,JsonSerializer.SerializeToElement(hostSchema)));continue;
+   }
    var schema=JsonNode.Parse(tool.Parameters.GetRawText())!.AsObject();StripDescriptions(schema);
    if(schema["properties"] is not JsonObject props||schema["required"] is not JsonArray required)continue;
    bool skip=false;var bindings=new Dictionary<string,IReadOnlyList<string>>();
@@ -68,7 +87,7 @@ public static class NativeToolOffers {
     bool needed=required.Any(n=>n?.GetValue<string>()==key);string type=field["type"]?.GetValue<string>()??"";
     HashSet<string>? refs=key switch{
      "target"=>tool.Name=="act_MeleeAttack"?entities:tool.Name=="act_PickUp"?drops:blocks,
-     "destination"=>tool.Name=="act_TransferItems"?storage:positions,
+     "destination"=>tool.Name=="act_TransferItems"?storage:tool.Name=="act_MoveTo"?positions.Union(rememberedPositions).ToHashSet(StringComparer.Ordinal):positions,
      "source" or "storage"=>storage,"workspace"=>workspaces,"recipe"=>recipes,_=>null};
     if(refs is not null){
      if(refs.Count==0){if(needed){skip=true;break;}props.Remove(key);continue;}
@@ -79,7 +98,7 @@ public static class NativeToolOffers {
      HashSet<int>? ints=key=="slot"?slots:key=="value"&&tool.Name.StartsWith("act_",StringComparison.Ordinal)?values:
       key is "source_slot" or "destination_slot"?allSlots:key is "source_value" or "destination_value"?allValues:key=="food_value"?foodValues:null;
      if(ints is not null){if(ints.Count==0){if(needed){skip=true;break;}props.Remove(key);continue;}field["enum"]=JsonSerializer.SerializeToNode(ints.Order().Take(128));}
-     else {field["minimum"]=key is "count" or "limit"?1:0;field["maximum"]=key=="count"?64:key=="limit"?4:key=="offset"?4096:int.MaxValue;}
+     else {field["minimum"]=key is "count" or "limit"?1:0;field["maximum"]=key=="count"?64:key=="limit"?4:key=="offset"?(tool.Name=="read_map"?128:4096):int.MaxValue;}
     }else if(type=="number"){
      (double low,double high)=key switch{"bearing"=>(-180,180),"pitch"=>(-82,82),"distance"=>(1,4),"range"=>(.1,1),"duration"=>(.1,tool.Name=="act_Wait"?10:4),"timeout"=>(.1,tool.Name=="act_Dig"?30:4),"look_distance" or "object_distance"=>(1,16),_=>(0,4)};
      field["minimum"]=low;field["maximum"]=high;
@@ -103,6 +122,7 @@ public static class NativeToolOffers {
  // Preserve operational prerequisites lost when verbose parameter descriptions are removed.
  // These explain tool semantics, never prescribe a resource or survival sequence.
  static string Describe(ActorToolDefinition tool)=>tool.Name switch{
+  "read_map"=>"Read historical positions with lastSeenGameTime. Only navigation, not evidence of current resources. Page offsets use mutable live LRU order; re-observe after arrival.",
   "act_Craft"=>"Collect result from an already correctly arranged crafting grid. Does not fill ingredients. Grid crafting cannot heat/cook food.",
   "plan_craft"=>"Arrange existing carried/grid materials and craft a known recipe at a suitable grid. count is output items, not batches; must be a multiple of recipe.resultCount. No gathering; no heated/furnace recipes.",
   "act_TransferItems"=>"Move existing items. source_value is source slot CURRENT value; destination_value is destination slot CURRENT value (0 if empty), not the transferred item.",

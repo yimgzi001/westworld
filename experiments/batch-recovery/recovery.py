@@ -70,7 +70,9 @@ def load(path):
             out[k]=v
         return out
     r=json.loads(path.read_text(),object_pairs_hook=unique)
-    if not isinstance(r,dict) or set(r)!={'schema','case','stage','environment','state','startedUtc','finishedUtc','sources','results'} or r['schema']!=SCHEMA:raise RecoveryError('schema')
+    base={'schema','case','stage','environment','state','startedUtc','finishedUtc','sources','results'}
+    if not isinstance(r,dict) or set(r) not in (base,base|{'retrospective'}) or r['schema']!=SCHEMA:raise RecoveryError('schema')
+    if 'retrospective' in r and type(r['retrospective']) is not bool:raise RecoveryError('retrospective_flag')
     for k in ('case','stage','environment'):label(r[k])
     if r['state'] not in ('running','passed','failed'):raise RecoveryError('state')
     if not isinstance(r['startedUtc'],str) or not (r['finishedUtc'] is None if r['state']=='running' else isinstance(r['finishedUtc'],str)):raise RecoveryError('time')
@@ -83,15 +85,17 @@ def load(path):
     return r
 
 def now():return datetime.datetime.now(datetime.timezone.utc).isoformat()
-def begin(root,case,stage,environment,sources,results):
+def begin(root,case,stage,environment,sources,results,retrospective=False):
     root=root_path(root);label(case);label(stage);label(environment);paths(sources);paths(results)
+    if type(retrospective) is not bool:raise RecoveryError('retrospective_flag')
     if set(sources)&set(results):raise RecoveryError('source_result_overlap')
     for p in sources+results:
         relative(root,p)
         if p.startswith('.batch-checkpoints/'):raise RecoveryError('metadata_not_artifact')
     with locked(root,case) as path:
         if path.exists():raise RecoveryError('case_exists_no_replay')
-        r=dict(schema=SCHEMA,case=case,stage=stage,environment=environment,state='running',startedUtc=now(),finishedUtc=None,sources={p:digest(root,p) for p in sources},results={p:None for p in results})
+        if not retrospective and any(relative(root,p).exists() for p in results):raise RecoveryError('result_exists_requires_retrospective')
+        r=dict(schema=SCHEMA,case=case,stage=stage,environment=environment,retrospective=retrospective,state='running',startedUtc=now(),finishedUtc=None,sources={p:digest(root,p) for p in sources},results={p:None for p in results})
         atomic_json(path,r)
     return r
 
@@ -122,15 +126,15 @@ def inspect(root,case,environment=None):
             except (RecoveryError,OSError):kind='unsafe_or_unreadable'
             issues.append({'group':group,'path':path,'kind':kind})
     state='interrupted_unknown' if r['state']=='running' else ('integrity_mismatch' if issues else 'verified_record')
-    return dict(schema=SCHEMA,case=case,stage=r['stage'],environment=r['environment'],declaredOutcome=r['state'],recoveryStatus=state,issues=issues,automaticReplay=False)
+    return dict(schema=SCHEMA,case=case,stage=r['stage'],environment=r['environment'],declaredOutcome=r['state'],retrospective=r.get('retrospective'),recoveryStatus=state,issues=issues,automaticReplay=False)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--root',required=True);sub=p.add_subparsers(dest='command',required=True)
-    b=sub.add_parser('begin');b.add_argument('--case',required=True);b.add_argument('--stage',required=True);b.add_argument('--environment',required=True);b.add_argument('--source',action='append',required=True);b.add_argument('--result',action='append',required=True)
+    b=sub.add_parser('begin');b.add_argument('--case',required=True);b.add_argument('--stage',required=True);b.add_argument('--environment',required=True);b.add_argument('--source',action='append',required=True);b.add_argument('--result',action='append',required=True);b.add_argument('--retrospective',action='store_true')
     f=sub.add_parser('finish');f.add_argument('--case',required=True);f.add_argument('--outcome',required=True,choices=['passed','failed'])
     i=sub.add_parser('inspect');i.add_argument('--case',required=True);i.add_argument('--environment')
     a=p.parse_args()
-    if a.command=='begin':r=begin(a.root,a.case,a.stage,a.environment,a.source,a.result)
+    if a.command=='begin':r=begin(a.root,a.case,a.stage,a.environment,a.source,a.result,a.retrospective)
     elif a.command=='finish':r=finish(a.root,a.case,a.outcome)
     else:r=inspect(a.root,a.case,a.environment)
     print(json.dumps(r,sort_keys=True))

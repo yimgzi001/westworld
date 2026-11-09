@@ -48,6 +48,7 @@ namespace Game.Westworld {
         }
 
         public bool IsBoundTo(Entity actor) => m_actions.Queries.IsBoundTo(actor);
+        public bool IsBoundToOwner(AtomicActions owner) => ReferenceEquals(m_actions, owner);
 
         public IReadOnlyList<ActorToolDefinition> GetTools() {
             HashSet<string> supported = m_actions.GetCapabilities().Select(action => action.Name).ToHashSet(StringComparer.Ordinal);

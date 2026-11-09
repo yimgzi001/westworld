@@ -37,6 +37,9 @@ public sealed class LocalNavigationSkill {
   memory=new(senses.SessionId,actor);this.audit=audit??(_=>{});
  }
  void Owner(){if(Environment.CurrentManagedThreadId!=thread)throw new InvalidOperationException("Game thread required");}
+ /// <summary>Read-only identity check; does not grant action ownership.</summary>
+ public bool Matches(ComponentPlayer candidate,AtomicActions candidateActions)=>ReferenceEquals(player,candidate)&&ReferenceEquals(actions,candidateActions);
+ public bool Matches(ComponentPlayer candidate,LocalNavigationSkillLease candidateLease)=>ReferenceEquals(player,candidate)&&ReferenceEquals(lease,candidateLease);
  public void Start(Guid requestId,Position requestedDirectionPoint) {
   Owner();if(Status!=LocalNavigationStatus.Idle&&!Terminal)throw new InvalidOperationException("Skill still owns action/settling");
   if(requestId==Guid.Empty||!Finite(requestedDirectionPoint))throw new ArgumentException("Invalid request");

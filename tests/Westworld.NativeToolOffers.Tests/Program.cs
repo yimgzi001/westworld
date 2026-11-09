@@ -106,3 +106,43 @@ Console.WriteLine("FINAL TOTAL "+checks);
 
 Check(Find("plan_craft").Description.Contains("count is output items")&&Find("plan_craft").Description.Contains("multiple of recipe.resultCount"),"craft count means exact native output multiple not batches");
 Console.WriteLine("FINAL TOTAL "+checks);
+var mapPage=J("""{"entries":[{"reference":"pastOak","position":{"x":1,"y":65,"z":2},"lastSeenGameTime":2,"name":"oak"}],"offset":0,"total":1,"hasMore":false,"nextOffset":null,"snapshotGameTime":20,"note":"historical live LRU"}""");
+var mapReceipt=JsonSerializer.SerializeToElement(new{tool="read_map",ok=true,data=mapPage});
+var mapTools=tools.Append(Tool("read_map","\"offset\":{\"type\":\"integer\"},\"limit\":{\"type\":\"integer\"}","")).ToArray();
+var withMap=NativeToolOffers.Build(mapTools,obs,inventory,[mapReceipt]);
+Check(withMap.Single(x=>x.Name=="read_map").Parameters.GetProperty("required").EnumerateArray().Any(x=>x.GetString()=="limit"),"map page limit mandatory");
+Check(withMap.Single(x=>x.Name=="act_MoveTo").ReferenceValues!["destination"].Contains("pastOak"),"historical map ref permits navigation");
+foreach(string action in new[]{"act_FaceTowards","act_Dig","act_MeleeAttack","act_PickUp"}){
+ var offer=withMap.Single(x=>x.Name==action);
+ Check(!offer.ReferenceValues!.Values.SelectMany(x=>x).Contains("pastOak"),action+" cannot target historical memory");
+}
+foreach(var invalid in new[]{
+ JsonSerializer.SerializeToElement(new{tool="read_map",ok=false,data=mapPage}),
+ JsonSerializer.SerializeToElement(new{tool="other",ok=true,data=mapPage}),
+ J(mapReceipt.GetRawText().Replace("\"total\":1","\"total\":0")),
+ J(mapReceipt.GetRawText().Replace("\"lastSeenGameTime\":2","\"lastSeenGameTime\":21")),
+ J(mapReceipt.GetRawText().Replace("\"nextOffset\":null","\"nextOffset\":1"))
+}){
+ var rejected=NativeToolOffers.Build(mapTools,obs,inventory,[invalid]);
+ Check(!rejected.Single(x=>x.Name=="act_MoveTo").ReferenceValues!["destination"].Contains("pastOak"),"invalid map receipt cannot mint navigation ref");
+}
+Console.WriteLine("MAP FINAL TOTAL "+checks);
+var navDefs=new[]{
+ Tool("host_navigate_local","\"bearing\":{\"type\":\"number\",\"minimum\":0,\"maximum\":359.999999},\"distance\":{\"type\":\"number\",\"minimum\":1,\"maximum\":4},\"max_seconds\":{\"type\":\"number\",\"minimum\":1,\"maximum\":12}","\"bearing\",\"distance\""),
+ Tool("host_navigation_status","",""),
+ Tool("host_cancel_navigation","\"request_id\":{\"type\":\"string\",\"maxLength\":36}","\"request_id\"")};
+var navId=Guid.NewGuid().ToString();
+var navBusy=JsonSerializer.SerializeToElement(new{request_id=navId,status="running",busy=true});
+var navIdle=JsonSerializer.SerializeToElement(new{request_id=Guid.Empty.ToString(),status="idle",busy=false});
+var busyOffers=NativeToolOffers.Build(tools.Concat(navDefs).ToArray(),obs,inventory,[],navBusy);
+Check(busyOffers.All(x=>!x.Name.StartsWith("act_")&&x.Name is not("plan_craft" or "cancel_action" or "cancel_task" or "host_navigate_local")),"navigation busy excludes competing writes and fake generic cancel");
+Check(busyOffers.Single(x=>x.Name=="host_cancel_navigation").Parameters.GetProperty("properties").GetProperty("request_id").GetProperty("enum")[0].GetString()==navId,"cancel bound to actual active navigation ID");
+var idleOffers=NativeToolOffers.Build(navDefs,obs,inventory,[],navIdle);
+Check(idleOffers.Any(x=>x.Name=="host_navigate_local")&&idleOffers.All(x=>x.Name!="host_cancel_navigation"),"idle offers start not cancel");
+Check(idleOffers.Single(x=>x.Name=="host_navigate_local").Parameters.GetProperty("properties").GetProperty("max_seconds").GetProperty("maximum").GetInt32()==12,"host navigation native deadline preserved");
+Check(idleOffers.Single(x=>x.Name=="host_navigate_local").Parameters.GetProperty("properties").GetProperty("bearing").GetProperty("minimum").GetInt32()==0,"host absolute bearing not overwritten by relative primitive bounds");
+Check(NativeToolOffers.Build(navDefs,obs,inventory,[]).Select(x=>x.Name).SequenceEqual(new[]{"host_navigation_status"}),"unknown navigation state exposes status only");
+var cancelParser=new ToolDecisionPrompt(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),J("{}"),busyOffers);
+bool wrongCancel=false;try{cancelParser.ParseResponse(JsonSerializer.Serialize(new{goal="stop",steps=new[]{new{tool="host_cancel_navigation",arguments=new{request_id=Guid.NewGuid().ToString()}}}}));}catch(FormatException){wrongCancel=true;}
+Check(wrongCancel,"forged cancellation request rejected before native");
+Console.WriteLine("HOST FINAL TOTAL "+checks);

@@ -1,0 +1,228 @@
+### ToolCallLedger
+PASS 61/61; in-memory protocol only, not crash recovery
+
+### ToolDecision
+PASS bounded plan preserves actor scope
+PASS arguments cloned beyond parser document lifetime
+PASS empty plan is no-op
+PASS inventory constants independently validated
+PASS invented reference rejected
+PASS predicted future output reference rejected
+PASS unoffered code execution tool rejected
+PASS movement range enforced
+PASS arbitrary coordinates rejected
+PASS invented inventory slot rejected
+PASS changed expected inventory value rejected
+PASS fractional count rejected
+PASS missing required argument rejected
+PASS duplicate nested keys rejected
+PASS duplicate top keys rejected
+PASS top-level code field rejected
+PASS four steps accepted
+PASS five steps rejected
+PASS no available tools remains valid wait
+PASS empty offer set cannot select tool
+PASS reference parameters need host binding
+PASS duplicate tool names refused
+PASS empty scope rejected
+PASS host cannot exceed four-step cap
+PASS unbounded numbers refused at offer creation
+PASS open arguments refused
+PASS unsupported schema refs fail closed
+PASS generation schema also capped
+PASS actual result context and replanning contract included
+PASS compact signature retains required numeric limits
+PASS real reference enums and optional bounds visible
+PASS inventory enum and constant visible
+PASS stable tools precede dynamic observation
+PASS native parameter mutual exclusion remains explicit
+PASS compact prompt does not remove strict grammar facts
+PROMPT_CHAR_COMPARISON old=1791 compact=1097; synthetic three-tool context, not tokenizer measurement
+PASS compact text reduces synthetic full-schema prompt characters
+36/36 pure dynamic tool protocol checks passed; no tools, model, code, or native game executed.
+
+### NativeToolOffers
+PASS non-profile arbitrary execution not offered
+PASS hunting refs only observed entities
+PASS dig refs only visible blocks
+PASS pickup refs only visible drops
+PASS recipe reference from actual recent result
+PASS observed storage classified as workbench only by preview
+PASS native empty inventory value retained
+PASS short navigation timeout bounded
+PASS wait upper bound ten seconds
+PASS knowledge query result budget bounded
+PASS missing required facts omit unavailable calls
+PASS no references still permits relative exploration
+PASS failed query cannot create recipe capability
+PASS factory schemas compile and parse in real pure protocol
+PASS full actor retains parallel navigation food production choices
+PASS dig receives thirty-second progress window
+PASS dig cannot omit timeout and bypass bound
+PASS move cannot silently use native fifteen-second default
+PASS native sixteen-metre observation range preserved
+PASS thirty-second native dig offer accepted
+PASS omitted dig deadline rejected by actual protocol
+PASS move still rejects over-four-second deadline
+PASS visible item value alone does not prove nutrition
+PASS food_value needs explicit positive native nutrition
+PASS non-food target pickup remains available
+PASS pickup branch exclusivity communicated
+PASS move destination branch accepted
+PASS move relative branch accepted
+PASS move both branches rejected
+PASS move neither branch rejected
+PASS move missing distance rejected
+PASS move missing bearing rejected
+PASS face destination accepted
+PASS face relative pitch accepted
+PASS face destination plus pitch rejected
+PASS face both branches rejected
+PASS face no direction rejected
+PASS pickup nonfood target branch accepted
+PASS pickup observed food shortcut accepted
+PASS pickup both selectors rejected
+PASS pickup no selector rejected
+PASS filtered destination retains relative branch
+PASS filtered branches cannot produce empty movement
+PASS strict generation grammar contains two disjoint movement objects
+PASS Craft prerequisite and non-cooking semantics retained
+PASS transfer expected destination value explained without truncation
+PASS plan_craft does not promise gather or cook
+PASS furnace native prerequisites explained
+PASS static recipe knowledge distinguished from resources
+49/49 linked factory checks passed using native type-shape stub; no game execution.
+PASS query limit cannot omit native default32
+PASS find_items explicit required limit
+PASS find_items omission rejected by strict parser
+PASS find_items limit four accepted
+PASS find_creatures explicit required limit
+PASS find_creatures omission rejected by strict parser
+PASS find_creatures limit four accepted
+PASS find_recipes explicit required limit
+PASS find_recipes omission rejected by strict parser
+PASS find_recipes limit four accepted
+FINAL TOTAL 59
+PASS craft count means exact native output multiple not batches
+FINAL TOTAL 60
+PASS map page limit mandatory
+PASS historical map ref permits navigation
+PASS act_FaceTowards cannot target historical memory
+PASS act_Dig cannot target historical memory
+PASS act_MeleeAttack cannot target historical memory
+PASS act_PickUp cannot target historical memory
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+MAP FINAL TOTAL 71
+PASS navigation busy excludes competing writes and fake generic cancel
+PASS cancel bound to actual active navigation ID
+PASS idle offers start not cancel
+PASS host navigation native deadline preserved
+PASS host absolute bearing not overwritten by relative primitive bounds
+PASS unknown navigation state exposes status only
+PASS forged cancellation request rejected before native
+HOST FINAL TOTAL 78
+
+### ProviderBounds
+PASS 42/42 provider constructor bounds; no inference executed
+
+### HuntingTools
+52/52 passed
+
+### ProductionTools
+30/30 passed (pure profile only; no native world)
+
+### AttackReadiness
+PASS 43/43 pure attack readiness contracts (not native runtime validation)
+
+### InferenceAudit
+PASS 11/11 audit pure tests; no process or inference started
+
+### ToolResultProjection
+PASS 18 entries capped to four
+PASS omissions explicit
+PASS native pagination unknown not invented
+PASS huge descriptions bounded
+PASS raw audit immutable
+PASS item fact name
+PASS item fact value
+PASS item fact craftingId
+PASS item fact nutrition
+PASS item fact fuelHeat
+PASS item fact fuelDuration
+PASS native hasMore retained
+PASS unknown query shape not empty success
+PASS partial item rejected
+PASS recipe ref preserved
+PASS recipe ingredients complete
+PASS empty and occupied slots preserved
+PASS furnace complete
+PASS oversized storage not partial success
+PASS total context characters and bytes bounded
+PASS context omissions explicit
+PASS facts never silently truncated
+PASS native failure not success
+TOTAL 23
+PASS native map hasMore copied
+PASS map cursor not fabricated
+PASS historical observation time retained
+PASS live pagination caveat retained
+PASS legacy unbounded map not falsely pageable
+PASS inconsistent next cursor rejected
+PASS large page not partial fictitious cursor
+MAP FINAL TOTAL 30
+PASS navigation stopping status and progress retained exactly
+PASS busy without real request rejected
+PASS host navigation rejection not promoted to success
+HOST FINAL TOTAL 33
+
+### DecisionHandoff
+PASS 43/43 decision handoff tests
+
+### FileController
+PASS 15/15 file protocol checks; no game/model/native actions
+PASS 26/26 complete file protocol checks including attempt cap/cancel/publication failure
+
+### LocalNavigationSkill
+PASS 37/37: geometry/settling/lease pure contracts; native adapter compiled, NOT executed
+
+### ToolContextMemory
+PASS input immutable
+PASS one canonical recipe
+PASS unknown requirement retained
+PASS ingredient coordinates retained
+PASS only known verbose description omitted
+PASS event points to exact ref
+PASS omission and unknown pagination retained
+PASS conflicting event retained
+PASS conflict explicit
+PASS conflict cannot overwrite canonical source
+PASS failed query not mined
+PASS unknown shape retained
+PASS same storage different snapshots never merged
+PASS historical change retained
+PASS empty slot exactly reconstructible
+PASS furnace facts unchanged
+TOTAL 16
+PASS inclusive exact final character budget
+PASS one character over final budget rejected
+PASS metadata increases context before budget check
+PASS original-fit metadata overflow rejected
+PASS multibyte input has independent byte cost
+PASS multibyte utf8 overflow despite character fit rejected
+PASS inclusive exact utf8 budget
+PASS minimum character parameter
+PASS maximum character parameter
+PASS minimum byte parameter
+PASS maximum byte parameter
+PASS default budgets accepted
+FINAL TOTAL 28
+
+### BoundedNavigation
+21/21 budget checks passed; no native lifecycle coverage claimed
+
+### HostNavigationTools
+PASS 59/59 host navigation router+ledger tests (fake native port)
