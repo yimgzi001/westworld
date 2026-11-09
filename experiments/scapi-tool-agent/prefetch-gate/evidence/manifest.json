@@ -1,0 +1,62 @@
+{
+  "09-early": {
+    "manifest": "09-early-manifest.json",
+    "sha256": "b75ed5de7b209ad2cb5a43e223fe3adf11226bb8f5f0411454237b3c56ad287b"
+  },
+  "10-early": {
+    "manifest": "10-early-manifest.json",
+    "sha256": "045ff52f1ec5fe4d8f8bfc35bdd6cfbb23e710c526dfc98354f8a4b08d02a9f9"
+  },
+  "10-late": {
+    "manifest": "10-late-manifest.json",
+    "sha256": "7b71903ec67cea9b50cf84eb7726ec99a5090604527412ca1681b8747f7e6306"
+  },
+  "10-failure": {
+    "manifest": "10-failure-manifest.json",
+    "sha256": "1e75abf407a8cf8a8f0f158d79b5830b76d1c1aa074965bffe00a60d39d2c500"
+  },
+  "10-cancel": {
+    "manifest": "10-cancel-manifest.json",
+    "sha256": "bc96703e62f4aca267342d846ab7f482a010c8f61b9809003145a5b474c2e7a6"
+  },
+  "10-expired": {
+    "manifest": "10-expired-manifest.json",
+    "sha256": "26a2a840ed22e3d07fda3e091b7d4404e0c40ddfc3ebb8f72132eed97820d9f0"
+  },
+  "11-early": {
+    "manifest": "11-early-manifest.json",
+    "sha256": "9130d6d2b9b43268994df7b09186e5067feacaece7e1688ea54d1e4805643852"
+  },
+  "11-late": {
+    "manifest": "11-late-manifest.json",
+    "sha256": "a3a53c6d928520f14df6406a95b80325dfb099b12b71c068a6f244bcc0306650"
+  },
+  "11-failure": {
+    "manifest": "11-failure-manifest.json",
+    "sha256": "c60224784c60f2be7a70ac82e680b459953379b392fa04ca9152b0a71da542f0"
+  },
+  "11-cancel": {
+    "manifest": "11-cancel-manifest.json",
+    "sha256": "36242d9f803c845a43e72d07935a004a58ec79f8a442a8d5446f54fab75df7ca"
+  },
+  "11-expired": {
+    "manifest": "11-expired-manifest.json",
+    "sha256": "ddec9cde25b1504f786b7b47290a01cb86f3fe194891440f95d7583e1d1d7e2e"
+  },
+  "sources10": {
+    "manifest": "sources10-manifest.json",
+    "sha256": "6f8d977a106079841b950ce69703370bd005ecfa698cdbd69f77c0eb49069c44"
+  },
+  "sources11": {
+    "manifest": "sources11-manifest.json",
+    "sha256": "e3464110cfe4315ebaae146608d6c706103a2bc3b0656d31555fc2d6237248f3"
+  },
+  "12-terra": {
+    "manifest": "12-terra-manifest.json",
+    "sha256": "5d4a2bdb3a210304233d370192415c86d94eafc33f4f111cd508dff4c9325523"
+  },
+  "sources12": {
+    "manifest": "sources12-manifest.json",
+    "sha256": "f4f5c969ebdcf087d8e03c60644cedca9a1901161345c4d687aa06071c4bc76f"
+  }
+}

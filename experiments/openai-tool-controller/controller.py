@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Official Responses transport only; no game tools, shell tools or generated code."""
 import subprocess, sys, threading
-import argparse, getpass, hashlib, json, os, pathlib, socket, ssl, time, urllib.error, urllib.request, uuid, warnings
+import argparse, datetime, getpass, hashlib, json, os, pathlib, socket, ssl, time, urllib.error, urllib.request, uuid, warnings
 
 URL = "https://api.openai.com/v1/responses"
 VERIFIED_MODELS = {"gpt-6.1-terra": {"none"}}  # Explicit user-selected official model; no default/fallback.
@@ -322,6 +322,24 @@ def claim_request(root, envelope, prompt, schema, model, effort):
     except FileExistsError:
         return False
 
+def host_remaining(request, directory):
+    if (directory / "canceled.json").exists() or (directory / "canceled.json").is_symlink():
+        return 0.0
+    deadline = request.get("deadlineUtc")
+    if deadline is None:  # Legacy serial requests; total and HTTP bounds still apply.
+        return 120.0
+    if not isinstance(deadline, str) or len(deadline) > 80:
+        raise ControllerError("host_deadline_invalid")
+    try:
+        parsed = datetime.datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError()
+        left = (parsed - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
+    except (ValueError, OverflowError):
+        raise ControllerError("host_deadline_invalid") from None
+    # UTC is only an advisory transport bound; game host owns monotonic expiry.
+    return max(0.0, min(120.0, left))
+
 def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12, total_seconds=650, wait_seconds=60):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
@@ -360,10 +378,19 @@ def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12
                     if len(seen) >= max_requests:
                         return
                     continue
+                remaining = min(remaining, host_remaining(request, path.parent))
+                if remaining <= 0:
+                    audit.write(compact(dict(envelope, error="host_request_expired_or_canceled", usage=None)) + "\n")
+                    audit.flush()
+                    if len(seen) >= max_requests:
+                        return
+                    continue
                 decision, record = infer(request["prompt"], request["responseSchema"], key, model=model, reasoning_effort=reasoning_effort, timeout=min(45, remaining))
                 record.update(envelope)
+                publish = decision is not None and not (root.parent / "exit.txt").exists() and host_remaining(request, path.parent) > 0
+                record["delivery"] = "ready_to_publish" if publish else "withheld_or_no_decision"
                 audit.write(compact(record) + "\n"); audit.flush()
-                if decision is not None and not (root.parent / "exit.txt").exists():
+                if publish:
                     atomic_json(path.parent / "response.json", dict(envelope, decision=decision))
                 if len(seen) >= max_requests:
                     return
@@ -379,6 +406,9 @@ def main():
     files = sub.add_parser("file")
     files.add_argument("--control", type=pathlib.Path, required=True)
     files.add_argument("--audit", type=pathlib.Path, required=True)
+    files.add_argument("--max-requests", type=int, default=12)
+    files.add_argument("--total-seconds", type=float, default=650)
+    files.add_argument("--wait-seconds", type=float, default=60)
     for mode in (replay, files):
         mode.add_argument("--model", required=True, choices=sorted(VERIFIED_MODELS))
         mode.add_argument("--reasoning-effort", required=True)
@@ -395,7 +425,7 @@ def main():
             _, audit = infer(prompt, schema, key, model=args.model, reasoning_effort=args.reasoning_effort)
             atomic_json(args.output, audit)
         else:
-            file_mode(args.control, key, args.audit, model=args.model, reasoning_effort=args.reasoning_effort)
+            file_mode(args.control, key, args.audit, model=args.model, reasoning_effort=args.reasoning_effort, max_requests=args.max_requests, total_seconds=args.total_seconds, wait_seconds=args.wait_seconds)
     finally:
         key = None
     print("Finished; inspect local audit. No game actions executed by this driver.")

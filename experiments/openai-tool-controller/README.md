@@ -52,3 +52,10 @@ file 模式：
 ## Restart protection
 
 File mode reserves each canonical request UUID in `.request-claims/` before any provider call. The exclusive, fsynced marker contains only identities, prompt/schema hashes, model/effort and `reserved_or_submitted_unknown`, never key or prompt text. Existing or partially written claims block automatic retries, even after driver restart. Outcomes remain in the audit and response files; a claim does not prove a request reached the provider. Reconcile an interrupted run manually; do not delete claims and blindly replay. Keep the control directory and claims together. This protects this local run, not copies across independent machines or provider-side transactions. Replay CLI remains an explicit new one-off request, not automatic recovery.
+
+
+## Host deadline and cancellation
+
+New file requests may include `deadlineUtc`; the transport caps its remaining request timeout against that advisory deadline and checks `canceled.json` before the call and before publishing. Expired/canceled requests do not start a new HTTP call. An already submitted server request may still incur usage even if its result is withheld; known usage remains in the audit. Game-side monotonic deadline and identity validation remain authoritative. UTC clock changes and the check/rename race mean this is not a distributed cancellation transaction. Legacy requests retain the existing total/HTTP bounds.
+
+For small measured batches, file CLI exposes existing bounded parameters `--max-requests 4 --total-seconds 180 --wait-seconds 60`; upper limits remain 12/650/60. Limits include host startup wait and do not grant permission to retry a claimed request. Request count is a cap, not a target.

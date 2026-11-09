@@ -49,3 +49,36 @@ Check(!Directory.GetFiles(cancelRoot,"accepted.json",SearchOption.AllDirectories
 string faultRoot=Path.Combine(Path.GetTempPath(),"ww-file-fault-"+Guid.NewGuid().ToString("N"));var fb=new StructuredFileController(faultRoot,_=>{});Directory.Delete(faultRoot);File.WriteAllText(faultRoot,"not directory");
 try{await fb.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default);throw new Exception("fault accepted");}catch(IOException){Check(true,"publication fault terminal");}
 Console.WriteLine($"PASS {passed}/{passed} complete file protocol checks including attempt cap/cancel/publication failure");
+
+// Host identity must match the published envelope and remain retired forever.
+string hostRoot=Path.Combine(Path.GetTempPath(),"ww-file-host-"+Guid.NewGuid().ToString("N"));
+var host=new StructuredFileController(hostRoot,_=>{});Guid hostId=Guid.NewGuid();
+var hp=host.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default,requestId:hostId,remainingBudget:TimeSpan.FromSeconds(2));
+string hr=Directory.GetFiles(hostRoot,"request.json",SearchOption.AllDirectories).Single();
+using(var hj=JsonDocument.Parse(File.ReadAllText(hr))){Check(hj.RootElement.GetProperty("requestId").GetGuid()==hostId,"host id preserved");Check(hj.RootElement.GetProperty("budgetSeconds").GetDouble()==2,"host budget published");}
+File.WriteAllText(Path.Combine(Path.GetDirectoryName(hr)!,"response.json"),Envelope(s,a,o,hostId));await hp;
+try{await host.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default,hostId);throw new Exception("reused host id");}catch(InvalidOperationException){Check(true,"host id cannot reuse");}
+foreach(var bad in new[]{TimeSpan.Zero,TimeSpan.FromSeconds(-1),TimeSpan.FromSeconds(120.01)}){
+ try{await host.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default,Guid.NewGuid(),bad);throw new Exception("bad budget accepted");}catch(ArgumentOutOfRangeException){Check(true,"invalid budget rejected");}
+}
+try{await host.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default,Guid.Empty);throw new Exception("empty host id");}catch(ArgumentException){Check(true,"empty id rejected");}
+Guid expiredId=Guid.NewGuid();var elapsed=System.Diagnostics.Stopwatch.StartNew();
+try{await host.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default,expiredId,TimeSpan.FromMilliseconds(30));throw new Exception("deadline ignored");}catch(OperationCanceledException){Check(elapsed.Elapsed<TimeSpan.FromSeconds(2),"short remaining budget expires");}
+try{await host.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default,expiredId);throw new Exception("expired id reused");}catch(InvalidOperationException){Check(true,"expired id retired");}
+string slowRoot=Path.Combine(Path.GetTempPath(),"ww-file-slow-"+Guid.NewGuid().ToString("N"));
+var slow=new StructuredFileController(slowRoot,item=>{var j=JsonSerializer.SerializeToElement(item);if(j.GetProperty("kind").GetString()=="controller_response_received")Thread.Sleep(80);});
+Guid slowId=Guid.NewGuid();var sp=slow.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,default,slowId,TimeSpan.FromMilliseconds(160));
+string sr=Directory.GetFiles(slowRoot,"request.json",SearchOption.AllDirectories).Single();File.WriteAllText(Path.Combine(Path.GetDirectoryName(sr)!,"response.json"),Envelope(s,a,o,slowId));
+try{await sp;throw new Exception("late return");}catch(OperationCanceledException){Check(!Directory.GetFiles(slowRoot,"accepted.json",SearchOption.AllDirectories).Any(),"late callback cannot return plan");}
+Console.WriteLine($"PASS {passed}/{passed} file controller checks with host identity/deadline");
+
+string canceledMarker=Directory.GetFiles(cancelRoot,"canceled.json",SearchOption.AllDirectories).Single();
+using(var marker=JsonDocument.Parse(File.ReadAllText(canceledMarker))){Check(marker.RootElement.GetProperty("reason").GetString()=="canceled","explicit cancel marker");Check(marker.RootElement.EnumerateObject().Count()==4,"marker no prompt/context");}
+string expiredDir=Directory.GetDirectories(hostRoot).Single(p=>p.EndsWith(expiredId.ToString("N")));
+using(var marker=JsonDocument.Parse(File.ReadAllText(Path.Combine(expiredDir,"canceled.json"))))Check(marker.RootElement.GetProperty("requestId").GetGuid()==expiredId&&marker.RootElement.GetProperty("reason").GetString()=="deadline_expired","deadline marker bound identity");
+using(var requestDoc=JsonDocument.Parse(File.ReadAllText(hr))){var pub=requestDoc.RootElement.GetProperty("publishedUtc").GetDateTimeOffset();var end=requestDoc.RootElement.GetProperty("deadlineUtc").GetDateTimeOffset();Check(end>pub&&end-pub<=TimeSpan.FromSeconds(2),"conservative UTC hint");}
+string markerFaultRoot=Path.Combine(Path.GetTempPath(),"ww-file-markerfault-"+Guid.NewGuid().ToString("N"));var markerFault=new StructuredFileController(markerFaultRoot,_=>{});using var markerCancel=new CancellationTokenSource();
+var markerTask=markerFault.DecideAsync(prompt,s,a,o,JsonSerializer.SerializeToElement(new{}),Array.Empty<ToolOffer>(),0,markerCancel.Token);
+string markerDir=Directory.GetDirectories(markerFaultRoot).Single();Directory.CreateDirectory(Path.Combine(markerDir,"canceled.tmp"));markerCancel.Cancel();
+try{await markerTask;throw new Exception("cancel swallowed");}catch(OperationCanceledException){Check(true,"marker write failure preserves cancellation");}
+Console.WriteLine($"PASS {passed}/{passed} file controller checks including lifecycle markers");

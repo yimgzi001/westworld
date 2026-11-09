@@ -1,0 +1,12 @@
+{
+  "rawBytes": 66312,
+  "rawSHA256": "1e91a166d3c60822ffa48cf6bd11678aa321f20d70e76f609445618713147589",
+  "gzipSHA256": "ea47393e5e4771c110a055dbe77ee53e72d5a0bae4c523e7df3120be70e0fb7c",
+  "parts": [
+    {
+      "file": "source-snapshot-12.gz.b64.part001",
+      "bytes": 24264,
+      "sha256": "3f0b93e631ced215db95ec01eb94ead07d148239ca1a87b0250a01680c34279e"
+    }
+  ]
+}

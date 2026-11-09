@@ -146,3 +146,24 @@ var cancelParser=new ToolDecisionPrompt(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGu
 bool wrongCancel=false;try{cancelParser.ParseResponse(JsonSerializer.Serialize(new{goal="stop",steps=new[]{new{tool="host_cancel_navigation",arguments=new{request_id=Guid.NewGuid().ToString()}}}}));}catch(FormatException){wrongCancel=true;}
 Check(wrongCancel,"forged cancellation request rejected before native");
 Console.WriteLine("HOST FINAL TOTAL "+checks);
+
+var deferredOffers=NativeToolOffers.Build(tools.Concat(navDefs).ToArray(),obs,inventory,[mapReceipt],navBusy,OfferPurpose.AfterPrecedingSuccess);
+Check(deferredOffers.Any(x=>x.Name=="act_Dig")&&deferredOffers.Any(x=>x.Name=="host_navigate_local"),"deferred exposes ordinary and navigation future capabilities");
+Check(deferredOffers.All(x=>x.Name is not("cancel_action" or "cancel_task" or "host_cancel_navigation")),"deferred excludes cancellation of predecessor");
+Check(deferredOffers.All(x=>x.Description.StartsWith("After predecessor SUCCESS and fresh validation only.")),"deferred permission explicitly conditional");
+Check(navBusy.GetProperty("busy").GetBoolean()&&navBusy.GetProperty("status").GetString()=="running","deferred does not rewrite true busy facts");
+var immediateEquivalent=NativeToolOffers.Build(tools.Concat(navDefs).ToArray(),obs,inventory,[mapReceipt],navIdle);
+foreach(var offer in deferredOffers){
+ var original=immediateEquivalent.Single(x=>x.Name==offer.Name);
+ Check(offer.Parameters.GetRawText()==original.Parameters.GetRawText(),"deferred preserves actual schema and refs "+offer.Name);
+}
+foreach(var invalidStatus in new JsonElement?[]{null,navIdle,JsonSerializer.SerializeToElement(new{request_id=navId,status="stopping",busy=true}),J("{}")}){
+ bool denied=false;try{NativeToolOffers.Build(navDefs,obs,inventory,[],invalidStatus,OfferPurpose.AfterPrecedingSuccess);}catch(ArgumentException){denied=true;}
+ Check(denied,"deferred requires validated running predecessor");
+}
+var noResources=NativeToolOffers.Build(tools, J("{}"),J("{}"),[],navBusy,OfferPurpose.AfterPrecedingSuccess);
+Check(noResources.All(x=>x.Name is not("act_Dig" or "act_MeleeAttack" or "act_PickUp" or "act_Craft")),"deferred does not invent future resource refs");
+bool unknownPurpose=false;try{NativeToolOffers.Build(navDefs,obs,inventory,[],navBusy,(OfferPurpose)999);}catch(ArgumentOutOfRangeException){unknownPurpose=true;}
+Check(unknownPurpose,"invalid purpose fails closed");
+Check(NativeToolOffers.Build(tools.Concat(navDefs).ToArray(),obs,inventory,[],navBusy).All(x=>!x.Name.StartsWith("act_")),"default immediate still rejects competing actions after deferred build");
+Console.WriteLine("PREFETCH FINAL TOTAL "+checks);

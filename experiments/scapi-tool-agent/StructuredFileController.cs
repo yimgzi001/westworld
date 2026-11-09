@@ -6,18 +6,29 @@ using Westworld.Decisions.Local;
 
 /// <summary>Data-only bridge. Never interprets code or dispatches native actions.</summary>
 public sealed class StructuredFileController {
- readonly string root;readonly Action<object> log;long ordinal;
+ readonly string root;readonly Action<object> log;long ordinal;readonly HashSet<Guid> issuedRequests=new();readonly object requestLock=new();
  public StructuredFileController(string directory,Action<object> audit){root=Path.GetFullPath(directory);log=audit;if(Directory.Exists(root))throw new InvalidOperationException("Fresh control directory required");Directory.CreateDirectory(root);}
- public async Task<ToolDecisionPlan> DecideAsync(ToolDecisionPrompt prompt,Guid session,Guid actor,Guid observation,JsonElement context,object offers,double gameTime,CancellationToken cancellation){
+ public async Task<ToolDecisionPlan> DecideAsync(ToolDecisionPrompt prompt,Guid session,Guid actor,Guid observation,JsonElement context,object offers,double gameTime,CancellationToken cancellation,Guid? requestId=null,TimeSpan? remainingBudget=null){
+  long startedTicks=Stopwatch.GetTimestamp();
+  TimeSpan budget=remainingBudget??TimeSpan.FromSeconds(120);
+  if(budget<=TimeSpan.Zero||budget>TimeSpan.FromSeconds(120))throw new ArgumentOutOfRangeException(nameof(remainingBudget));
+  if(requestId==Guid.Empty)throw new ArgumentException("Nonempty host request ID required",nameof(requestId));
   cancellation.ThrowIfCancellationRequested();
-  using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancellation);deadline.CancelAfter(TimeSpan.FromSeconds(120));cancellation=deadline.Token;
-  Guid request=Guid.NewGuid();long n=Interlocked.Increment(ref ordinal);string dir=Path.Combine(root,$"{n:D4}-{request:N}");Directory.CreateDirectory(dir);
-  var published=DateTimeOffset.UtcNow;var payload=new{protocol="westworld-tool-file-v1",sessionId=session,actorId=actor,observationId=observation,requestId=request,publishedUtc=published,publishedGameTime=gameTime,context,offers,prompt=prompt.Prompt,responseSchema=JsonDocument.Parse(prompt.ResponseSchema).RootElement.Clone(),responseFormat=new{sessionId=session,actorId=actor,observationId=observation,requestId=request,decision=new{goal="your short goal",steps=Array.Empty<object>()}}};
-  string tmp=Path.Combine(dir,"request.tmp"),ready=Path.Combine(dir,"request.json");File.WriteAllText(tmp,JsonSerializer.Serialize(payload),new UTF8Encoding(false));File.Move(tmp,ready);
+  using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancellation);deadline.CancelAfter(budget);cancellation=deadline.Token;
+  void CheckDeadline(){cancellation.ThrowIfCancellationRequested();if(Stopwatch.GetElapsedTime(startedTicks)>=budget)throw new OperationCanceledException("Controller request deadline expired",cancellation);}
+  Guid request=requestId??Guid.NewGuid();
+  lock(requestLock){if(issuedRequests.Count>=4096)throw new InvalidOperationException("Controller request identity budget exhausted");if(!issuedRequests.Add(request))throw new InvalidOperationException("Controller request ID already used");}
+  CheckDeadline();long n=Interlocked.Increment(ref ordinal);string dir=Path.Combine(root,$"{n:D4}-{request:N}");Directory.CreateDirectory(dir);
   long publishedTicks=Stopwatch.GetTimestamp();
+  try{
+  var published=DateTimeOffset.UtcNow;var deadlineUtc=published+TimeSpan.FromSeconds(Math.Max(0,(budget-Stopwatch.GetElapsedTime(startedTicks)).TotalSeconds));var payload=new{protocol="westworld-tool-file-v1",sessionId=session,actorId=actor,observationId=observation,requestId=request,deadlineUtc,budgetSeconds=budget.TotalSeconds,startedMonotonicTicks=startedTicks,monotonicFrequency=Stopwatch.Frequency,publishedUtc=published,publishedGameTime=gameTime,context,offers,prompt=prompt.Prompt,responseSchema=JsonDocument.Parse(prompt.ResponseSchema).RootElement.Clone(),responseFormat=new{sessionId=session,actorId=actor,observationId=observation,requestId=request,decision=new{goal="your short goal",steps=Array.Empty<object>()}}};
+  string tmp=Path.Combine(dir,"request.tmp"),ready=Path.Combine(dir,"request.json");File.WriteAllText(tmp,JsonSerializer.Serialize(payload),new UTF8Encoding(false));try{CheckDeadline();File.Move(tmp,ready);}finally{if(File.Exists(tmp))File.Delete(tmp);}
+  publishedTicks=Stopwatch.GetTimestamp();
   log(new{kind="controller_request_published",controller="file",requestId=request,ordinal=n,sessionId=session,actorId=actor,observationId=observation,wallUtc=published,monotonicTicks=publishedTicks,monotonicFrequency=Stopwatch.Frequency,gameTime,requestPath=ready});
+  CheckDeadline();
+  }catch(OperationCanceledException){WriteCancellation(dir,request,Stopwatch.GetElapsedTime(startedTicks)>=budget?"deadline_expired":"canceled");throw;}
   string response=Path.Combine(dir,"response.json");int rejected=0;var seen=new HashSet<string>();
-  try{while(true){cancellation.ThrowIfCancellationRequested();
+  try{while(true){CheckDeadline();
     if(rejected>=32){log(new{kind="controller_request_failed",requestId=request,reason="response_attempt_budget_exhausted",receivedAttempts=rejected,monotonicTicks=Stopwatch.GetTimestamp(),elapsedSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds});throw new InvalidDataException("Response attempt budget exhausted");}
     if(File.Exists(response)){
     long responseObservedTicks=Stopwatch.GetTimestamp();
@@ -26,12 +37,19 @@ public sealed class StructuredFileController {
     try{File.Move(response,claimed);rejected++;}catch(IOException){await Task.Delay(50,cancellation);continue;}
     try{var info=new FileInfo(claimed);if(info.Length>65536)throw new InvalidDataException("Response exceeds 64KiB");
      string raw=await ReadBoundedAsync(claimed,cancellation);var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));if(!seen.Add(hash))continue;var result=Validate(raw,prompt,session,actor,observation,request);
-     cancellation.ThrowIfCancellationRequested();
+     CheckDeadline();
      File.WriteAllText(Path.Combine(dir,"accepted.json"),JsonSerializer.Serialize(new{requestId=request,responseFile=Path.GetFileName(claimed),acceptedUtc=DateTimeOffset.UtcNow,monotonicTicks=Stopwatch.GetTimestamp()}));
-     log(new{kind="controller_response_received",controller="file",requestId=request,wallUtc=DateTimeOffset.UtcNow,waitSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds,monotonicTicks=Stopwatch.GetTimestamp(),responseObservedTicks,monotonicFrequency=Stopwatch.Frequency,responseFile=claimed,decision=result});return result;
+     log(new{kind="controller_response_received",controller="file",requestId=request,wallUtc=DateTimeOffset.UtcNow,waitSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds,monotonicTicks=Stopwatch.GetTimestamp(),responseObservedTicks,monotonicFrequency=Stopwatch.Frequency,responseFile=claimed,decision=result});
+     try{CheckDeadline();}catch(OperationCanceledException){File.Delete(Path.Combine(dir,"accepted.json"));throw;}return result;
     }catch(Exception e)when(e is not OperationCanceledException){log(new{kind="controller_response_rejected",requestId=request,wallUtc=DateTimeOffset.UtcNow,responseFile=claimed,monotonicTicks=Stopwatch.GetTimestamp(),error=e.Message});}
    }await Task.Delay(100,cancellation);}
-  }catch(OperationCanceledException){log(new{kind="controller_request_canceled",requestId=request,wallUtc=DateTimeOffset.UtcNow,monotonicTicks=Stopwatch.GetTimestamp(),elapsedSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds});throw;}
+  }catch(OperationCanceledException){WriteCancellation(dir,request,Stopwatch.GetElapsedTime(startedTicks)>=budget?"deadline_expired":"canceled");log(new{kind="controller_request_canceled",requestId=request,wallUtc=DateTimeOffset.UtcNow,monotonicTicks=Stopwatch.GetTimestamp(),elapsedSeconds=Stopwatch.GetElapsedTime(publishedTicks).TotalSeconds});throw;}
+ }
+ static void WriteCancellation(string directory,Guid request,string reason){
+  // Best effort lifecycle hint for external controllers, never an API cancellation guarantee.
+  string temporary=Path.Combine(directory,"canceled.tmp"),ready=Path.Combine(directory,"canceled.json");
+  try{File.WriteAllText(temporary,JsonSerializer.Serialize(new{requestId=request,reason,canceledUtc=DateTimeOffset.UtcNow,monotonicTicks=Stopwatch.GetTimestamp()}),new UTF8Encoding(false));File.Move(temporary,ready,true);}catch{ /* preserve the original cancellation even on disk failure */ }
+  finally{try{if(File.Exists(temporary))File.Delete(temporary);}catch{}}
  }
  static async Task<string> ReadBoundedAsync(string path,CancellationToken cancellation){
   // Read bound is enforced during IO, not just via racy pre-read FileInfo.Length.

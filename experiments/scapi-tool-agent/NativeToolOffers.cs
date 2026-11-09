@@ -5,6 +5,8 @@ using Westworld.Decisions.Local;
 
 // Fact/capability filter, not a survival policy. Inputs must be same-actor native results;
 // the caller owns freshness and must revalidate each dispatched action.
+public enum OfferPurpose { Immediate, AfterPrecedingSuccess }
+
 public static class NativeToolOffers {
  static readonly HashSet<string> Profile=new(StringComparer.Ordinal){
   "observe","read_self","read_environment","read_inventory","read_storage","read_item",
@@ -12,9 +14,10 @@ public static class NativeToolOffers {
   "act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
   "act_Dig","act_Place","act_MeleeAttack","act_Craft","act_Jump","act_Sleep","act_WakeUp"
  };
- public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null){
+ public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate){
   ArgumentNullException.ThrowIfNull(native);ArgumentNullException.ThrowIfNull(recentResults);
   if(native.Count>128||recentResults.Count>32)throw new ArgumentException("Bounded native context required");
+  if(!Enum.IsDefined(purpose))throw new ArgumentOutOfRangeException(nameof(purpose));
   observation=Data(observation);inventory=Data(inventory);
   var rememberedPositions=new HashSet<string>();var positions=new HashSet<string>();var blocks=new HashSet<string>();var entities=new HashSet<string>();var drops=new HashSet<string>();
   var storage=new HashSet<string>();var workspaces=new HashSet<string>();var recipes=new HashSet<string>();
@@ -64,11 +67,15 @@ public static class NativeToolOffers {
   }
   bool navKnown=navigationStatus.HasValue&&ToolResultProjection.ValidNavigationStatus(navigationStatus.Value);
   bool navBusy=navKnown&&navigationStatus!.Value.GetProperty("busy").GetBoolean();
+  bool deferred=purpose==OfferPurpose.AfterPrecedingSuccess;
+  if(deferred&&(!navBusy||navigationStatus!.Value.GetProperty("status").GetString()!="running"))
+   throw new ArgumentException("Deferred offers require an actual running predecessor navigation status",nameof(navigationStatus));
   var result=new List<ToolOffer>();
   foreach(var tool in native.Where(t=>Profile.Contains(t.Name))){
-   if(navBusy&&(tool.Name.StartsWith("act_",StringComparison.Ordinal)||tool.Name is "plan_craft" or "cancel_action" or "cancel_task"))continue;
+   if(deferred&&tool.Name is ("cancel_action" or "cancel_task" or "host_cancel_navigation"))continue;
+   if(!deferred&&navBusy&&(tool.Name.StartsWith("act_",StringComparison.Ordinal)||tool.Name is "plan_craft" or "cancel_action" or "cancel_task"))continue;
    if(tool.Name is "host_navigate_local" or "host_navigation_status" or "host_cancel_navigation"){
-    if(tool.Name=="host_navigate_local"&&(!navKnown||navBusy))continue;
+    if(tool.Name=="host_navigate_local"&&(!navKnown||(navBusy&&!deferred)))continue;
     if(tool.Name=="host_cancel_navigation"&&(!navKnown||!navBusy))continue;
     var hostSchema=JsonNode.Parse(tool.Parameters.GetRawText())!.AsObject();StripDescriptions(hostSchema);
     if(tool.Name=="host_cancel_navigation"){
@@ -117,6 +124,9 @@ public static class NativeToolOffers {
    if(branches is not null){branches=branches.Where(b=>b.Required.All(props.ContainsKey)).ToArray();if(branches.Count==0)continue;}
    result.Add(new(tool.Name,Describe(tool),JsonSerializer.SerializeToElement(schema),bindings,branches));
   }
+  // Planning capability is not execution permission. Preserve the actual busy status
+  // in host context; dispatch must rebuild Immediate offers from a fresh snapshot.
+  if(deferred)return result.Select(o=>o with{Description="After predecessor SUCCESS and fresh validation only. "+o.Description}).ToArray();
   return result.AsReadOnly();
  }
  // Preserve operational prerequisites lost when verbose parameter descriptions are removed.

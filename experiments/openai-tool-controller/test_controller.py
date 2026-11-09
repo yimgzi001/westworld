@@ -265,4 +265,39 @@ class RecoveryClaimsTests(unittest.TestCase):
             self.assertEqual(record["error"],"prior_request_requires_reconciliation")
             self.assertIsNone(record["usage"])
 
+
+class HostDeadlineTests(unittest.TestCase):
+    def test_deadline_and_cancel(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=pathlib.Path(d)
+            future=(c.datetime.datetime.now(c.datetime.timezone.utc)+c.datetime.timedelta(seconds=10)).isoformat()
+            self.assertGreater(c.host_remaining({"deadlineUtc":future},p),0)
+            self.assertLessEqual(c.host_remaining({"deadlineUtc":future},p),10)
+            self.assertEqual(c.host_remaining({"deadlineUtc":"2000-01-01T00:00:00Z"},p),0)
+            for value in [12,"bad","2026-01-01T00:00:00"]:
+                with self.assertRaises(c.ControllerError):c.host_remaining({"deadlineUtc":value},p)
+            (p/"canceled.json").write_text("{}")
+            self.assertEqual(c.host_remaining({"deadlineUtc":future},p),0)
+    def test_expired_never_calls(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)/"control";root.mkdir();p=root/"001";p.mkdir()
+            request={"protocol":"westworld-tool-file-v1","prompt":"p","responseSchema":SCHEMA,"deadlineUtc":"2000-01-01T00:00:00Z",**{k:str(uuid.uuid4()) for k in c.IDS}}
+            (p/"request.json").write_text(json.dumps(request))
+            with patch.object(c,"infer") as call:
+                c.file_mode(root,"unused",pathlib.Path(d)/"audit",**OPTIONS,max_requests=1,total_seconds=1)
+                call.assert_not_called()
+            self.assertFalse((p/"response.json").exists())
+    def test_cancel_during_call_never_publishes(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)/"control";root.mkdir();p=root/"001";p.mkdir()
+            request={"protocol":"westworld-tool-file-v1","prompt":"p","responseSchema":SCHEMA,**{k:str(uuid.uuid4()) for k in c.IDS}}
+            (p/"request.json").write_text(json.dumps(request))
+            def result(*a,**k):
+                (p/"canceled.json").write_text("{}")
+                return DECISION,{"usage":{"total_tokens":17}}
+            with patch.object(c,"infer",side_effect=result):
+                c.file_mode(root,"unused",pathlib.Path(d)/"audit",**OPTIONS,max_requests=1,total_seconds=1)
+            self.assertFalse((p/"response.json").exists())
+            self.assertEqual(json.loads((pathlib.Path(d)/"audit").read_text())["usage"]["total_tokens"],17)
+
 if __name__=="__main__":unittest.main()
