@@ -8,6 +8,8 @@ class StageTests(unittest.TestCase):
   content=root/'Content.zip';content.write_bytes(b'fixture-not-game')
   driver=root/'experiments/food-acquisition-evidence/deterministic_driver.py';driver.parent.mkdir(parents=True);driver.write_text('# synthetic driver')
   (root/'runtime/x').mkdir(parents=True);(root/'runtime/x/x.cs').write_text('// fixture');(out/'.env').write_text('not copied')
+  for relative in stage.SOURCE_FILES:
+   p=root/relative;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('// native source fixture')
   return root,out,content
  def test_stage_exact_mode_no_autostart(self):
   with tempfile.TemporaryDirectory() as tmp:
@@ -28,6 +30,17 @@ class StageTests(unittest.TestCase):
    self.assertEqual(json.loads((dest/'installed-hashes.json').read_text())['sources/'+relative],expected)
    source.write_text('# changed after stage');self.assertEqual(frozen.read_text(),'# synthetic frozen controller')
    self.assertFalse((dest/'sources/experiments/openai-tool-controller/evidence').exists())
+ def test_native_component_source_frozen(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root,out,content=self.setup(tmp);dest=stage.stage(root,'food28',out,content)
+   for relative in stage.SOURCE_FILES:
+    self.assertEqual((dest/'sources'/relative).read_bytes(),(root/relative).read_bytes())
+    self.assertIn(relative,json.loads((dest/'source-hashes.json').read_text()))
+ def test_missing_component_no_partial_stage(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root,out,content=self.setup(tmp);(root/stage.SOURCE_FILES[0]).unlink()
+   with self.assertRaises(FileNotFoundError):stage.stage(root,'food28',out,content)
+   self.assertFalse((root/'work/food28').exists())
  def test_fresh_required(self):
   with tempfile.TemporaryDirectory() as tmp:
    root,out,content=self.setup(tmp);stage.stage(root,'food24',out,content)

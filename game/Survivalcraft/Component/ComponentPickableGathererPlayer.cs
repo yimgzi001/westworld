@@ -40,7 +40,11 @@ namespace Game {
                 blockBehaviors[i].OnPickableGathered(pickable, this, pickable.Position - Position);
             }
             if (!pickable.ToRemove) {
+                int auditValue=pickable.Value, auditSourceBefore=pickable.Count;
+                int? auditInventoryBefore=Game.Westworld.NativeAcquisitionAudit.InventoryCount(m_inventory,auditValue);
                 pickable.Count = ComponentInventoryBase.AcquireItems(m_inventory, pickable.Value, pickable.Count);
+                Game.Westworld.NativeAcquisitionAudit.Record(pickable,Entity,auditValue,auditSourceBefore,pickable.Count,auditInventoryBefore,
+                    Game.Westworld.NativeAcquisitionAudit.InventoryCount(m_inventory,auditValue),"automatic",m_subsystemGameInfo.TotalElapsedGameTime);
                 if (pickable.Count == 0) {
                     pickable.ToRemove = true;
                     m_subsystemAudio.PlaySound("Audio/PickableCollected", 0.7f, -0.4f, Position, 2f, false);

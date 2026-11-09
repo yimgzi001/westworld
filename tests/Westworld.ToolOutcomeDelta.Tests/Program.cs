@@ -1,0 +1,37 @@
+using System.Text.Json;
+using System.Text;
+int n=0;void Check(bool ok,string name){if(!ok)throw new Exception(name);n++;Console.WriteLine("PASS "+name);}
+void Reject(Action action,string name){try{action();}catch(ArgumentException){Check(true,name);return;}catch(InvalidOperationException){Check(true,name);return;}throw new Exception(name);}
+JsonElement J(string text)=>JsonDocument.Parse(text).RootElement.Clone();
+var session=Guid.NewGuid();var actor=Guid.NewGuid();
+ToolOutcomeSnapshot Snap(string slots)=>new(session,actor,Guid.NewGuid(),J("{\"slots\":"+slots+"}"));
+var empty=Snap("[{\"slot\":0,\"value\":0,\"count\":0}]");var owned=Snap("[{\"slot\":0,\"value\":89,\"count\":1}]");
+var terminal=new ToolOutcomeTerminal("host_navigate_local",17,"arrived");var undone=new[]{new ToolUnexecutedStep("act_PickUp","old reference not present in fresh observation")};
+JsonElement Build(ToolOutcomeSnapshot a,ToolOutcomeSnapshot b)=>ToolOutcomeDelta.Build(a,b,"Obtain food",terminal,undone);
+var feedback=Build(empty,owned);var change=feedback.GetProperty("inventoryDelta")[0];
+Check(change.GetProperty("net").GetInt64()==1&&change.GetProperty("value").GetInt32()==89,"automatic collection exposes only observed positive inventory delta");
+Check(!feedback.GetProperty("unexecuted")[0].GetProperty("executed").GetBoolean(),"stale pickup remains explicitly unexecuted");
+Check(feedback.GetProperty("originalGoal").GetString()=="Obtain food"&&feedback.GetProperty("preceding").GetProperty("status").GetString()=="arrived","goal and actual predecessor retained");
+Check(!feedback.GetRawText().Contains("act_Eat")&&!feedback.TryGetProperty("source",out _),"no automatic Eat or inferred resource source");
+var unchanged=Build(empty,empty with{ObservationId=Guid.NewGuid()});Check(unchanged.GetProperty("totalChangedValues").GetInt32()==0,"disappearing target without inventory increase does not fabricate collection");
+var moved=Snap("[{\"slot\":3,\"value\":89,\"count\":1}]");var movedBefore=Snap("[{\"slot\":0,\"value\":89,\"count\":1},{\"slot\":3,\"value\":0,\"count\":0}]");var movedAfter=Snap("[{\"slot\":0,\"value\":0,\"count\":0},{\"slot\":3,\"value\":89,\"count\":1}]");Check(Build(movedBefore,movedAfter).GetProperty("inventoryDelta").GetArrayLength()==0,"slot movement cancels for identical full value");Reject(()=>Build(owned,moved),"changed slot coverage cannot fabricate inventory loss");
+var mixedBefore=Snap("[{\"slot\":0,\"value\":9,\"count\":2},{\"slot\":1,\"value\":89,\"count\":1}]");
+var mixedAfter=Snap("[{\"slot\":0,\"value\":9,\"count\":1},{\"slot\":1,\"value\":89,\"count\":2}]");var mixed=Build(mixedBefore,mixedAfter).GetProperty("inventoryDelta");
+Check(mixed.GetArrayLength()==2&&mixed[0].GetProperty("net").GetInt64()==-1&&mixed[1].GetProperty("net").GetInt64()==1,"different items never cancel each other by total count");
+foreach(var bad in new[]{"[{\"slot\":0,\"value\":9,\"count\":1},{\"slot\":0,\"value\":89,\"count\":1}]","[{\"slot\":0,\"value\":9,\"count\":-1}]","[{\"slot\":0,\"value\":0,\"count\":1}]","[{\"slot\":0,\"value\":9}]","[{\"slot\":0,\"value\":9,\"count\":1.5}]","[{\"slot\":4096,\"value\":9,\"count\":1}]","[{\"slot\":0,\"value\":9,\"count\":1,\"count\":2}]"})Reject(()=>Build(empty,Snap(bad)),"invalid slots rejected: "+bad);
+Reject(()=>Build(empty,owned with{ActorId=Guid.NewGuid()}),"cross actor rejected");Reject(()=>Build(empty,owned with{SessionId=Guid.NewGuid()}),"cross session rejected");Reject(()=>Build(empty,owned with{ObservationId=empty.ObservationId}),"same observation cannot be before and after");
+Reject(()=>Build(empty,owned with{Inventory=J("{\"slots\":[],\"emptySlotIds\":[0]}")}),"compact inventory rejected rather than silently filling missing slots");
+Reject(()=>ToolOutcomeDelta.Build(empty,owned,"goal",terminal with{Status="running"},undone),"nonterminal input not invented success");
+var longCounts=Snap("[{\"slot\":0,\"value\":89,\"count\":2147483647},{\"slot\":1,\"value\":89,\"count\":2147483647}]");var emptyTwo=Snap("[{\"slot\":0,\"value\":0,\"count\":0},{\"slot\":1,\"value\":0,\"count\":0}]");Check(Build(emptyTwo,longCounts).GetProperty("inventoryDelta")[0].GetProperty("net").GetInt64()==4294967294L,"aggregation uses long without int overflow");
+var limited=ToolOutcomeDelta.Build(mixedBefore,mixedAfter,"goal",terminal,undone,maxChanges:1);Check(limited.GetProperty("omittedChangedValues").GetInt32()==1&&limited.GetProperty("totalChangedValues").GetInt32()==2,"bounded summary reports omissions exactly");
+var noChanges=ToolOutcomeDelta.Build(mixedBefore,mixedAfter,"goal",terminal,undone,maxChanges:0);Check(noChanges.GetProperty("inventoryDelta").GetArrayLength()==0&&noChanges.GetProperty("unexecuted").GetArrayLength()==1,"zero-change budget preserves unfinished step facts");
+Reject(()=>ToolOutcomeDelta.Build(empty,owned,new string('中',160),terminal,undone,maxChars:256,maxUtf8Bytes:256),"identity and goal never silently truncated to fit budget");
+Check(feedback.GetProperty("beforeObservationId").GetGuid()==empty.ObservationId&&feedback.GetProperty("afterObservationId").GetGuid()==owned.ObservationId,"public observation identities retained");
+var manyBefore=Snap(JsonSerializer.Serialize(Enumerable.Range(0,24).Select(slot=>new{slot,value=0,count=0})));
+var manyAfter=Snap(JsonSerializer.Serialize(Enumerable.Range(0,24).Select(slot=>new{slot,value=100+slot,count=1})));
+var budgeted=ToolOutcomeDelta.Build(manyBefore,manyAfter,"Observe changes",terminal,undone,maxChanges:24,maxChars:1200,maxUtf8Bytes:1200);
+Check(budgeted.GetRawText().Length<=1200&&Encoding.UTF8.GetByteCount(budgeted.GetRawText())<=1200,"actual final output meets both character and byte budgets");
+Check(budgeted.GetProperty("omittedChangedValues").GetInt32()>0&&budgeted.GetProperty("unexecuted")[0].GetProperty("reason").GetString()==undone[0].Reason,"budget removes only counted change entries not unfinished reason");
+var failed=ToolOutcomeDelta.Build(empty,owned,"Goal still pending",terminal with{Status="failed"},undone);
+Check(failed.GetProperty("preceding").GetProperty("status").GetString()=="failed"&&failed.GetProperty("inventoryDelta")[0].GetProperty("net").GetInt64()==1,"failed preceding tool does not discard valid concurrent inventory facts");
+Console.WriteLine("TOTAL "+n);

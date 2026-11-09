@@ -3,6 +3,7 @@
 import argparse,hashlib,json,pathlib,re,shlex,shutil
 REQUIRED=('ToolAgentGate.dll','Survivalcraft.dll','Westworld.Scapi.Adapter.dll','Westworld.Runtime.Core.dll','Westworld.Decisions.Local.dll','ToolAgentGate.runtimeconfig.json','ToolAgentGate.deps.json','runtimes/linux-x64/native/libglfw.so.3','runtimes/linux-x64/native/libnfd.so')
 SOURCE_FOLDERS=('runtime','game/Survivalcraft/Westworld','experiments/scapi-tool-agent','experiments/food-acquisition-evidence','experiments/openai-tool-controller')
+SOURCE_FILES=('game/Survivalcraft/Component/ComponentPickableGathererPlayer.cs',)
 def safe(path):
  p=pathlib.Path(path).absolute()
  if any(x.is_symlink() for x in (p,*p.parents)):raise ValueError('symlink')
@@ -27,6 +28,10 @@ def stage(root,label,build_output,content,controller='deterministic'):
   for p in (root/folder).rglob('*'):
    if any(part in ('bin','obj','__pycache__','evidence') for part in p.relative_to(root/folder).parts):continue
    if p.is_file() and p.suffix in ('.cs','.csproj','.props','.targets','.py'):sources.append(safe(p))
+ for relative in SOURCE_FILES:
+  p=safe(root/relative)
+  if not p.is_file():raise FileNotFoundError(relative)
+  sources.append(p)
  driver=safe(root/'experiments/food-acquisition-evidence/deterministic_driver.py')
  if not driver.is_file():raise FileNotFoundError('deterministic driver')
  dest.mkdir(parents=True)

@@ -141,6 +141,9 @@ namespace Game.Westworld {
                 return Reject(action, AtomicActionFailure.Blocked);
             }
 
+            int auditValue=target.Value,auditSourceBefore=target.Count;
+            bool auditInventoryPath=!(BlocksManager.Blocks[Terrain.ExtractContents(target.Value)] is ExperienceBlock && m_actor.FindComponent<ComponentLevel>() is not null);
+            int? auditInventoryBefore=auditInventoryPath?NativeAcquisitionAudit.InventoryCount(CarryInventory,auditValue):null;
             int requested = Math.Min(action.Count, target.Count);
             int acquired = 0;
             List<InventorySlotView> received = [];
@@ -167,6 +170,8 @@ namespace Game.Westworld {
             }
             target.Count -= acquired;
             target.ToRemove = target.Count == 0;
+            if(auditInventoryPath)NativeAcquisitionAudit.Record(target,m_actor,auditValue,auditSourceBefore,target.Count,auditInventoryBefore,
+                NativeAcquisitionAudit.InventoryCount(CarryInventory,auditValue),"explicit",m_actor.Project.FindSubsystem<SubsystemGameInfo>()?.TotalElapsedGameTime??double.NaN);
             m_actor.Project.FindSubsystem<SubsystemAudio>()?.PlaySound("Audio/PickableCollected", 0.7f, -0.4f, center, 2f, false);
             return new AtomicActionRun(action, Completed(acquired) with { ReceivedItems = received.AsReadOnly() });
         }
