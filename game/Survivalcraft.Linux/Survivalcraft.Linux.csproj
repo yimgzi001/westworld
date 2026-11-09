@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <Import Project="..\Survivalcraft\Survivalcraft.props" />
     <Import Project="..\build\Linux.props" />
     <ItemGroup>
@@ -19,4 +19,8 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>
+    <!-- Match Windows: Content.zip is generated and intentionally not versioned. -->
+    <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+        <ZipDirectory SourceDirectory="..\Survivalcraft\Content" DestinationFile="..\Survivalcraft\Content.zip" Overwrite="true" />
+    </Target>
 </Project>
