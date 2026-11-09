@@ -48,6 +48,13 @@ namespace Game {
             m_externalInput = new PlayerInput { Move = move, Look = look, Jump = jump };
         }
 
+        public void ClearExternalMovement() {
+            if (Environment.CurrentManagedThreadId != m_inputOwnerThread || !m_componentPlayer.PlayerData.IsExternalActor)
+                throw new InvalidOperationException("External stop requires actor game thread");
+            m_externalInput = default;
+            m_playerInput = default;
+        }
+
         public bool IsControlledByTouch { get; set; } = Touch.IsTouched;
 
         public bool IsControlledByVr => !m_componentPlayer.PlayerData.IsExternalActor && VrManager.IsFrameActive
