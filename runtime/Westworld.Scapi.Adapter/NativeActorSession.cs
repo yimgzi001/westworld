@@ -14,7 +14,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  }
  readonly Project project;readonly SubsystemTerrain terrain;readonly Stopwatch clock=Stopwatch.StartNew();
  readonly Dictionary<Guid,ComponentPlayer> actors=new();readonly Dictionary<Guid,Ticket> tickets=new();
- readonly Dictionary<Guid,(Guid Actor,Position Origin,double Time,SlotObservation[] Inventory)> observations=new();
+ readonly Dictionary<Guid,(Guid Actor,Position Origin,double Time,SlotObservation[] Inventory,CellObservation[] Cells)> observations=new();
  readonly HashSet<Guid> retiredBindings=new();
  readonly int owner=Environment.CurrentManagedThreadId;bool disposed;
  public ActorRegistry Registry {get;}
@@ -29,7 +29,7 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  public ActorObservation Observe(Guid session,Guid actorId){
   var p=Actor(session,actorId);var origin=PositionOf(p);var eye=p.ComponentCreatureModel.EyePosition;var forward=Vector3.Normalize(p.ComponentCreatureModel.EyeRotation.GetForwardVector());
   var cells=new List<CellObservation>();int bx=Terrain.ToCell((float)origin.X),by=Terrain.ToCell((float)origin.Y),bz=Terrain.ToCell((float)origin.Z);
-  for(int x=bx-2;x<=bx+2;x++)for(int z=bz-2;z<=bz+2;z++)for(int y=by-2;y<=by+1;y++){
+  for(int x=bx-4;x<=bx+4;x++)for(int z=bz-4;z<=bz+4;z++)for(int y=by-2;y<=by+1;y++){
    var target=new Vector3(x+0.5f,y+0.5f,z+0.5f);var delta=target-eye;int? value=null;
    bool candidate=y>=0&&y<TerrainChunk.Height&&delta.Length()<=5f&&(delta.LengthSquared()<=0.0001f||Vector3.Dot(Vector3.Normalize(delta),forward)>=0.5f);
    if(candidate&&LoadedRectangle(eye,target)&&OpaqueVoxelLineOfSight(eye,target))value=terrain.Terrain.GetCellValue(x,y,z);
@@ -41,9 +41,9 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
   var inventory=p.ComponentMiner.Inventory;
   var slots=Enumerable.Range(0,inventory.SlotsCount).Select(i=>{
    int value=inventory.GetSlotValue(i),count=inventory.GetSlotCount(i);float nutrition=BlocksManager.Blocks[Terrain.ExtractContents(value)].GetNutritionalValue(value);
-   return new SlotObservation(i,value,count,nutrition,count>0&&Terrain.ExtractContents(value)==CookedFishBlock.Index&&nutrition>0);
+   return new SlotObservation(i,value,count,nutrition,count>0&&SupportedFood(value)&&nutrition>0);
   }).ToArray();
-  var oid=Guid.NewGuid();double now=clock.Elapsed.TotalSeconds;observations.Add(oid,(actorId,origin,now,slots.ToArray()));
+  var oid=Guid.NewGuid();double now=clock.Elapsed.TotalSeconds;observations.Add(oid,(actorId,origin,now,slots.ToArray(),cells.ToArray()));
   return new(SessionId,actorId,oid,now,origin,p.ComponentHealth.Health,p.ComponentVitalStats.Food,slots,cells.ToArray());
  }
  // Conservative visual policy: full opaque voxel occlusion, not collision-box LOS.
@@ -70,13 +70,13 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  public SkillResult Submit(MoveIntent intent){
   Owner();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
   if(tickets.TryGetValue(intent.ActionId,out var previous)){if(previous.Intent!=intent)throw new InvalidOperationException("Action ID payload conflict");return previous.Result;}
-  if(foodTickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID already used for a different skill");
+  if(foodTickets.ContainsKey(intent.ActionId)||forageTickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID already used for a different skill");
   var p=Actor(intent.SessionId,intent.ActorId);
   if(intent.ActionId==Guid.Empty||!float.IsFinite(intent.Right)||!float.IsFinite(intent.Forward)||!float.IsFinite(intent.Seconds)||intent.Right*intent.Right+intent.Forward*intent.Forward>1||intent.Right*intent.Right+intent.Forward*intent.Forward<0.0001f||intent.Seconds<0.05f||intent.Seconds>1)throw new ArgumentException("Invalid bounded move intent");
   if(!p.PlayerData.IsExternalActor||!p.PlayerData.IsReadyForPlaying||p.ComponentHealth.Health<=0||p.ComponentSleep.SleepFactor>0)throw new InvalidOperationException("Actor unavailable");
   if(!observations.TryGetValue(intent.ObservationId,out var o)||o.Actor!=intent.ActorId||clock.Elapsed.TotalSeconds-o.Time>3||Math.Sqrt(Math.Pow(o.Origin.X-p.ComponentBody.Position.X,2)+Math.Pow(o.Origin.Y-p.ComponentBody.Position.Y,2)+Math.Pow(o.Origin.Z-p.ComponentBody.Position.Z,2))>2)throw new InvalidOperationException("Observation missing, stale or belongs to another actor");
-  if(tickets.Count+foodTickets.Count>=256)throw new InvalidOperationException("Ticket budget full; start a reconciled new session");
-  if(FoodBusy(intent.ActorId)||tickets.Values.Any(t=>t.Intent.ActorId==intent.ActorId&&!Terminal(t.Result.Status)))throw new InvalidOperationException("Actor already has an active skill");
+  if(tickets.Count+foodTickets.Count+forageTickets.Count+ReservedForageSlots>=256)throw new InvalidOperationException("Ticket budget full; start a reconciled new session");
+  if(ForageBusy(intent.ActorId)||FoodBusy(intent.ActorId)||tickets.Values.Any(t=>t.Intent.ActorId==intent.ActorId&&!Terminal(t.Result.Status)))throw new InvalidOperationException("Actor already has an active skill");
   var pos=PositionOf(p);var result=new SkillResult(SessionId,intent.ActorId,intent.ActionId,"Accepted",pos,pos,0,0,"not yet executed");
   tickets.Add(intent.ActionId,new Ticket{Intent=intent,Result=result,AcceptedAt=clock.Elapsed.TotalSeconds,Direction=Vector2.Normalize((p.ComponentBody.Matrix.Right*intent.Right+p.ComponentBody.Matrix.Forward*intent.Forward).XZ)});return result;
  }
@@ -95,9 +95,10 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
    if(t.Settling>=0.1&&float.IsFinite(speed)&&speed<0.1f)t.Result=t.Result with {Status=t.CancelRequested?"Canceled":t.Result.ForwardProgress>0.01?"Succeeded":"Blocked",Reason="native horizontal settle and direction evidence"};
    else if(t.Settling>2)t.Result=t.Result with {Status="Failed",Reason="physical settle timeout"};
   }
+  UpdateForaging(dt);
   UpdateEating();
  }
  static void Stop(ComponentPlayer p){if(p.PlayerData.IsExternalActor)p.ComponentInput.ClearExternalMovement();}
- void FailAll(string reason){FailEating(reason);foreach(var t in tickets.Values.Where(t=>!Terminal(t.Result.Status))){Stop(actors[t.Intent.ActorId]);t.Result=t.Result with {Status="Failed",Reason=reason};}}
+ void FailAll(string reason){FailForaging(reason);FailEating(reason);foreach(var t in tickets.Values.Where(t=>!Terminal(t.Result.Status))){Stop(actors[t.Intent.ActorId]);t.Result=t.Result with {Status="Failed",Reason=reason};}}
  public void Dispose(){if(disposed)return;Owner();FailAll("session disposed");disposed=true;}
 }

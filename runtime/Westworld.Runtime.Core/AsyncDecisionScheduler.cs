@@ -2,7 +2,7 @@ using System.Diagnostics;
 namespace Westworld.Runtime.Core;
 
 public sealed record HighLevelDecision(Guid SessionId, Guid ActorId, Guid ObservationId,
-    Guid DecisionId, string Goal, string Skill, int Slot, int ExpectedValue);
+    Guid DecisionId, string Goal, string Skill, int Slot, int ExpectedValue, CellTarget? Target = null);
 public interface IDecisionProvider {
     Task<HighLevelDecision> DecideAsync(ActorObservation observation, CancellationToken cancellationToken);
 }
@@ -64,11 +64,20 @@ public sealed class AsyncDecisionScheduler : IDisposable {
                 if (string.IsNullOrWhiteSpace(d.Goal) || d.Goal.Length > 512 || string.IsNullOrWhiteSpace(d.Skill) || d.Skill.Length > 64 || d.Skill.Any(char.IsControl) || d.Slot < -1 || d.Slot > 4095) {
                     job.Error = "invalid_decision_fields"; continue;
                 }
+                if (!ValidTarget(d, job.Snapshot)) { job.Error = "invalid_decision_target"; continue; }
                 job.Decision = d;
             } else if (!job.Retired && Stopwatch.GetElapsedTime(job.Started, now) >= deadline) {
                 job.Retired = true; job.Ready = true; job.Error = "deadline_exceeded"; Cancel(job);
             }
         }
+    }
+    static bool ValidTarget(HighLevelDecision decision, ActorObservation snapshot) {
+        if (decision.Skill != "ForageOne") return decision.Target == null;
+        if (decision.Goal != "SatisfyHunger" || decision.Target == null || decision.Slot != -1 || decision.ExpectedValue != 0) return false;
+        var target = decision.Target;
+        try { target.Validate(); } catch (ArgumentOutOfRangeException) { return false; }
+        var matches = snapshot.Cells.Where(c => c.X == target.X && c.Y == target.Y && c.Z == target.Z).ToArray();
+        return matches.Length == 1 && matches[0].Visibility == "known" && matches[0].Value.HasValue && matches[0].Value == target.ExpectedValue;
     }
     public bool Request(ActorObservation snapshot, out string? error) {
         Owner(); Pump(); ArgumentNullException.ThrowIfNull(snapshot);
@@ -79,9 +88,10 @@ public sealed class AsyncDecisionScheduler : IDisposable {
         if (mailboxes.Count >= capacity) { error = "mailbox_full"; return false; }
         // Elements are immutable records; copying arrays detaches mutable container ownership.
         var copy = snapshot with { Inventory = snapshot.Inventory.ToArray(), Cells = snapshot.Cells.ToArray() };
+        var providerCopy = copy with { Inventory = copy.Inventory.ToArray(), Cells = copy.Cells.ToArray() };
         var cts = new CancellationTokenSource(); long started = Stopwatch.GetTimestamp();
         var job = new Job { Snapshot = copy, Cancellation = cts, Started = started,
-            Work = Task.Run(() => Invoke(provider, copy, cts.Token)) };
+            Work = Task.Run(() => Invoke(provider, providerCopy, cts.Token)) };
         mailboxes.Add(snapshot.ActorId, job); running.Add(job); error = null; return true;
     }
     public bool TryTake(Guid actor, out HighLevelDecision? decision, out string? error) {

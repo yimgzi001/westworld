@@ -12,18 +12,20 @@ public sealed partial class NativeActorSession {
   if(decision.Goal=="Observe"&&decision.Skill=="Wait"&&decision.Slot==-1&&decision.ExpectedValue==0){Actor(decision.SessionId,decision.ActorId);return null;}
   throw new InvalidOperationException("Unsupported high-level decision");
  }
- public EatResult SubmitEat(EatIntent intent){
+ static bool SupportedFood(int value)=>Terrain.ExtractContents(value)==CookedFishBlock.Index||(Terrain.ExtractContents(value)==PumpkinBlock.Index&&BasePumpkinBlock.GetSize(Terrain.ExtractData(value))==7);
+ public EatResult SubmitEat(EatIntent intent)=>SubmitEatCore(intent,null);
+ EatResult SubmitEatCore(EatIntent intent,Guid? parent){
   Owner();if(intent.SessionId!=SessionId)throw new InvalidOperationException("Stale session");
   if(foodTickets.TryGetValue(intent.ActionId,out var old)){if(old.Intent!=intent)throw new InvalidOperationException("Action ID payload conflict");return old.Result;}
-  if(tickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID already used for a different skill");
+  if(tickets.ContainsKey(intent.ActionId)||forageTickets.ContainsKey(intent.ActionId))throw new InvalidOperationException("Action ID already used for a different skill");
   var p=Actor(intent.SessionId,intent.ActorId);var inventory=p.ComponentMiner.Inventory;
   if(intent.ActionId==Guid.Empty||intent.Slot<0||intent.Slot>=inventory.SlotsCount)throw new ArgumentException("Invalid eat intent");
   if(!p.PlayerData.IsReadyForPlaying||p.ComponentHealth.Health<=0||p.ComponentSleep.SleepFactor>0)throw new InvalidOperationException("Actor unavailable");
   if(!observations.TryGetValue(intent.ObservationId,out var o)||o.Actor!=intent.ActorId||clock.Elapsed.TotalSeconds-o.Time>3||Math.Sqrt(Math.Pow(o.Origin.X-p.ComponentBody.Position.X,2)+Math.Pow(o.Origin.Y-p.ComponentBody.Position.Y,2)+Math.Pow(o.Origin.Z-p.ComponentBody.Position.Z,2))>2)throw new InvalidOperationException("Observation stale or wrong actor");
   var observed=o.Inventory.SingleOrDefault(s=>s.Slot==intent.Slot);
-  if(observed is null||!observed.CanEat||observed.Value!=intent.ExpectedValue||observed.Count<1||inventory.GetSlotValue(intent.Slot)!=intent.ExpectedValue||inventory.GetSlotCount(intent.Slot)!=observed.Count||Terrain.ExtractContents(intent.ExpectedValue)!=CookedFishBlock.Index)throw new InvalidOperationException("Observed food slot no longer matches");
-  if(tickets.Count+foodTickets.Count>=256)throw new InvalidOperationException("Ticket budget full");
-  if(FoodBusy(intent.ActorId)||tickets.Values.Any(t=>t.Intent.ActorId==intent.ActorId&&!Terminal(t.Result.Status)))throw new InvalidOperationException("Actor already has active skill");
+  if(observed is null||!observed.CanEat||observed.Value!=intent.ExpectedValue||observed.Count<1||inventory.GetSlotValue(intent.Slot)!=intent.ExpectedValue||inventory.GetSlotCount(intent.Slot)!=observed.Count||!SupportedFood(intent.ExpectedValue))throw new InvalidOperationException("Observed food slot no longer matches");
+  if(tickets.Count+foodTickets.Count+forageTickets.Count+ReservedForageSlots-(parent.HasValue?1:0)>=256)throw new InvalidOperationException("Ticket budget full");
+  if(ForageBusy(intent.ActorId,parent)||FoodBusy(intent.ActorId)||tickets.Values.Any(t=>t.Intent.ActorId==intent.ActorId&&!Terminal(t.Result.Status)))throw new InvalidOperationException("Actor already has active skill");
   var result=new EatResult(SessionId,intent.ActorId,intent.ActionId,"Accepted",intent.Slot,observed.Count,observed.Count,p.ComponentVitalStats.Food,p.ComponentVitalStats.Food,"not yet executed");
   foodTickets.Add(intent.ActionId,new FoodTicket{Intent=intent,Result=result,AcceptedAt=clock.Elapsed.TotalSeconds});return result;
  }

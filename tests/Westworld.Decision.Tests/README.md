@@ -32,3 +32,20 @@ Decision Goal/Skill are size-bounded strings; the scheduler intentionally does n
 invent a skill catalog. Slot is -1 (not applicable) or 0..4095; ExpectedValue is a
 native encoded integer whose semantic validation belongs to the execution adapter.
 No observation, model output, or exception text is written to logs by the scheduler.
+
+## Forage target contract
+
+`HighLevelDecision.Target` is optional for backwards-compatible construction. The
+new `SatisfyHunger / ForageOne` combination requires a target, Slot=-1 and top-level
+ExpectedValue=0. The target's ExpectedValue holds the complete encoded block value.
+Other skills must not carry a target. Foraging targets must match exactly one known
+cell in the original observation. The provider receives separate array containers
+from those retained for validation, so editing its input cannot forge known evidence.
+Coordinates must satisfy X/Z within +/-10,000,000 and Y within 0..255 for this native
+height envelope. The core deliberately does not hardcode block indices or infer
+maturity; the native executor must verify current target value, maturity, interaction
+reach, and all subsequent harvest/pickup/eating postconditions.
+
+`ForageResult` retains Start/End position, Harvested, Collected (actual item count),
+and FoodBefore/FoodAfter even on partial failure. These DTOs do not themselves
+execute a state machine or claim that harvesting, pickup or survival was tested.

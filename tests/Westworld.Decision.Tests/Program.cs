@@ -56,6 +56,29 @@ static class Tests {
    Check(enteredCancel.Wait(2000),"cancel callback dispatched");pending.SetResult(Decision(a));Thread.Sleep(30);
    Check(!s.Request(Snapshot(),out e)&&e=="concurrency_full","unfinished cancel callback retains capacity even after provider return");releaseCancel.Set();
   }
+  static HighLevelDecision Forage(ActorObservation x) => new(x.SessionId,x.ActorId,x.ObservationId,Guid.NewGuid(),"SatisfyHunger","ForageOne",-1,0,new CellTarget(0,64,1,1));
+  void TargetCase(string name, ActorObservation observation, Func<ActorObservation,HighLevelDecision> make, bool valid=false) {
+   using var scheduler=new AsyncDecisionScheduler(new Provider((x,ct)=>Task.FromResult(make(x))),TimeSpan.FromSeconds(2));
+   scheduler.Request(observation,out _);var result=Take(scheduler,observation.ActorId);
+   Check(valid?result.Decision!=null&&result.Error==null:result.Error=="invalid_decision_target",name);
+  }
+  TargetCase("known matching forage target accepted",Snapshot(),Forage,true);
+  TargetCase("unknown target rejected",Snapshot() with {Cells=[new(0,64,1,"unknown",null)]},Forage);
+  TargetCase("unknown label with numeric value rejected",Snapshot() with {Cells=[new(0,64,1,"unknown",1)]},Forage);
+  TargetCase("missing target cell rejected",Snapshot() with {Cells=[]},Forage);
+  TargetCase("duplicate target evidence rejected",Snapshot() with {Cells=[new(0,64,1,"known",1),new(0,64,1,"known",1)]},Forage);
+  TargetCase("full encoded value mismatch rejected",Snapshot(),x=>Forage(x) with {Target=new(0,64,1,1025)});
+  TargetCase("forage missing target rejected",Snapshot(),x=>Forage(x) with {Target=null});
+  TargetCase("forage wrong goal rejected",Snapshot(),x=>Forage(x) with {Goal="Observe"});
+  TargetCase("target on another skill rejected",Snapshot(),x=>Forage(x) with {Skill="EatOne"});
+  TargetCase("forage slot ambiguity rejected",Snapshot(),x=>Forage(x) with {Slot=0});
+  TargetCase("forage value ambiguity rejected",Snapshot(),x=>Forage(x) with {ExpectedValue=1});
+  TargetCase("out of envelope target rejected even when observed",Snapshot() with {Cells=[new(int.MaxValue,64,1,"known",1)]},x=>Forage(x) with {Target=new(int.MaxValue,64,1,1)});
+  TargetCase("provider cannot forge observation by editing input arrays",Snapshot() with {Cells=[new(0,64,1,"unknown",null)]},x=>{x.Cells[0]=new(0,64,1,"known",1);return Forage(x);});
+  foreach(var target in new[]{new CellTarget(0,-1,0,1),new CellTarget(0,256,0,1),new CellTarget(int.MinValue,64,0,1),new CellTarget(0,64,10_000_001,1)}) {
+   bool rejected=false;try{target.Validate();}catch(ArgumentOutOfRangeException){rejected=true;}Check(rejected,"target coordinate bounds "+target);
+  }
+  new CellTarget(-10_000_000,0,10_000_000,int.MinValue).Validate();Check(true,"coordinate boundary allowed; encoded values retain all native bits");
   Console.WriteLine($"{checks}/{checks} checks passed; deterministic providers only, no native game or network.");
  }
  sealed class Provider(Func<ActorObservation,CancellationToken,Task<HighLevelDecision>> decide):IDecisionProvider { public Task<HighLevelDecision> DecideAsync(ActorObservation o,CancellationToken ct)=>decide(o,ct); }

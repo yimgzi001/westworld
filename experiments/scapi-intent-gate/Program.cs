@@ -49,7 +49,7 @@ internal sealed class Scenario:IUpdateable,IDisposable {
    var o=session.Observe(session.SessionId,actor);Require(o.Cells.Single(c=>c.X==target.X&&c.Y==target.Y&&c.Z==target.Z).Value is int restored&&Terrain.ExtractContents(restored)==Terrain.ExtractContents(target.Value.Value),"Restored LOS did not restore known target");log(new{kind="wall_restored",passed=true});stage=0;
   }else if(stage==0&&elapsed>=3){
    var o=session.Observe(session.SessionId,actor);initialInventory=o.Inventory;
-   Require(o.Cells.Length==100&&o.Cells.Any(c=>c.Value.HasValue)&&o.Cells.Any(c=>!c.Value.HasValue)&&o.Cells.All(c=>(c.Visibility=="unknown")==!c.Value.HasValue),"Observation disclosure policy mismatch");
+   Require(o.Cells.Length==324&&o.Cells.Any(c=>c.Value.HasValue)&&o.Cells.Any(c=>!c.Value.HasValue)&&o.Cells.All(c=>(c.Visibility=="unknown")==!c.Value.HasValue),"Observation disclosure policy mismatch");
    log(new{kind="observation",o.ActorId,o.ObservationId,o.Position,o.Health,o.Food,known=o.Cells.Count(c=>c.Value.HasValue),unknown=o.Cells.Count(c=>!c.Value.HasValue),cells=o.Cells});
    move=new(session.SessionId,actor,Guid.NewGuid(),o.ObservationId,0,0.4f,0.6f);
    Require(Reject(()=>session.Submit(move with {SessionId=Guid.NewGuid()})),"Stale session accepted");
