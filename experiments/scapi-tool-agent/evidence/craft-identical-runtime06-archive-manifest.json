@@ -1,0 +1,16 @@
+{
+  "craft-dot-file06.jsonl.gz.b64": {
+    "rawBytes": 444149,
+    "gzipBytes": 49331,
+    "rawSha256": "971cfcc56a8543727dfafaa1b94d70e740fba93680f9ec46a9878349e7d232f8",
+    "gzipSha256": "65618cb54fe175f984c1a6d8a3f9e70000cfc9e1da9886f657a301bbf9b21ef5",
+    "base64FileSha256": "26c0f758fa36c25d6e722b2764a71f6344f32de0a464b057ddfcc794b2658ae2"
+  },
+  "craft-llama06.jsonl.gz.b64": {
+    "rawBytes": 249938,
+    "gzipBytes": 27642,
+    "rawSha256": "75ea0deab39a642b2ecffd736fe647de8f9a04374aeb4999e4a23d5e8857f9fb",
+    "gzipSha256": "dbad3a16af55c0528c5874e23af2a71625c84b17e4cc837ba42203961332c5fb",
+    "base64FileSha256": "ee845f1fac0de3a27db490e700ac7e4c759113e93cbdde77b5680c50dffa44e9"
+  }
+}

@@ -39,7 +39,7 @@ for n,h in json.load(open("installed-hashes.json")).items():
  assert hashlib.sha256(pathlib.Path(n).read_bytes()).hexdigest()==h,n
 CHECK
 set +e
-"{r}/work/dotnet/dotnet" ToolAgentGate.dll {mode} >console.log 2>&1
+"{r}/work/dotnet/dotnet" ToolAgentGate.dll {mode} "${{1:-llama}}" >console.log 2>&1
 code=$?
 printf '%s\\n' "$code" >exit.txt
 exit "$code"

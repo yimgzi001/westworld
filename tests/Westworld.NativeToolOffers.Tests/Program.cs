@@ -92,3 +92,17 @@ Check(Find("plan_craft").Description.Contains("existing carried/grid materials")
 Check(semantic.Single(t=>t.Name=="read_storage").Description.Contains("native heat/fuel over time"),"furnace native prerequisites explained");
 Check(Find("find_recipes").Description.Contains("does not mean supplies"),"static recipe knowledge distinguished from resources");
 Console.WriteLine($"{checks}/{checks} linked factory checks passed using native type-shape stub; no game execution.");
+
+Check(Find("find_recipes").Parameters.GetProperty("required").EnumerateArray().Any(x=>x.GetString()=="limit"),"query limit cannot omit native default32");
+foreach(var name in new[]{"find_items","find_creatures","find_recipes"}){
+ var q=NativeToolOffers.Build([Tool(name,"\"limit\":{\"type\":\"integer\"}","")],obs,inventory,[]).Single();
+ Check(q.Parameters.GetProperty("required").EnumerateArray().Any(x=>x.GetString()=="limit"),name+" explicit required limit");
+ var parser=new ToolDecisionPrompt(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),J("{}"),[q]);
+ bool rejected=false;try{parser.ParseResponse("{\"goal\":\"inspect\",\"steps\":[{\"tool\":\""+name+"\",\"arguments\":{}}]}");}catch(FormatException){rejected=true;}
+ Check(rejected,name+" omission rejected by strict parser");
+ Check(parser.ParseResponse("{\"goal\":\"inspect\",\"steps\":[{\"tool\":\""+name+"\",\"arguments\":{\"limit\":4}}]}").Steps.Count==1,name+" limit four accepted");
+}
+Console.WriteLine("FINAL TOTAL "+checks);
+
+Check(Find("plan_craft").Description.Contains("count is output items")&&Find("plan_craft").Description.Contains("multiple of recipe.resultCount"),"craft count means exact native output multiple not batches");
+Console.WriteLine("FINAL TOTAL "+checks);

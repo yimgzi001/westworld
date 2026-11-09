@@ -75,6 +75,7 @@ public static class NativeToolOffers {
      var choices=refs.Order(StringComparer.Ordinal).Take(128).ToArray();field["enum"]=JsonSerializer.SerializeToNode(choices);bindings.Add(key,choices);continue;
     }
     if(type=="integer"){
+     if(key=="limit"&&!needed)required.Add(key);
      HashSet<int>? ints=key=="slot"?slots:key=="value"&&tool.Name.StartsWith("act_",StringComparison.Ordinal)?values:
       key is "source_slot" or "destination_slot"?allSlots:key is "source_value" or "destination_value"?allValues:key=="food_value"?foodValues:null;
      if(ints is not null){if(ints.Count==0){if(needed){skip=true;break;}props.Remove(key);continue;}field["enum"]=JsonSerializer.SerializeToNode(ints.Order().Take(128));}
@@ -103,7 +104,7 @@ public static class NativeToolOffers {
  // These explain tool semantics, never prescribe a resource or survival sequence.
  static string Describe(ActorToolDefinition tool)=>tool.Name switch{
   "act_Craft"=>"Collect result from an already correctly arranged crafting grid. Does not fill ingredients. Grid crafting cannot heat/cook food.",
-  "plan_craft"=>"Arrange existing carried/grid materials and craft a known recipe at a suitable grid. No material gathering; no heated/furnace recipes.",
+  "plan_craft"=>"Arrange existing carried/grid materials and craft a known recipe at a suitable grid. count is output items, not batches; must be a multiple of recipe.resultCount. No gathering; no heated/furnace recipes.",
   "act_TransferItems"=>"Move existing items. source_value is source slot CURRENT value; destination_value is destination slot CURRENT value (0 if empty), not the transferred item.",
   "read_storage"=>"Read actual slots and crafting preview or furnace heat/fuel/progress. Furnaces process matching ingredients with sufficient native heat/fuel over time, not act_Craft.",
   "find_recipes"=>"Read recipe knowledge: materials, grid/station and heat requirements. Recipe existence does not mean supplies or a usable station exist.",
