@@ -138,10 +138,11 @@ internal static class PlayDryRoutes
             });
     }
 
-    public static int[] WalkableBearings(LocalObservationWindow window, Vector2 facing)
+    public static int[] WalkableBearings(LocalObservationWindow window, Vector2 facing, Func<Vector3, bool>? permitted = null)
     {
         var origin = PositionOf(window.Position).XZ;
         return ShortRoutes(window).Concat(ReadSteps(window).Select(StepLeg))
+            .Where(leg => permitted?.Invoke(leg.End) != false)
             .Select(leg => (int)MathF.Round(MathUtils.RadToDeg(Vector2.Angle(facing, leg.End.XZ - origin)) / 15) * 15)
             .Distinct().Order().ToArray();
     }

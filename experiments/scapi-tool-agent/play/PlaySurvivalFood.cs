@@ -72,9 +72,12 @@ internal static class PlaySurvivalFood
     {
         [JsonIgnore]
         public Vector3 Point => ReadPosition(Position);
+        [JsonIgnore]
+        public Guid? SourceId { get; init; }
 
         public bool Matches(Food other) => Source == other.Source && Value == other.Value
-            && (Point - other.Point).LengthSquared() <= 1f;
+            && (SourceId.HasValue && other.SourceId.HasValue ? SourceId == other.SourceId
+                : (Point - other.Point).LengthSquared() <= 1f);
     }
 
     public static Vector3 ReadPosition(JsonElement position) => new(position.GetProperty("x").GetSingle(),
@@ -138,7 +141,8 @@ internal static class PlaySurvivalFood
     }
 
     public static Food? DescribeDrop(NearbyPickableView item) =>
-        Describe(item.Value, "pickup", string.Empty, item.Distance, false, () => PointJson(item.Position));
+        Describe(item.Value, "pickup", string.Empty, item.Distance, false, () => PointJson(item.Position)) is { } food
+            ? food with { SourceId = NativeAcquisitionAudit.IdentityFor(item.CreatePickup(1).Target) } : null;
 
     private static JsonElement PointJson(Vector3 point) => JsonSerializer.SerializeToElement(new { x = point.X, y = point.Y, z = point.Z });
 

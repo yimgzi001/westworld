@@ -37,10 +37,10 @@ internal sealed class PlaySurvivalTrial
 
         public void OnMeal(int value)
         {
-            int remaining = PickedByValue.GetValueOrDefault(value);
-            bool fromPickup = remaining > 0
-                && NativeAcquisitionAudit.InventoryCount(Player.ComponentMiner.Inventory, value) == remaining - 1;
-            PickedByValue[value] = fromPickup ? remaining - 1 : 0;
+            int key = FoodKey(value);
+            int remaining = PickedByValue.GetValueOrDefault(key);
+            bool fromPickup = remaining > 0 && InventoryFoodCount(Player.ComponentMiner.Inventory, key) == remaining - 1;
+            PickedByValue[key] = fromPickup ? remaining - 1 : 0;
             if (fromPickup)
             {
                 PickedFoodMeals++;
@@ -142,8 +142,31 @@ internal sealed class PlaySurvivalTrial
             return;
         int added = after - before;
         actor.PickedFood += added;
-        // 对有其他未归因来源的同值堆叠只记录拾取数量，不猜测之后吃掉的是哪份。
-        actor.PickedByValue[fact.Value] = before == actor.PickedByValue.GetValueOrDefault(fact.Value) ? after : 0;
+        int key = FoodKey(fact.Value);
+        int allFreshness = InventoryFoodCount(actor.Player.ComponentMiner.Inventory, key);
+        // 新鲜和存放过的同类食物合计对账。存在其他未归因来源时不猜测吃掉的是哪份。
+        actor.PickedByValue[key] = allFreshness >= after && allFreshness - added == actor.PickedByValue.GetValueOrDefault(key)
+            ? allFreshness : 0;
+    }
+
+    private static int FoodKey(int value)
+    {
+        var block = BlocksManager.Blocks[Terrain.ExtractContents(value)];
+        // 原生存放改变食物的损坏位。保留食物种类、蛋类型和烹饪状态。
+        return block.GetRotPeriod(value) > 0 ? block.SetDamage(value, 0) : value;
+    }
+
+    private static int InventoryFoodCount(IInventory inventory, int key)
+    {
+        int count = 0;
+        for (int slot = 0; slot < inventory.SlotsCount; slot++)
+        {
+            int held = inventory.GetSlotCount(slot);
+            int value = inventory.GetSlotValue(slot);
+            if (held > 0 && Terrain.ExtractContents(value) == Terrain.ExtractContents(key) && FoodKey(value) == key)
+                count += held;
+        }
+        return count;
     }
 
     private static bool IsFood(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)].GetNutritionalValue(value) > 0f;

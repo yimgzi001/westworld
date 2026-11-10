@@ -34,9 +34,9 @@ internal sealed partial class PlaySurvivalProduction
         if (Stock(player, Fire) > 0 && player.ComponentVitalStats.Temperature < 8f) available.Add(Warm);
     }
 
-    private static PanoramicBlock? SeenStation(ActorPanorama? panorama, Dictionary<int, Point3> stations, int block) =>
+    private static PanoramicBlock? SeenStation(ActorPanorama? panorama, Dictionary<int, Point3> stations, int block, float reach = 4.5f) =>
         stations.TryGetValue(block, out var cell)
-            ? panorama?.Blocks.FirstOrDefault(item => item.Cell == cell && item.Distance <= 4.5f && StationMatches(item.Value, block))
+            ? panorama?.Blocks.FirstOrDefault(item => item.Cell == cell && item.Distance <= reach && StationMatches(item.Value, block))
             : null;
 
     private static bool StationMatches(int value, int block)

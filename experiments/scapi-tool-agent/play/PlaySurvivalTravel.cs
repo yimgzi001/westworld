@@ -25,6 +25,8 @@ internal sealed class PlaySurvivalTravel
     private readonly Func<Position, int>? visits;
     private readonly PlaySurvivalFood.Food? foodTarget;
     private readonly int? initialFoodStock;
+    private readonly Guid? foodSourceId, foodActorId;
+    private bool tracksFood;
     private readonly Vector3? shelterTarget;
     private readonly Vector3? shoreTarget;
     private readonly Vector3 surveyTarget;
@@ -38,6 +40,8 @@ internal sealed class PlaySurvivalTravel
     private Vector3? escapeOutlet;
     private long proofStarted;
     private int scans, legs;
+    private readonly HashSet<(int X, int Z)> visitedGoalCells = new();
+    private int goalDetours;
     private float traveled;
     private bool detourUsed, jumpUsed, dryLeg, aligned, detouring;
     private bool approachingEscapeTurn;
@@ -61,7 +65,14 @@ internal sealed class PlaySurvivalTravel
         this.readDryWindow = readDryWindow;
         this.visits = visits;
         this.foodTarget = foodTarget;
-        if (foodTarget is not null)
+        if (foodTarget is { SourceId: Guid exactSource })
+        {
+            foodSourceId = exactSource;
+            foodActorId = NativeAcquisitionAudit.IdentityFor(player.Entity);
+            NativeAcquisitionAudit.Recorded += TrackFoodPickup;
+            tracksFood = true;
+        }
+        else if (foodTarget?.Source == "pickup")
             initialFoodStock = NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value);
         this.shelterTarget = shelterTarget;
         this.shoreTarget = shoreTarget;
@@ -79,7 +90,7 @@ internal sealed class PlaySurvivalTravel
         surveyTarget = Origin + offset;
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
         var destinationOffset = foodTarget is not null ? foodTarget.Point - Origin : offset;
-        bool hasLandTarget = seek is "survey" or "camp" || foodTarget is not null;
+        bool hasLandTarget = seek is "survey" or "camp" or "work" || foodTarget is not null;
         landDistanceLimit = escapeFrom is not null ? distance + (escapeClearance > 0f ? 12f : 6f)
             : hasLandTarget ? MathF.Abs(destinationOffset.X) + MathF.Abs(destinationOffset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
     }
@@ -91,12 +102,20 @@ internal sealed class PlaySurvivalTravel
     public string? Status => status;
     public string? Reason => reason;
     public int Legs => legs;
+    public int AcquiredTargetCount { get; private set; }
+    private float TravelLimit => landDistanceLimit + 6f * goalDetours;
     private ComponentBody? BoatBody => player.Entity.FindComponent<ComponentRider>()?.Mount is { } mount
         && mount.Entity.FindComponent<ComponentBoat>() is not null ? mount.ComponentBody : null;
 
     public void Update(double gameTime)
     {
         if (status is not null) return;
+        if (foodTarget is not null && (AcquiredTargetCount > 0 || initialFoodStock is int before
+            && NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value) > before))
+        {
+            Finish("succeeded", "food_collected_en_route");
+            return;
+        }
         var body = player.ComponentBody;
         if (dryLeg && body.ImmersionDepth > 0.08f)
         {
@@ -178,7 +197,7 @@ internal sealed class PlaySurvivalTravel
                 else Finish("succeeded", reached);
                 return;
             }
-            if (legs >= LandLegLimit || traveled >= landDistanceLimit - 0.3f)
+            if (legs >= LandLegLimit || traveled >= TravelLimit - 0.3f)
             {
                 bool explored = seek == "food" && foodTarget is null && traveled >= landDistanceLimit - 0.3f
                     && (body.Position - Origin).XZ.Length() >= Math.Min(4f, distance * 0.5f);
@@ -324,9 +343,23 @@ internal sealed class PlaySurvivalTravel
 
     public void Stop()
     {
+        if (tracksFood)
+        {
+            NativeAcquisitionAudit.Recorded -= TrackFoodPickup;
+            tracksFood = false;
+        }
         if (leg?.Result.Status == AtomicActionStatus.Running) owner.Cancel(leg);
         leg = null;
         dryProof = null;
+    }
+
+    private void TrackFoodPickup(NativeAcquisitionFact fact)
+    {
+        // 同种同值的另一枚蛋入包也不能完成当前指定目标。
+        if (fact.SourceId == foodSourceId && fact.ActorId == foodActorId && fact.Value == foodTarget?.Value
+            && fact.InventoryBefore is int before && fact.InventoryAfter is int after
+            && after > before && after - before == fact.SourceBefore - fact.SourceAfter)
+            AcquiredTargetCount += after - before;
     }
 
     private void Finish(string state, string outcome)
@@ -351,6 +384,7 @@ internal sealed class PlaySurvivalTravel
         dryLeg = true;
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
+        if (KeepsTarget) visitedGoalCells.Add(CellXZ(player.ComponentBody.Position));
         var route = DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
         if (route is null && !aligned)
         {
@@ -369,6 +403,18 @@ internal sealed class PlaySurvivalTravel
                 corner = route.End.ToString(), outlet = turn.Exit.ToString() });
         }
         bool exploring = seek == "survey" || seek == "food" && foodTarget is null || seek == "shelter" && shelterTarget is null;
+        bool targetedDetour = false;
+        if (route is null && KeepsTarget && remaining >= 1f && goalDetours < 3)
+        {
+            route = PlayDryRoutes.Detour(window, direction, remaining, visits, end => CanUseLandLeg(end, gameTime));
+            if (route is not null)
+            {
+                goalDetours++;
+                targetedDetour = true;
+                log(new { kind = "play_scout_target_detour", actor = player.PlayerData.Name, seek, gameTime,
+                    target = (foodTarget?.Point ?? surveyTarget).ToString(), via = route.End.ToString(), attempts = goalDetours });
+            }
+        }
         if (route is null && exploring && !Evading && remaining >= 1f)
         {
             // 原方向封住时走完一段已确认的旁路，再交给模型评估新位置。
@@ -385,7 +431,7 @@ internal sealed class PlaySurvivalTravel
             aligned = route.Action is MoveTo;
             legs++;
             AtomicAction action = route.Action;
-            if (!detouring && !approachingEscapeTurn && action is MoveAlongObservedRoute flat)
+            if (!detouring && !targetedDetour && !approachingEscapeTurn && action is MoveAlongObservedRoute flat)
             {
                 flat = LimitFinalFlat(flat);
                 action = flat with { Continue = ContinueFlat };
@@ -419,7 +465,12 @@ internal sealed class PlaySurvivalTravel
         return PlayDryRoutes.Escape(window, threat, remaining, canAlign);
     }
 
-    private bool CanUseLandLeg(Vector3 end, double gameTime) => permitLandLeg?.Invoke(end, gameTime) != false;
+    private bool KeepsTarget => foodTarget is not null || seek == "work";
+
+    private static (int X, int Z) CellXZ(Vector3 point) => (Terrain.ToCell(point.X), Terrain.ToCell(point.Z));
+
+    private bool CanUseLandLeg(Vector3 end, double gameTime) => (!KeepsTarget || !visitedGoalCells.Contains(CellXZ(end)))
+        && permitLandLeg?.Invoke(end, gameTime) != false;
 
     private (MoveAlongObservedRoute Route, Action Accepted)? ContinueFlat(double gameTime)
     {
@@ -447,6 +498,7 @@ internal sealed class PlaySurvivalTravel
             float turn = velocity.LengthSquared() > 0.01f
                 ? MathUtils.RadToDeg(Vector2.Angle(velocity, (next.Points[0] - body.Position).XZ)) : 0f;
             traveled += progress;
+            if (KeepsTarget) visitedGoalCells.Add(CellXZ(body.Position));
             legOrigin = body.Position;
             dryProof = route;
             proofStarted = Stopwatch.GetTimestamp();
@@ -458,7 +510,7 @@ internal sealed class PlaySurvivalTravel
 
     private MoveAlongObservedRoute LimitFinalFlat(MoveAlongObservedRoute route)
     {
-        if (seek is not ("survey" or "camp") || Evading || route.Points.Count != 1) return route;
+        if (seek is not ("survey" or "camp" or "work") || Evading || route.Points.Count != 1) return route;
         var body = player.ComponentBody;
         var goalOffset = ((seek == "camp" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
         var corridor = route.Points[0] - body.Position;
@@ -478,7 +530,7 @@ internal sealed class PlaySurvivalTravel
                 && (escapeClearance <= 0f || (body.Position.XZ - currentThreat()).Length() >= escapeClearance))
                 return ("escaped_along_supported_ground", null);
         }
-        else if (seek == "survey")
+        else if (seek is "survey" or "work")
         {
             if ((surveyTarget - body.Position).XZ.LengthSquared() <= 0.45f * 0.45f)
                 return ("navigation_goal_reached", null);
@@ -486,9 +538,6 @@ internal sealed class PlaySurvivalTravel
         }
         else if (seek == "food")
         {
-            if (foodTarget is not null && initialFoodStock is int before
-                && NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value) is int after && after > before)
-                return ("food_collected_en_route", null);
             var (_, food) = observe();
             var edible = food.Where(item => foodTarget is not null ? item.Matches(foodTarget)
                     : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && PlaySurvivalFood.CanSeek(player, item))
@@ -517,7 +566,7 @@ internal sealed class PlaySurvivalTravel
     }
 
     private float RemainingOnLand(ComponentBody body, Vector3? approach, float used) => approach is { } destination
-        ? Math.Min(landDistanceLimit - used, (destination - body.Position).XZ.Length() + 0.2f) : landDistanceLimit - used;
+        ? Math.Min(TravelLimit - used, (destination - body.Position).XZ.Length() + 0.2f) : TravelLimit - used;
 
     private bool TowardLowerDrop(ComponentBody body, Vector3? approach) =>
         foodTarget?.Source == "pickup" && approach is { } point && point.Y < body.Position.Y - 0.45f;

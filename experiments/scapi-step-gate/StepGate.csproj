@@ -23,5 +23,9 @@
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Stations.cs" Link="PlaySurvivalProduction.Stations.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Cooking.cs" Link="PlaySurvivalProduction.Cooking.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Hunt.cs" Link="PlaySurvivalProduction.Hunt.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Project.cs" Link="PlaySurvivalProduction.Project.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalCold.cs" Link="PlaySurvivalCold.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalIntents.cs" Link="PlaySurvivalIntents.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalTrial.cs" Link="PlaySurvivalTrial.cs" />
   </ItemGroup>
 </Project>

@@ -12,7 +12,8 @@ internal static class PlaySurvivalPanorama
     internal sealed record Sector(Vector2 Direction, PanoramicBlock[] Blocks, PlaySurvivalFood.Food[] Food,
         NearbyEntityView[] Animals, NearbyPickableView[] Items);
 
-    internal sealed record Sweep(Vector3 Origin, double CompletedAt, ActorPanorama Panorama, Sector[] Sectors, SubsystemTerrain NativeTerrain)
+    internal sealed record Sweep(Vector3 Origin, double CompletedAt, ActorPanorama Panorama, Sector[] Sectors,
+        PlaySurvivalFood.Food[] FoodTargets, Vector3[] FrozenGround, SubsystemTerrain NativeTerrain)
     {
         public object Snapshot(Vector3 at, Vector2 facing, double gameTime, bool onDryGround) => new
         {
@@ -33,6 +34,8 @@ internal static class PlaySurvivalPanorama
                     .MinBy(block => block.Distance) is { } wood ? DescribeSpot(wood.Point, at, facing) : null,
                 stone = sector.Blocks.Where(block => PlaySurvivalProduction.IsMaterial(block.Value, PlaySurvivalProduction.Stone))
                     .MinBy(block => block.Distance) is { } stone ? DescribeSpot(stone.Point, at, facing) : null,
+                snowOrIce = sector.Blocks.Where(block => PlaySurvivalCold.Frozen(block.Value))
+                    .MinBy(block => block.Distance) is { } frozen ? DescribeSpot(frozen.Point, at, facing) : null,
                 food = sector.Food.OrderBy(food => food.SicknessRisk).ThenBy(food => food.Distance)
                     .DistinctBy(food => (food.Value, food.Source)).Take(4)
                     .Select(food => DescribeFood(food, at, facing)).ToArray(),
@@ -84,6 +87,9 @@ internal static class PlaySurvivalPanorama
         private static object[] Describe(string name, Vector3 point, Vector3 at, Vector2 facing) =>
             [name, .. DescribeSpot(point, at, facing).Cast<object>()];
 
+        public static object[][] TargetSnapshot(PlaySurvivalFood.Food[] targets, Vector3 at, Vector2 facing) =>
+            targets.Select<PlaySurvivalFood.Food, object[]>(food => [food.Reference, .. DescribeFood(food, at, facing)]).ToArray();
+
         private static object[] DescribeFood(PlaySurvivalFood.Food food, Vector3 at, Vector2 facing) =>
             [.. Describe(food.Name, food.Point, at, facing), food.SicknessRisk, food.Nutrition];
 
@@ -109,12 +115,19 @@ internal static class PlaySurvivalPanorama
 
         // 八个方向来自同一次原生读数。地形、动物和拾取物的全量留在游戏线程，模型收到按方向压缩的摘要。
         var terrain = panorama.Blocks.ToLookup(block => SectorOf(block.Point));
-        var food = PlaySurvivalFood.VisibleIn(panorama).Where(item => !item.Underwater).ToLookup(item => SectorOf(item.Point));
+        var visibleFood = PlaySurvivalFood.VisibleIn(panorama).Where(item => !item.Underwater).ToArray();
+        var food = visibleFood.ToLookup(item => SectorOf(item.Point));
+        // 编号绑定这一次全向快照里的实际对象，后续过滤不会把同一个编号指向别的食物。
+        var targets = visibleFood.Where(item => PlaySurvivalFood.CanSeek(player, item)
+                && (item.Point - origin).Y is >= -2f and <= 3f && (item.Point - origin).XZ.LengthSquared() <= 40f * 40f)
+            .OrderBy(item => item.SicknessRisk).ThenBy(item => item.Distance - 10f * item.Nutrition).Take(12)
+            .Select((item, index) => item with { Reference = $"food_{index + 1}" }).ToArray();
         var animals = panorama.Objects.Entities.ToLookup(item => SectorOf(item.Position));
         var items = panorama.Objects.Pickables.ToLookup(item => SectorOf(item.Position));
         return new(origin, gameTime, panorama, Enumerable.Range(0, Directions).Select(index => new Sector(
             PlaySurvivalTravel.Rotate(facing, index * SectorWidth), terrain[index].ToArray(), food[index].ToArray(),
-            animals[index].ToArray(), items[index].ToArray())).ToArray(), player.Project.FindSubsystem<SubsystemTerrain>(true));
+            animals[index].ToArray(), items[index].ToArray())).ToArray(), targets, PlaySurvivalCold.Observe(panorama),
+            player.Project.FindSubsystem<SubsystemTerrain>(true));
     }
 
     private static double Bearing(Vector2 facing, Vector2 direction) => direction.LengthSquared() < 0.0001f

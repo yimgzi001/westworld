@@ -13,6 +13,8 @@ internal static class PlayNavigationMenu
     public static ToolOffer ShoreOffer { get; } = MakeScoutOffer(["dry_land"], 12);
     public static ToolOffer ShelterOffer { get; } = MakeScoutOffer(["food", "shelter", "survey"], LandScoutRange);
     public static ToolOffer CampOffer { get; } = MakeScoutOffer(["food", "shelter", "survey", "camp"], LandScoutRange);
+    public static ToolOffer NightShelterOffer { get; } = MakeScoutOffer(["shelter"], LandScoutRange);
+    public static ToolOffer NightCampOffer { get; } = MakeScoutOffer(["shelter", "camp"], LandScoutRange);
 
     private static ToolOffer MakeScoutOffer(string[] purposes, int maxDistance) => new(ScoutTool,
         "Follow one local navigation goal. The game keeps moving while verifying the next route segment and jumping single-block steps. "

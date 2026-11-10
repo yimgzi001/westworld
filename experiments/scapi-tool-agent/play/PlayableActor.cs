@@ -41,13 +41,16 @@ internal sealed class PlayableActor
     private (Guid Id, string Tool, Vector3 Origin)? active;
     private Harvest? harvest;
     private PlaySurvivalTravel? travel;
-    private (PlaySurvivalFood.Food Target, int Before)? foodApproach;
+    private (PlaySurvivalFood.Food Target, int Before, bool Resumed)? foodApproach;
+    private (PlaySurvivalFood.Food Target, double Until)? pausedFood;
     private readonly List<(PlaySurvivalFood.Food Target, Vector3 Position, double RetryAfter)> blockedFood = new();
     private PlaySurvivalPanorama.Sweep? surroundings;
     private PlayEarthShelter? shelter;
     private PlaySurvivalProduction? production;
+    private (string Task, string? Stage, string Reason, double Time)? pausedSupply;
     private PlayEarthShelter.Site? earthSite;
     private PlayEarthShelter.Site? lastSleepSite;
+    private (PlaySurvivalSenses.Threat Threat, double SeenAt)? blockedExit;
     private PlaySurvivalRest? drying;
     private NativeActorSession? travelSenses;
     private LocalObservationMemory? travelMemory;
@@ -55,6 +58,7 @@ internal sealed class PlayableActor
     private string[] reportedPredators = [];
     private double nextDecision, nextPoll, nextDangerScan, nextEvade, nextEscapeTurn, nextShelter, nextExit, nextProduction;
     private double? coldSince;
+    private (Vector3 Origin, double Time, Vector3[] Frozen)? nearbyCold;
     private bool retired, restedInEarth, shallowExit;
     private int requests, shelterThreatRetreats;
     private string? goal;
@@ -136,8 +140,9 @@ internal sealed class PlayableActor
                 if (work.Leaving && result != "succeeded")
                 {
                     nextExit = gameTime + 8;
-                    if (work.Reason == "predator_at_exit_resealed")
+                    if (work.LastExitThreat is { } threat && earthSite is not null)
                     {
+                        blockedExit = (threat, gameTime);
                         shelterThreatRetreats++;
                         int delay = PlayEarthShelter.ExitRetryDelay(shelterThreatRetreats, player.ComponentVitalStats.Food);
                         nextExit = gameTime + delay;
@@ -178,6 +183,8 @@ internal sealed class PlayableActor
             {
                 production = null;
                 if (result != "succeeded") nextProduction = gameTime + 20;
+                if (PlaySurvivalProduction.IsProject(supply.Task) && result != "succeeded")
+                    PauseSupply(supply, supply.Reason ?? "project_interrupted", gameTime);
                 Report(PlaySurvivalProduction.Tool, result, supply.Reason, gameTime, supply.Added);
                 FinishStep(result == "succeeded", supply.Reason, gameTime);
             }
@@ -185,16 +192,6 @@ internal sealed class PlayableActor
         }
         if (travel is { } route)
         {
-            if (foodApproach is { } target && FoodStock(target.Target.Value) > target.Before)
-            {
-                route.Stop();
-                travel = null;
-                foodApproach = null;
-                Report(PlaySurvivalIntents.Gather, "succeeded", "edible_stock_increased", gameTime,
-                    FoodStock(target.Target.Value) - target.Before);
-                FinishStep(true, null, gameTime);
-                return;
-            }
             route.Update(gameTime);
             if (route.Status is { } terminal)
             {
@@ -243,7 +240,15 @@ internal sealed class PlayableActor
                 if (foodApproach is { } approach)
                 {
                     foodApproach = null;
-                    FinishFoodApproach(approach.Target, route.Reason, queue, gameTime);
+                    if (route.Reason == "food_collected_en_route")
+                    {
+                        int count = route.AcquiredTargetCount > 0 ? route.AcquiredTargetCount : FoodStock(approach.Target.Value) - approach.Before;
+                        var foodMovement = (player.ComponentBody.Position - route.Origin).XZ;
+                        if (foodMovement.Length() > 0.15f) Moves++;
+                        Report(PlaySurvivalIntents.Gather, "succeeded", "target_food_acquired", gameTime, count, foodMovement);
+                        FinishStep(true, null, gameTime);
+                    }
+                    else FinishFoodApproach(approach.Target, route.Reason, queue, gameTime);
                     return;
                 }
                 var displacement = (player.ComponentBody.Position - route.Origin).XZ;
@@ -309,6 +314,7 @@ internal sealed class PlayableActor
             return;
         }
         PlaySurvivalFood.Food? foodToHarvest = null;
+        PlaySurvivalFood.Food? foodTarget = null;
         PlaySurvivalFood.Food[]? foods;
         try
         {
@@ -325,6 +331,11 @@ internal sealed class PlayableActor
                 string target = step.Arguments.GetProperty("target").GetString()!;
                 foodToHarvest = current.Foods!.Single(food => food.Reference == target);
             }
+            if (step.Tool == PlaySurvivalIntents.CollectTarget)
+            {
+                string target = step.Arguments.GetProperty("target").GetString()!;
+                foodTarget = CurrentFoodTargets(player.ComponentBody.Position, gameTime).Single(food => food.Reference == target);
+            }
         }
         catch (Exception error) when (error is FormatException or JsonException or InvalidOperationException or ArgumentException)
         {
@@ -334,10 +345,14 @@ internal sealed class PlayableActor
         }
 
         log(new { kind = "play_plan_step", actor = Name, tool = step.Tool, remaining = planned.Count, gameTime });
+        if (foodTarget is { } selectedFood)
+        {
+            StartFoodApproach(selectedFood, queue, gameTime);
+            return;
+        }
         if (step.Tool == PlaySurvivalProduction.Tool)
         {
-            production = new(player, owner, tools, step.Arguments.GetProperty("task").GetString()!, gameTime, log,
-                placedStations, ReadDryWindow, PermitSurvivalLeg);
+            StartProduction(step.Arguments.GetProperty("task").GetString()!, gameTime);
             return;
         }
         if (step.Tool is PlaySurvivalIntents.Gather or PlaySurvivalIntents.Eat or PlaySurvivalIntents.Rest
@@ -366,12 +381,16 @@ internal sealed class PlayableActor
             if (targetFood is not null && (!CanRetryFood(targetFood, body.Position, gameTime)
                 || !PermitSurvivalLeg(targetFood.Point, gameTime))) targetFood = null;
             if (targetFood is { } observedFood)
+            {
                 log(new { kind = "play_scout_food_target", actor = Name, observedFood.Name,
                     distance = (observedFood.Point - body.Position).XZ.Length(), gameTime });
+                StartFoodApproach(observedFood, queue, gameTime);
+                return;
+            }
             if (seek == "shelter") earth = sweep?.EarthInDirection(body.Position, direction);
             var shore = seek == "dry_land" ? sweep?.ShoreInDirection(body.Position, direction) : null;
             travel = new(player, owner, bearing, distance, seek, false, gameTime, ObserveSurvival, ReadDryWindow, log,
-                survivalMemory.VisitsTo, foodTarget: targetFood, shelterTarget: earth, shoreTarget: shore,
+                survivalMemory.VisitsTo, shelterTarget: earth, shoreTarget: shore,
                 permitLandLeg: PermitSurvivalLeg);
         }
         else if (foodToHarvest is { } food)
@@ -393,6 +412,7 @@ internal sealed class PlayableActor
             {
                 nextExit = 0;
                 shelterThreatRetreats = 0;
+                blockedExit = null;
             }
             earthSite = ground;
             restedInEarth = false;
@@ -435,26 +455,35 @@ internal sealed class PlayableActor
                 .ThenByDescending(item => item.InReach).ThenBy(item => (item.Point - body.Position).XZ.LengthSquared()).FirstOrDefault();
             if (food is not null)
             {
-                if (food.InReach) CollectFood(food, queue, gameTime);
-                else
-                {
-                    var offset = (food.Point - body.Position).XZ;
-                    if (offset.LengthSquared() < 0.04f)
-                    {
-                        FinishFoodApproach(food, "food_outside_pickup_height", queue, gameTime);
-                        return;
-                    }
-                    float bearing = Vector2.Angle(body.Matrix.Forward.XZ, offset) * (180f / MathF.PI);
-                    foodApproach = (food, FoodStock(food.Value));
-                    travel = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 9f), "food", false, gameTime,
-                        ObserveSurvival, ReadDryWindow, log, foodTarget: food, permitLandLeg: PermitSurvivalLeg);
-                    log(new { kind = "play_food_approach", actor = Name, food.Name, distance = offset.Length(), gameTime });
-                }
+                StartFoodApproach(food, queue, gameTime);
                 return;
             }
         }
         Report(tool, "failed", "intent_conditions_not_met", gameTime);
         FinishStep(false, "intent_conditions_not_met", gameTime);
+    }
+
+    private void StartFoodApproach(PlaySurvivalFood.Food food, PlayDecisionQueue queue, double gameTime, bool resuming = false)
+    {
+        pausedFood = null;
+        var body = player.ComponentBody;
+        var offset = (food.Point - body.Position).XZ;
+        log(new { kind = "play_food_objective", actor = Name, food.Name, target = food.Point.ToString(),
+            distance = offset.Length(), resuming, gameTime });
+        if (food.InReach)
+        {
+            CollectFood(food, queue, gameTime);
+            return;
+        }
+        if (offset.LengthSquared() < 0.04f)
+        {
+            FinishFoodApproach(food, "food_outside_pickup_height", queue, gameTime);
+            return;
+        }
+        float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+        foodApproach = (food, FoodStock(food.Value), resuming);
+        travel = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 40f), "food", false, gameTime,
+            ObserveSurvival, ReadDryWindow, log, survivalMemory.VisitsTo, foodTarget: food, permitLandLeg: PermitSurvivalLeg);
     }
 
     private bool TryEatOwned(PlayDecisionQueue queue, double gameTime, bool safeOnly, string? automaticReason = null)
@@ -485,6 +514,13 @@ internal sealed class PlayableActor
             && CanRetryFood(item, origin, gameTime) && survivalMemory.AvoidsPredatorAreas(origin, item.Point, gameTime));
     }
 
+    private PlaySurvivalFood.Food[] CurrentFoodTargets(Vector3 origin, double gameTime) =>
+        surroundings is { } sweep && gameTime - sweep.CompletedAt <= 30
+            ? sweep.FoodTargets.Where(food => (food.Point - origin).XZ.LengthSquared() <= 40f * 40f
+                && PlaySurvivalFood.CanSeek(player, food) && CanRetryFood(food, origin, gameTime)
+                && PermitSurvivalLeg(food.Point, gameTime)).Take(8).ToArray()
+            : [];
+
     private bool CanRetryFood(PlaySurvivalFood.Food food, Vector3 position, double gameTime) =>
         !blockedFood.Any(blocked => gameTime < blocked.RetryAfter && food.Matches(blocked.Target)
             && (position - blocked.Position).LengthSquared() < 1f);
@@ -498,6 +534,26 @@ internal sealed class PlayableActor
 
     private void FinishFoodApproach(PlaySurvivalFood.Food target, string? reason, PlayDecisionQueue queue, double gameTime)
     {
+        if (target.SourceId is Guid source)
+        {
+            var drop = owner.Queries.FindVisibleObjectsAround(3.2f).Pickables
+                .FirstOrDefault(item => item.Value == target.Value && NativeAcquisitionAudit.IdentityFor(item.CreatePickup(1).Target) == source);
+            if (drop is not null)
+            {
+                var pickup = owner.Start(drop.CreatePickup(1));
+                if (pickup.Result.Status == AtomicActionStatus.Succeeded)
+                {
+                    Report(PlaySurvivalIntents.Gather, "succeeded", "target_food_acquired", gameTime, 1);
+                    FinishStep(true, null, gameTime);
+                    return;
+                }
+                reason = pickup.Result.Failure.ToString();
+            }
+            DelayFood(target, gameTime);
+            Report(PlaySurvivalIntents.Gather, "failed", reason ?? "target_food_unavailable", gameTime);
+            FinishStep(false, reason, gameTime);
+            return;
+        }
         var (_, foods) = ObserveSurvival();
         var live = foods.FirstOrDefault(food => food.InReach && food.Matches(target));
         if (live is not null)
@@ -600,6 +656,7 @@ internal sealed class PlayableActor
             DispatchIntent(PlaySurvivalIntents.BuildShelter, [], queue, gameTime);
             return false;
         }
+        if (survival && inEarthShelter && HandleBlockedExit(queue, body, gameTime)) return false;
         if (gameTime < nextExit && inEarthShelter && foodLevel >= 0.18f && PlaySurvivalRest.HasSecureCover(player))
         {
             nextDecision = Math.Min(nextExit, gameTime + 1);
@@ -619,6 +676,7 @@ internal sealed class PlayableActor
                         sweep.Panorama.Radius, blocks = sweep.Panorama.Blocks.Count,
                         animals = sweep.Panorama.Objects.Entities.Count, items = sweep.Panorama.Objects.Pickables.Count,
                         durationMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds });
+                if (TryResumeSurvivalWork(queue, gameTime)) return false;
             }
             snapshot = Capture(includePanorama: true);
         }
@@ -640,6 +698,82 @@ internal sealed class PlayableActor
         requests = round;
         log(new { kind = "play_request", actor = Name, actorId = Id, round, gameTime, requestId,
             observationId = snapshot.Observation, promptBytes = Encoding.UTF8.GetByteCount(snapshot.Prompt.Prompt) });
+        return true;
+    }
+
+    private void StartProduction(string task, double gameTime)
+    {
+        if (pausedSupply is { } paused && paused.Task == task)
+        {
+            log(new { kind = "play_production_resumed", actor = Name, task, previousStage = paused.Stage, gameTime });
+            pausedSupply = null;
+        }
+        production = new(player, owner, tools, task, gameTime, log, placedStations, ReadDryWindow, PermitSurvivalLeg);
+    }
+
+    private void PauseSupply(PlaySurvivalProduction supply, string reason, double gameTime)
+    {
+        pausedSupply = (supply.Task, supply.CurrentStage, reason, gameTime);
+        log(new { kind = "play_production_paused", actor = Name, task = supply.Task, stage = supply.CurrentStage, reason, gameTime });
+    }
+
+    private bool TryResumeSurvivalWork(PlayDecisionQueue queue, double gameTime)
+    {
+        var body = player.ComponentBody;
+        var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
+        if (surroundings is not { } fresh || earthSite?.Contains(body) == true || !PlaySurvivalSenses.OnDryGround(body)
+            || PlaySurvivalRest.NightCoverDue(calendar)) return false;
+        if (pausedFood is { } food)
+        {
+            pausedFood = null;
+            var seen = gameTime <= food.Until ? fresh.Sectors.SelectMany(sector => sector.Food).FirstOrDefault(item => item.Matches(food.Target)
+                && PlaySurvivalFood.CanSeek(player, item) && PermitSurvivalLeg(item.Point, gameTime)) : null;
+            if (seen is not null)
+            {
+                StartFoodApproach(seen, queue, gameTime, resuming: true);
+                return true;
+            }
+            log(new { kind = "play_food_objective_released", actor = Name, target = food.Target.Point.ToString(),
+                reason = "target_unseen_or_route_unsafe_after_retreat", gameTime });
+        }
+        if (pausedSupply is not { } supply || gameTime - supply.Time > 2400 || gameTime < nextProduction
+            || supply.Reason is not ("predator" or "project_paused_for_night") || !ProjectVitalsReady(gameTime)
+            || !PlaySurvivalProduction.CanAdvanceProject(player, supply.Task, fresh.Panorama, placedStations,
+                end => PermitSurvivalLeg(end, gameTime))) return false;
+        StartProduction(supply.Task, gameTime);
+        return true;
+    }
+
+    private bool ProjectVitalsReady(double gameTime) => player.ComponentHealth.Health >= 0.6f
+        && player.ComponentVitalStats.Food > 0.11f && !PlaySurvivalRest.ColdNeedsShelter(player.ComponentVitalStats.Temperature,
+            gameTime - (coldSince ?? gameTime), player.ComponentFlu.HasFlu);
+
+    private bool HandleBlockedExit(PlayDecisionQueue queue, ComponentBody body, double gameTime)
+    {
+        if (blockedExit is null || !PlaySurvivalSenses.OnDryGround(body)) return false;
+        if (!PlaySurvivalRest.HasSecureCover(player))
+        {
+            if (gameTime < nextShelter || RepairableShelter() is null) return false;
+            log(new { kind = "play_shelter_blocked_exit_repair", actor = Name, gameTime });
+            DispatchIntent(PlaySurvivalIntents.BuildShelter, [], queue, gameTime);
+            return true;
+        }
+        var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
+        if (calendar.TimeOfDay < calendar.DayStart || calendar.TimeOfDay >= calendar.DuskStart - 0.06f
+            || PlaySurvivalRest.NeedsRecovery(player) || PlaySurvivalRest.WetnessBlocksSleep(player)
+            || player.ComponentVitalStats.Temperature < (player.ComponentFlu.HasFlu ? 8f : 6f)) return false;
+
+        // 白天坑口受阻时按原生危险状态重查。保留进食、伤病恢复和夜间睡眠的优先级。
+        if (earthSite is { } site && predators.Any(animal => !animal.Aquatic && animal.Y >= site.Surface - 1.05f
+            && PlaySurvivalSenses.NeedsAvoidance(animal, inWater: false)))
+            nextExit = Math.Max(nextExit, gameTime + 12);
+        if (gameTime < nextExit)
+        {
+            nextDecision = Math.Min(nextExit, gameTime + 2);
+            return true;
+        }
+        log(new { kind = "play_shelter_blocked_exit_recheck", actor = Name, attempts = shelterThreatRetreats, gameTime });
+        DispatchIntent(PlaySurvivalIntents.LeaveShelter, [], queue, gameTime);
         return true;
     }
 
@@ -666,8 +800,23 @@ internal sealed class PlayableActor
     private LocalObservationWindow ReadDryWindow() =>
         travelMemory!.Observe(travelSenses!.Observe(travelSenses.SessionId, Id, allDirections: true));
 
-    private bool PermitSurvivalLeg(Vector3 end, double gameTime) =>
-        survivalMemory.AvoidsPredatorAreas(player.ComponentBody.Position, end, gameTime);
+    private bool PermitSurvivalLeg(Vector3 end, double gameTime)
+    {
+        var origin = player.ComponentBody.Position;
+        return survivalMemory.AvoidsPredatorAreas(origin, end, gameTime)
+            && (PlaySurvivalCold.CanEnterSnow(player) || PlaySurvivalCold.AllowsRoute(origin, end, FrozenAround(origin, gameTime)));
+    }
+
+    private Vector3[] FrozenAround(Vector3 origin, double gameTime)
+    {
+        if (surroundings is { } sweep && gameTime - sweep.CompletedAt <= 12 && (origin - sweep.Origin).XZ.LengthSquared() <= 36f)
+            return sweep.FrozenGround;
+        if (nearbyCold is { } nearby && gameTime - nearby.Time <= 3 && (origin - nearby.Origin).XZ.LengthSquared() <= 4f)
+            return nearby.Frozen;
+        var frozen = PlaySurvivalCold.Observe(owner.Queries.ReadPanorama(9f));
+        nearbyCold = (origin, gameTime, frozen);
+        return frozen;
+    }
 
     private bool RestWindow()
     {
@@ -733,6 +882,8 @@ internal sealed class PlayableActor
         bool recovering = survival && PlaySurvivalRest.NeedsRecovery(player);
         float foodLevel = player.ComponentVitalStats.Food;
         float temperature = player.ComponentVitalStats.Temperature;
+        bool snowReady = survival && PlaySurvivalCold.CanEnterSnow(player);
+        bool nearSnow = onDryGround && PlaySurvivalCold.NearSnow(body.Position, FrozenAround(body.Position, gameTime));
         bool severeCold = survival && PlaySurvivalRest.ColdNeedsShelter(temperature, gameTime - (coldSince ?? gameTime),
             player.ComponentFlu.HasFlu);
         bool preferShelter = onDryGround && (nightCoverDue || nearNight && foodLevel > 0.23f
@@ -754,6 +905,8 @@ internal sealed class PlayableActor
         bool warmingNeeded = inEarthShelter && (temperature < (player.ComponentFlu.HasFlu ? 8f : 6f) || needsDrying);
         bool readyToForage = canLeaveShelter && coverUsable && !nearNight && !restWindow && !warmingNeeded && RestThreatClear;
         bool forageInWater = !exposedToWater || player.ComponentVitalStats.Food < 0.16f;
+        var foodTargets = onDryGround && !inEarthShelter && (!nightCoverDue || foodLevel < 0.06f)
+            ? CurrentFoodTargets(body.Position, gameTime) : [];
         var nativeOffers = NativeToolOffers.Build(supported.Where(tool =>
             (Actions.Contains(tool.Name) || (survival && (tool.Name == "act_Jump" || tool.Name == "act_Sleep" && canSleep)))
             && !(mounted && (tool.Name is "act_MoveTo" or "act_FaceTowards" or "act_Jump"))
@@ -783,9 +936,11 @@ internal sealed class PlayableActor
         {
             if (!inEarthShelter)
                 offers.Add(exposedToWater ? PlayNavigationMenu.ShoreOffer
+                    : nightCoverDue && !coverUsable ? reuse is not null ? PlayNavigationMenu.NightCampOffer : PlayNavigationMenu.NightShelterOffer
                     : reuse is not null ? PlayNavigationMenu.CampOffer
                     : preferShelter && !coverUsable && buildSite is null ? PlayNavigationMenu.ShelterOffer : PlayNavigationMenu.ScoutOffer);
             if (gatherCandidates.Length > 0) offers.Add(PlaySurvivalIntents.GatherOffer);
+            if (foodTargets.Length > 0) offers.Add(PlaySurvivalIntents.CollectTargetOffer(foodTargets));
             if (eatSlots.Length > 0 || gatherCandidates.Any(food => PlaySurvivalFood.CanEat(player, food.Value)))
                 offers.Add(PlaySurvivalIntents.EatOffer);
             if (canSleep || restIsSafe && needsDrying && PlaySurvivalRest.TiredEnough(player))
@@ -795,7 +950,9 @@ internal sealed class PlayableActor
             if (onDryGround && !inEarthShelter && gameTime >= nextProduction
                 && PlaySurvivalProduction.Offer(player, surroundings is { } recent && gameTime - recent.CompletedAt <= 24
                     ? recent.Panorama : null, placedStations,
-                    routineWork: !preferShelter && player.ComponentHealth.Health >= 0.6f && foodLevel > 0.28f) is { } supplyOffer)
+                    routineWork: !preferShelter && player.ComponentHealth.Health >= 0.6f && foodLevel > 0.28f,
+                    allowProjects: !preferShelter && ProjectVitalsReady(gameTime),
+                    permitted: end => PermitSurvivalLeg(end, gameTime)) is { } supplyOffer)
                 offers.Add(supplyOffer);
             if (canLeaveShelter) offers.Add(PlaySurvivalIntents.LeaveOffer);
             if (canBuildShelter) offers.Add(PlaySurvivalIntents.BuildOffer);
@@ -807,27 +964,42 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向，绕开刚看到猎食者的位置。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏、持续低温或生病低血量时找封闭庇护。warmingNeeded 表示还需回暖或晾干，readyToForage 时可出坑补粮。最多四步，每步核对实际条件。"
+                ? "先保命。看见合适食物就用 foodTargets 的编号执行收集，没找到再探索。bearing 相对朝向，height 相对脚下。走 walkableBearings 的可起步方向，绕开危险动物。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮看营养。生蛋在饱食不高于 24% 才吃。木矛可捕食用鸟，生肉用熔炉和燃料做熟。黄昏、持续低温或伤病时找封闭庇护。warmingNeeded 表示需回暖或晾干，readyToForage 时可出坑补粮。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             rows = survival && includePanorama
-                ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物还在行尾带致病概率和营养。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]，pastPredators[名称,x,z,距今秒]。"
+                ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物行尾带致病概率和营养。foodTargets 行首为目标编号。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]，pastPredators[名称,x,z,距今秒]。"
                 : null,
             actor = Name,
             previousGoal = goal,
             previousOutcome = outcome,
+            unfinishedSupply = pausedSupply is { } unfinished && gameTime - unfinished.Time <= 2400
+                ? new { task = unfinished.Task, stage = unfinished.Stage, reason = unfinished.Reason } : null,
             observation = survival ? ModelSurvivalObservation(observation) : (object)observation,
             inventory = visibleInventory,
             visibleFood = visibleFood?.Where(food => CanRetryFood(food, body.Position, gameTime)).ToArray(),
+            foodTargets = foodTargets.Length == 0 ? null
+                : PlaySurvivalPanorama.Sweep.TargetSnapshot(foodTargets, body.Position, body.Matrix.Forward.XZ),
             visibleShore = shore,
             visiblePredators = survival ? predators : null,
             environment = survival ? owner.Queries.ReadEnvironment() : null,
-            survivalPriority = survival ? (exposedToWater ? "dry_land" : preferShelter ? "shelter" : "food_and_shelter") : null,
+            survivalPriority = survival ? (exposedToWater ? "dry_land" : preferShelter ? "shelter"
+                : nearSnow && !snowReady ? "warmer_ground" : "food_and_shelter") : null,
+            coldSafety = survival && (nearSnow || surroundings?.FrozenGround.Length > 0) ? new
+            {
+                nearSnow, snowReady, temperature = Math.Round(temperature, 1),
+                insulation = Math.Round(PlaySurvivalCold.Insulation(player), 2)
+            } : null,
             sickness = survival ? new { sick = player.ComponentSickness.IsSick, flu = player.ComponentFlu.HasFlu, recovering } : null,
             rawEggReserve = survival ? eggReserve.Count : (int?)null,
             rawEggNutrition = survival ? Math.Round(eggReserve.Nutrition, 2) : (double?)null,
             nearNight = survival ? nearNight : (bool?)null,
             restWindow = survival ? restWindow : (bool?)null,
             inEarthShelter = survival ? inEarthShelter : (bool?)null,
+            exitBlocked = inEarthShelter && blockedExit is { } blocked ? new
+            {
+                threat = blocked.Threat.Name, attempts = shelterThreatRetreats,
+                secondsAgo = Math.Round(gameTime - blocked.SeenAt), recheckIn = Math.Max(0, Math.Round(nextExit - gameTime))
+            } : null,
             warmingNeeded = inEarthShelter ? warmingNeeded : (bool?)null,
             readyToForage = inEarthShelter ? readyToForage : (bool?)null,
             canBuildHere = survival ? (inEarthShelter ? !coverUsable && RepairableShelter() is not null : buildSite is not null) : (bool?)null,
@@ -839,7 +1011,7 @@ internal sealed class PlayableActor
             localMemory = survival ? survivalMemory.Snapshot(gameTime) : null,
             rememberedCamp = reuse is not null ? CampSummary(reuse, body) : null,
             walkableBearings = includePanorama && onDryGround && !inEarthShelter
-                ? PlayDryRoutes.WalkableBearings(ReadDryWindow(), body.Matrix.Forward.XZ) : null,
+                ? PlayDryRoutes.WalkableBearings(ReadDryWindow(), body.Matrix.Forward.XZ, end => PermitSurvivalLeg(end, gameTime)) : null,
             surroundings = includePanorama && surroundings is { } surveyed
                 ? surveyed.Snapshot(body.Position, body.Matrix.Forward.XZ, gameTime, onDryGround) : null,
             sleepBlocker = string.IsNullOrEmpty(sleepBlocker) ? null : sleepBlocker,
@@ -1038,6 +1210,13 @@ internal sealed class PlayableActor
 
         var away = body.Position.XZ - new Vector2(threat.X, threat.Z);
         if (away.LengthSquared() < 0.04f) return false;
+        if (foodApproach is { Resumed: false } food)
+        {
+            pausedFood = (food.Target, gameTime + 90);
+            log(new { kind = "play_food_objective_paused", actor = Name, target = food.Target.Point.ToString(),
+                reason = "predator", gameTime });
+        }
+        if (production is { } supply && PlaySurvivalProduction.IsProject(supply.Task)) PauseSupply(supply, "predator", gameTime);
         queue.Cancel(Id);
         if (!Stop())
         {

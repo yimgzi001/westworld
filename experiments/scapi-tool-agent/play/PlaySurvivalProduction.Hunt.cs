@@ -25,6 +25,13 @@ internal sealed partial class PlaySurvivalProduction
     private static int HuntWeapon(ComponentPlayer player) => FindSlot(player.ComponentMiner.Inventory, IsSpear,
         player.ComponentMiner.Inventory.VisibleSlotsCount);
 
+    private static bool CanReadyHuntWeapon(ComponentPlayer player)
+    {
+        var inventory = player.ComponentMiner.Inventory;
+        return HuntWeapon(player) >= 0 || FindSlot(inventory, IsSpear) >= 0
+            && Enumerable.Range(0, inventory.VisibleSlotsCount).Any(slot => inventory.GetSlotCount(slot) == 0);
+    }
+
     private static Entity? FindFoodBird(ComponentPlayer player, IEnumerable<NearbyEntityView> visible, float distance) =>
         visible.Where(view => view.Distance <= distance).Select(view => player.Project.FindEntity(view.EntityId)).FirstOrDefault(bird =>
             bird?.FindComponent<ComponentCreature>() is { Category: CreatureCategory.Bird } creature
@@ -39,6 +46,12 @@ internal sealed partial class PlaySurvivalProduction
         var carry = player.ComponentMiner.Inventory;
         int weapon = HuntWeapon(player);
         var target = FindFoodBird(player, owner.Queries.FindVisibleObjectsAround(HuntApproachReach).Entities, HuntApproachReach);
+        if (weapon < 0 && target is not null && CanReadyHuntWeapon(player))
+        {
+            int to = Enumerable.Range(0, carry.VisibleSlotsCount).First(slot => carry.GetSlotCount(slot) == 0);
+            Transfer(carry, FindSlot(carry, IsSpear), carry, to);
+            return;
+        }
         if (weapon < 0 || target is null)
         {
             Finish(false, "hunt_weapon_or_visible_prey_unavailable");

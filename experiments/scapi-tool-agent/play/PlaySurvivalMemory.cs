@@ -6,9 +6,10 @@ using Westworld.Runtime.Core;
 internal sealed class PlaySurvivalMemory
 {
     private sealed record Visit(int X, int Z, int Visits, bool Dry, double LastSeen);
-    private sealed record Sighting(string Name, float X, float Y, float Z, double LastSeen);
+    private sealed record Sighting(string Name, float X, float Y, float Z, double LastSeen, float KeepOutRadius = 0f);
     private const double PredatorMemorySeconds = 48;
     private const float PredatorKeepOutRadius = 18f;
+    private const float DefensiveAnimalKeepOutRadius = 7f;
     private readonly Dictionary<(int X, int Z), Visit> visits = new();
     private readonly List<Sighting> food = new();
     private readonly Dictionary<int, Sighting> predators = new();
@@ -44,8 +45,9 @@ internal sealed class PlaySurvivalMemory
     {
         foreach (var entry in predators.Where(entry => gameTime - entry.Value.LastSeen > PredatorMemorySeconds).ToArray())
             predators.Remove(entry.Key);
-        foreach (var predator in visible.Where(item => item.Predator && !item.Aquatic))
-            predators[predator.EntityId] = new(predator.Name, predator.X, predator.Y, predator.Z, gameTime);
+        foreach (var animal in visible.Where(item => !item.Aquatic && (item.Predator || item.Distance <= 9f)))
+            predators[animal.EntityId] = new(animal.Name, animal.X, animal.Y, animal.Z, gameTime,
+                animal.Predator ? PredatorKeepOutRadius : DefensiveAnimalKeepOutRadius);
         while (predators.Count > 8) predators.Remove(predators.MinBy(entry => entry.Value.LastSeen).Key);
     }
 
@@ -59,7 +61,7 @@ internal sealed class PlaySurvivalMemory
             if (gameTime - threat.LastSeen > PredatorMemorySeconds) continue;
             var offset = new Vector2(threat.X - origin.X, threat.Z - origin.Z);
             float closest = Math.Clamp(Vector2.Dot(offset, leg) / lengthSquared, 0f, 1f);
-            float required = Math.Min(offset.LengthSquared(), PredatorKeepOutRadius * PredatorKeepOutRadius);
+            float required = Math.Min(offset.LengthSquared(), threat.KeepOutRadius * threat.KeepOutRadius);
             // 已经在附近时仍可侧向走开。候选线段不能进一步靠近刚看到猎食者的位置。
             if ((offset - closest * leg).LengthSquared() < required - 0.01f) return false;
         }

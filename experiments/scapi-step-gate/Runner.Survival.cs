@@ -16,6 +16,7 @@ sealed partial class Runner
     private Point3 farMarker, hiddenMarker;
     private int eggValue;
     private bool sawLevelWalking;
+    private bool sawTargetDetour, pickedDecoyFirst;
     private long mealsBefore;
     private float vitalBefore;
     private double sleepDay;
@@ -146,6 +147,66 @@ sealed partial class Runner
             eggRisk = BlocksManager.Blocks[118].GetSicknessProbability(egg) });
     }
 
+    private void RunFoodOrigin()
+    {
+        if (elapsed < 2 || !DismountedForFixture(p.ComponentBody)) return;
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        var meals = new List<bool>();
+        var trial = new PlaySurvivalTrial(p.Project, [p], now, entry =>
+        {
+            Gate.Log(entry);
+            var record = JsonSerializer.SerializeToElement(entry);
+            if (record.GetProperty("kind").GetString() == "play_survival_meal") meals.Add(record.GetProperty("FromPickup").GetBoolean());
+        });
+        try
+        {
+            var eggs = (EggBlock)BlocksManager.Blocks[EggBlock.Index];
+            var type = eggs.EggTypes.First(egg => egg.NutritionalValue > 0f);
+            int fresh = Terrain.MakeBlockValue(EggBlock.Index, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, type.EggTypeIndex), true));
+            int aged = eggs.SetDamage(fresh, 1);
+            var position = p.ComponentBody.Position + new Vector3(0, 0.35f, 0.6f);
+            var drops = p.Project.FindSubsystem<SubsystemPickables>(true);
+            var carry = p.ComponentMiner.Inventory;
+            void PickFresh()
+            {
+                var egg = drops.AddPickable(fresh, 1, position, Vector3.Zero, null);
+                if (actions.Start(new PickUp(egg, 1)).Result.Status != AtomicActionStatus.Succeeded)
+                    throw new InvalidOperationException("来源夹具未能通过原生拾取入包。");
+            }
+            void EatValue(int value)
+            {
+                int slot = Enumerable.Range(0, carry.SlotsCount).Single(index => carry.GetSlotCount(index) > 0 && carry.GetSlotValue(index) == value);
+                p.ComponentVitalStats.Food = 0.1f;
+                if (actions.Start(new Eat(slot, value, 1)).Result.Status != AtomicActionStatus.Succeeded || p.ComponentVitalStats.Food <= 0.1f)
+                    throw new InvalidOperationException("来源夹具未实际完成进食。");
+                trial.Sample(now, voluntaryRest: false);
+            }
+
+            PickFresh();
+            var rot = p.Project.FindSubsystem<SubsystemRotBlockBehavior>(true);
+            var scanner = p.Project.FindSubsystem<SubsystemItemsScanner>(true);
+            // 触发一轮原生老化。只在夹具里控制扫描周期，食物值由游戏改写。
+            rot.m_lastRotTime = p.Project.FindSubsystem<SubsystemGameInfo>(true).TotalElapsedGameTime - 60.01;
+            rot.m_rotStep = 0;
+            rot.ItemsScanned(scanner.ScanItems());
+            bool changed = NativeAcquisitionAudit.InventoryCount(carry, fresh) == 0
+                && NativeAcquisitionAudit.InventoryCount(carry, aged) == 1;
+            EatValue(aged);
+
+            PickFresh();
+            int empty = Enumerable.Range(0, carry.SlotsCount).First(index => carry.GetSlotCount(index) == 0);
+            carry.AddSlotItems(empty, aged, 1);
+            EatValue(fresh);
+            Passed = changed && meals.SequenceEqual([true, false]);
+            Gate.Log(new { kind = "food_origin_result", Passed, changed, meals });
+        }
+        finally
+        {
+            trial.Finish(now);
+        }
+        Done = true;
+    }
+
     private void RunCoast()
     {
         var body = p.ComponentBody;
@@ -220,7 +281,8 @@ sealed partial class Runner
     private void RunSurvivalSkill()
     {
         var body = p.ComponentBody;
-        bool foraging = mode is "forage" or "forage-far";
+        bool foraging = mode is "forage" or "forage-far" or "forage-target";
+        bool committed = mode == "forage-target";
         bool lowerPredator = mode == "shelter-lower-predator";
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         if (stage == 0)
@@ -240,6 +302,10 @@ sealed partial class Runner
                 for (int x = cell.X - 1; x <= cell.X + 1; x++)
                 for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
                     terrain.ChangeCell(x, cell.Y + 3, z, DirtBlock.Index);
+            if (committed)
+                for (int x = cell.X + 5; x <= cell.X + 7; x++)
+                for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
+                for (int y = cell.Y - 3; y < cell.Y; y++) terrain.ChangeCell(x, y, z, 0);
 
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             body.Velocity = Vector3.Zero;
@@ -250,11 +316,11 @@ sealed partial class Runner
                 eggValue = Terrain.MakeBlockValue(118, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, eggType.EggTypeIndex), true));
                 var pickables = p.Project.FindSubsystem<SubsystemPickables>(true);
                 testEgg = pickables.AddPickable(eggValue, 1,
-                    body.Position + new Vector3(0, 0.2f, 3.25f), Vector3.Zero, null);
+                    body.Position + (committed ? new Vector3(2.25f, 0.2f, 0) : new Vector3(0, 0.2f, 3.25f)), Vector3.Zero, null);
                 hiddenEgg = pickables.AddPickable(eggValue, 1,
                     body.Position + new Vector3(0, 0.2f, -4.25f), Vector3.Zero, null);
                 farEgg = pickables.AddPickable(eggValue, 1,
-                    body.Position + new Vector3(38f, 0.2f, -3.25f), Vector3.Zero, null);
+                    body.Position + (committed ? new Vector3(13f, 0.2f, 0) : new Vector3(38f, 0.2f, -3.25f)), Vector3.Zero, null);
                 for (int x = cell.X - 2; x <= cell.X + 2; x++)
                 for (int y = cell.Y; y <= cell.Y + 3; y++)
                     terrain.ChangeCell(x, y, cell.Z - 2, GraniteBlock.Index);
@@ -277,11 +343,12 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         bool far = mode == "forage-far";
-        var expectedEgg = far ? farEgg! : testEgg!;
+        bool committed = mode == "forage-target";
+        var expectedEgg = far || committed ? farEgg! : testEgg!;
         if (stage == 1)
         {
             if (!ForageCorridorReady(farMarker.X - 38, farMarker.Z - 2)) return;
-            if (ReadForage().Foods.Any(food => food.Value == eggValue))
+            if (!committed && ReadForage().Foods.Any(food => food.Value == eggValue))
                 throw new InvalidOperationException("测试鸟蛋应在初始朝向之外。");
             var position = body.Position;
             var direction = p.ComponentCreatureModel.EyeRotation.GetForwardVector();
@@ -297,14 +364,28 @@ sealed partial class Runner
             bool farBlock = sweep.Panorama.Blocks.Any(block => block.Cell == farMarker && block.Distance > 32f);
             bool farItem = sweep.Panorama.Objects.Pickables.Any(item => item.Distance > 32f
                 && (item.Position - farEgg!.Position).LengthSquared() < 0.5f);
-            if (sweep.Sectors.Length != 8 || sweep.Panorama.Radius != mapRange.Content || food.InReach || !samePose || !hidden || !farBlock || !farItem)
+            if (sweep.Sectors.Length != 8 || sweep.Panorama.Radius != mapRange.Content || food.InReach || !samePose
+                || !hidden || !farBlock || !committed && !farItem)
                 throw new InvalidOperationException($"全向观察范围或遮挡不符合测试条件。原姿态 {samePose}，墙后隐藏 {hidden}，远处方块 {farBlock}，远处拾取物 {farItem}。");
             var towardFood = (food.Point - body.Position).XZ;
-            float distance = far ? MathF.Ceiling(towardFood.Length()) : 4.2f;
-            var reserve = sweep.FoodInDirection(p, Vector2.Normalize(towardFood), distance);
+            float distance = far || committed ? MathF.Ceiling(towardFood.Length()) : 4.2f;
+            var reserve = committed ? sweep.FoodTargets.Single(item => item.SourceId == food.SourceId)
+                : sweep.FoodInDirection(p, Vector2.Normalize(towardFood), distance);
             bool reserveTarget = reserve?.Matches(food) == true && !PlaySurvivalFood.CanEat(p, eggValue);
             if (!reserveTarget) throw new InvalidOperationException("正常饱食时应保留生蛋的采集目标并限制进食。");
             float bearing = Vector2.Angle(body.Matrix.Forward.XZ, towardFood) * (180f / MathF.PI);
+            if (committed)
+            {
+                var targetPrompt = new ToolDecisionPrompt(senses.SessionId, actor, Guid.NewGuid(),
+                    JsonSerializer.SerializeToElement(new { }), [PlaySurvivalIntents.CollectTargetOffer(sweep.FoodTargets)]);
+                string target = targetPrompt.ParseResponse(JsonSerializer.Serialize(new
+                {
+                    goal = "沿安全路线拿到指定的鸟蛋",
+                    steps = new[] { new { tool = PlaySurvivalIntents.CollectTarget, arguments = new { target = reserve!.Reference } } }
+                })).Steps.Single().Arguments.GetProperty("target").GetString()!;
+                if (sweep.FoodTargets.Single(item => item.Reference == target).SourceId != NativeAcquisitionAudit.IdentityFor(expectedEgg))
+                    throw new InvalidOperationException("食物编号指向了不同的掉落物。");
+            }
             var prompt = new ToolDecisionPrompt(senses.SessionId, actor, Guid.NewGuid(),
                 JsonSerializer.SerializeToElement(new { }), [PlayNavigationMenu.ScoutOffer]);
             var step = prompt.ParseResponse(JsonSerializer.Serialize(new
@@ -314,7 +395,7 @@ sealed partial class Runner
             })).Steps.Single();
             travel = new(p, actions, step.Arguments.GetProperty("bearing").GetSingle(),
                 step.Arguments.GetProperty("distance").GetSingle(), "food", false, now, ReadForage,
-                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log, foodTarget: reserve);
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackFoodTravel, foodTarget: reserve);
             Gate.Log(new { kind = "forage_survey", sectors = sweep.Sectors.Length, sweep.Panorama.Radius, food.Name, food.Distance,
                 bearing, plannedDistance = distance, far, samePose, hidden, farBlock, farItem, reserveTarget,
                 durationMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds });
@@ -325,13 +406,27 @@ sealed partial class Runner
             var inventory = p.ComponentMiner.Inventory;
             var slot = Enumerable.Range(0, inventory.SlotsCount)
                 .FirstOrDefault(index => inventory.GetSlotValue(index) == eggValue && inventory.GetSlotCount(index) > 0, -1);
-            if (slot < 0)
+            if (slot < 0 || committed && !expectedEgg.ToRemove)
             {
                 travel!.Update(now);
+                if (committed && testEgg!.ToRemove && !expectedEgg.ToRemove)
+                {
+                    if (travel.AcquiredTargetCount != 0 || travel.Reason == "food_collected_en_route")
+                        throw new InvalidOperationException("同种鸟蛋被误记为指定目标。");
+                    pickedDecoyFirst = true;
+                }
                 var movement = p.ComponentLocomotion.LastWalkOrder;
                 sawLevelWalking |= movement is { } order && order.LengthSquared() > 0.04f
                     && MathF.Abs(p.ComponentLocomotion.LookAngles.Y) < MathUtils.DegToRad(15f);
                 if (travel.Status is null) return;
+                if (committed)
+                {
+                    var target = actions.Queries.FindVisibleObjectsAround(3.2f).Pickables
+                        .FirstOrDefault(item => ReferenceEquals(item.CreatePickup(1).Target, expectedEgg));
+                    if (!expectedEgg.ToRemove && (target is null || actions.Start(target.CreatePickup(1)).Result.Status != AtomicActionStatus.Succeeded))
+                        throw new InvalidOperationException($"指定目标未进入原生拾取范围。{travel.Reason}");
+                    return;
+                }
                 var food = ReadForage().Foods.FirstOrDefault(item => item.Value == eggValue && item.InReach);
                 if (food is null) throw new InvalidOperationException($"鸟蛋仍未进入原生拾取范围。{travel.Reason}");
                 var receipt = forageTools!.Call("act_PickUp", new { target = food.Reference, count = 1 });
@@ -349,10 +444,16 @@ sealed partial class Runner
         bool consumed = run.Result.Status == AtomicActionStatus.Succeeded && p.PlayerStats.FoodItemsEaten == mealsBefore + 1
             && p.ComponentVitalStats.Food > vitalBefore && expectedEgg.ToRemove;
         float moved = (body.Position - travel!.Origin).XZ.Length();
-        Passed = consumed && sawLevelWalking && (!far || moved > 32f);
+        Passed = consumed && sawLevelWalking && (!far || moved > 32f) && (!committed || sawTargetDetour && pickedDecoyFirst);
         Done = true;
-        Gate.Log(new { kind = "forage_result", Passed, consumed, far, moved, sawLevelWalking, foodBefore = vitalBefore,
+        Gate.Log(new { kind = "forage_result", Passed, consumed, far, committed, sawTargetDetour, pickedDecoyFirst, moved, sawLevelWalking, foodBefore = vitalBefore,
             foodAfter = p.ComponentVitalStats.Food, travel.Legs });
+    }
+
+    private void TrackFoodTravel(object entry)
+    {
+        Gate.Log(entry);
+        sawTargetDetour |= JsonSerializer.SerializeToElement(entry).GetProperty("kind").GetString() == "play_scout_target_detour";
     }
 
     private (JsonElement Observation, PlaySurvivalFood.Food[] Foods) ReadForage()

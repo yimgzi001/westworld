@@ -14,6 +14,7 @@ sealed partial class Runner
     private Vector3 bearOrigin;
     private bool recoveredGround;
     private float escapeStartDistance, farthestForward;
+    private Vector3[]? coldFixtureGround;
 
     private void RunNaturalStall()
     {
@@ -104,6 +105,7 @@ sealed partial class Runner
         bool edge = mode == "navigate-edge";
         bool inset = mode == "navigate-inset";
         bool vegetation = mode == "navigate-vegetation";
+        bool cold = mode == "navigate-cold";
         if (stage == 0)
         {
             if (elapsed < 3) return;
@@ -117,7 +119,7 @@ sealed partial class Runner
             for (int z = cell.Z - 4; z <= endZ; z++)
             {
                 int floor = cliff && x >= cell.X + 8 ? cell.Y - 4 : edge && x < cell.X ? cell.Y - 2
-                    : !cliff && !turn && !edge && x >= cell.X + 9 ? cell.Y : cell.Y - 1;
+                    : !cliff && !turn && !edge && !cold && x >= cell.X + 9 ? cell.Y : cell.Y - 1;
                 for (int y = cell.Y - 4; y <= cell.Y + 4; y++)
                     terrain.ChangeCell(x, y, z, y <= floor ? DirtBlock.Index : 0);
             }
@@ -126,6 +128,11 @@ sealed partial class Runner
             if (vegetation)
                 for (int x = 2; x <= 15; x++) terrain.ChangeCell(cell.X + x, cell.Y + (x >= 9 ? 1 : 0), cell.Z,
                     x % 2 == 0 ? TallGrassBlock.Index : RedFlowerBlock.Index);
+            if (cold)
+            {
+                for (int x = 5; x <= 12; x++) terrain.ChangeCell(cell.X + x, cell.Y, cell.Z + 1, SnowBlock.Index);
+                p.ComponentClothing.Insulation = 0.6f;
+            }
             body.Position = new(cell.X + (edge ? 0.231f : inset ? 0.474f : 0.5f), cell.Y, cell.Z + (inset ? 0.451f : 0.5f));
             body.Velocity = Vector3.Zero;
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
@@ -141,9 +148,24 @@ sealed partial class Runner
         }
         if (edge && travel is null && (!PlaySurvivalSenses.OnDryGround(body) || body.BoundingBox.Min.X >= navigationOrigin.X))
             throw new InvalidOperationException("夹具需要已站稳且向低一格侧稍微悬出。");
-        travel ??= new(p, actions, turn ? 20 : 0, 18, "survey", false, now,
+        if (cold && coldFixtureGround is null)
+        {
+            coldFixtureGround = PlaySurvivalCold.Observe(actions.Queries.ReadPanorama(24f));
+            if (PlaySurvivalCold.CanEnterSnow(p) || coldFixtureGround.Length < 3
+                || PlaySurvivalCold.AllowsRoute(body.Position, body.Position + 16f * Vector3.UnitX, coldFixtureGround)
+                || !PlaySurvivalCold.AllowsRoute(body.Position, body.Position - 3f * Vector3.UnitZ, coldFixtureGround))
+                throw new InvalidOperationException("原生雪地没有被看到，或防寒路线条件不符。");
+            var nearSnow = new Vector3(navigationOrigin.X + 6.5f, navigationOrigin.Y, navigationOrigin.Z + 0.5f);
+            if (!PlaySurvivalCold.NearSnow(nearSnow, coldFixtureGround)
+                || !PlaySurvivalCold.AllowsRoute(nearSnow, nearSnow - 3f * Vector3.UnitZ, coldFixtureGround))
+                throw new InvalidOperationException("缺少从雪边退回的路径。");
+        }
+        travel ??= new(p, actions, turn ? 20 : 0, 18, cold ? "work" : "survey", false, now,
             () => (JsonSerializer.SerializeToElement(new { }), []),
-            () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
+            () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
+            permitLandLeg: cold ? (end, _) => PlaySurvivalCold.AllowsRoute(body.Position, end, coldFixtureGround!) : null);
+        if (cold && PlaySurvivalCold.NearSnow(body.Position, coldFixtureGround!))
+            throw new InvalidOperationException("保温不足时踏进了已知雪地边缘。");
         jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
         farthestForward = Math.Max(farthestForward, body.Position.X - travel.Origin.X);
         if (vegetation)
@@ -166,10 +188,13 @@ sealed partial class Runner
             : travel.Status == "succeeded" && error <= 0.45f && (turn ? biggestContinuousTurn > 35f : edge ? insetAtStart : jumped);
         Passed = continuousMovement && completed && PlaySurvivalSenses.OnDryGround(body)
             && (cliff || turn || edge || body.Position.Y >= navigationOrigin.Y + 0.95f) && (!vegetation || passedThroughPlant);
+        if (cold) Passed = travel.Status == "succeeded" && error <= 0.45f && stationaryLooks == 0
+            && PlaySurvivalSenses.OnDryGround(body) && p.ComponentHealth.Health >= 0.99f;
         Done = true;
         Gate.Log(new { kind = "rolling_navigation_result", Passed, cliff, turn, edge, insetAtStart, travel.Status, travel.Reason, travel.Legs,
             continuations, slowestContinuation = float.IsFinite(slowestContinuation) ? (float?)slowestContinuation : null,
-            biggestContinuousTurn, stationaryLooks, jumped, moved, error, vegetation, passedThroughPlant, end = body.Position.ToString() });
+            biggestContinuousTurn, stationaryLooks, jumped, moved, error, vegetation, passedThroughPlant, cold,
+            frozen = coldFixtureGround?.Length, end = body.Position.ToString() });
     }
 
     private void RunShortAlignment(ComponentBody body)

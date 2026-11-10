@@ -25,7 +25,7 @@ internal sealed class PlayEarthShelter
     private AtomicActionRun? action;
     private Phase phase = Phase.Center;
     private double settleUntil, nextPeek;
-    private int wall, level, digRetries, jumpRetries, lastExitLevel = int.MinValue;
+    private int wall, level, digRetries, jumpRetries, retreatAimRetries, lastExitLevel = int.MinValue;
     private float peakRise;
     private bool opened, retreating;
 
@@ -42,6 +42,7 @@ internal sealed class PlayEarthShelter
 
     public string? Status { get; private set; }
     public string? Reason { get; private set; }
+    public PlaySurvivalSenses.Threat? LastExitThreat { get; private set; }
     public bool Leaving => leaving;
     public bool OwnsExitMotion(ComponentBody body) => leaving && site.SameColumn(body)
         && (body.Position.Y < site.Surface - 0.05f || !PlaySurvivalSenses.OnDryGround(body));
@@ -79,6 +80,13 @@ internal sealed class PlayEarthShelter
             action = null;
             if (run.Result.Status != AtomicActionStatus.Succeeded)
             {
+                if (retreating && run.Action is FaceTowards && retreatAimRetries++ < 3
+                    && run.Result.Failure is AtomicActionFailure.PreconditionsNotMet or AtomicActionFailure.MovementInterrupted)
+                {
+                    phase = Phase.Settle;
+                    settleUntil = gameTime + 0.12;
+                    return;
+                }
                 // 自动拾取上一格土可能改变空手槽位。原生取消后重新观察，再尝试同一阶段。
                 if (run.Action is Dig && run.Result.Failure == AtomicActionFailure.TargetChanged && digRetries++ < 2)
                 {
@@ -126,15 +134,19 @@ internal sealed class PlayEarthShelter
                         Finish("failed", "predator_at_exit_resealed");
                         break;
                     }
+                    if (retreating)
+                    {
+                        // 身体还在原坑柱内就直接瞄准垫脚土或封顶面。退回时不为居中暴露在坑口。
+                        phase = level > site.Surface - 3 ? Phase.SurveyFloor : Phase.SurveyWall;
+                        break;
+                    }
                     var center = site.Center(body.Position.Y);
                     if ((body.Position - center).XZ.Length() > 0.14f)
                     {
                         Begin(new MoveTo(center, 0.12f, 2f), Phase.Settle);
                         break;
                     }
-                    if (retreating)
-                        phase = level > site.Surface - 3 ? Phase.SurveyFloor : Phase.SurveyWall;
-                    else phase = opened ? Phase.SurveyExitFloor : Phase.SurveyRoof;
+                    phase = opened ? Phase.SurveyExitFloor : Phase.SurveyRoof;
                 }
                 else if (level == site.Surface - 3 && BlocksManager.Blocks[Terrain.ExtractContents(body.StandingOnValue.Value)].SleepSuitability > 0f)
                     phase = Phase.SurveyWall;
@@ -276,10 +288,11 @@ internal sealed class PlayEarthShelter
         if (threat is null) return false;
         bool duringJump = phase == Phase.Raise;
         Stop();
+        LastExitThreat = threat;
         retreating = true;
         wall = 0;
         settleUntil = gameTime;
-        phase = Phase.Settle;
+        phase = duringJump && level > site.Surface - 3 ? Phase.SurveyFloor : Phase.Settle;
         log(new { kind = "play_shelter_exit_threat", actor = player.PlayerData.Name, threat, level, duringJump, gameTime });
         return true;
     }

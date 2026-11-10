@@ -15,6 +15,7 @@ internal sealed partial class PlaySurvivalProduction
     public const string Wood = "collect_wood", Stone = "collect_stone", Workbench = "craft_workbench", Fire = "craft_campfire";
     public const string Furnace = "craft_furnace", Cook = "cook_meat", Warm = "place_campfire";
     public const string Spear = "craft_wooden_spear", Hunt = "hunt_food_bird";
+    public const string CookedFoodProject = "secure_cooked_food", SpearProject = "equip_hunting_gear";
     private static readonly JsonSerializerOptions RecipeJson = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
@@ -52,7 +53,7 @@ internal sealed partial class PlaySurvivalProduction
         this.permitLandLeg = permitLandLeg;
         Task = task;
         before = Stock(player, task);
-        deadline = gameTime + 36;
+        deadline = gameTime + (IsProject(task) ? 180 : 36);
         log(new { kind = "play_production_started", actor = player.PlayerData.Name, task, before, gameTime });
     }
 
@@ -60,9 +61,10 @@ internal sealed partial class PlaySurvivalProduction
     public string? Status { get; private set; }
     public string? Reason { get; private set; }
     public int Added => Math.Max(0, Stock(player, Task) - before);
+    public string? CurrentStage { get; private set; }
 
     public static ToolOffer? Offer(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
-        bool routineWork)
+        bool routineWork, bool allowProjects = true, Func<Vector3, bool>? permitted = null)
     {
         bool woodNearby = FindMaterial(panorama, player.ComponentBody.Position, Wood) is not null;
         var available = new List<string>();
@@ -79,14 +81,21 @@ internal sealed partial class PlaySurvivalProduction
             int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
             int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
             if (Stock(player, Spear) == 0 && hasTable && boards >= boardsNeeded) available.Add(Spear);
-            if (HuntWeapon(player) >= 0 && Stock(player, Hunt) < 2 && panorama is { } sight
+            if (CanReadyHuntWeapon(player) && Stock(player, Hunt) < 2 && panorama is { } sight
                 && FindFoodBird(player, sight.Objects.Entities, HuntApproachReach) is not null) available.Add(Hunt);
         }
         AddStationOffers(player, panorama, stations, available);
+        if (allowProjects && panorama is not null)
+        {
+            if (NextProjectStep(player, CookedFoodProject, panorama, stations, permitted) is not null) available.Add(CookedFoodProject);
+            if (routineWork && Stock(player, Spear) == 0
+                && NextProjectStep(player, SpearProject, panorama, stations, permitted) is not null) available.Add(SpearProject);
+        }
         if (available.Count == 0) return null;
         return new(Tool, "Collect a reachable log or stone, craft survival gear, or cook carried raw meat at a furnace. "
             + "Hunt a visible nonaggressive food bird with a spear. Walk on verified dry ground to reach it, then throw or strike in range. "
-            + "Check actual materials before crafting and save raw meat to cook.",
+            + "Choose secure_cooked_food for a continuous job: obtain meat, gather stone and fuel, build or reuse a furnace, and retrieve cooked food. "
+            + "Choose equip_hunting_gear to gather wood and make a spear. Native inventory and current sight are checked before each stage.",
             JsonSerializer.SerializeToElement(new
             {
                 type = "object",
@@ -115,8 +124,8 @@ internal sealed partial class PlaySurvivalProduction
         Workbench => Terrain.ExtractContents(value) == CraftingTableBlock.Index,
         Fire => Terrain.ExtractContents(value) == CampfireBlock.Index,
         Furnace => Terrain.ExtractContents(value) == FurnaceBlock.Index,
-        Cook => IsCookedMeat(value),
-        Spear => IsSpear(value),
+        Cook or CookedFoodProject => IsCookedMeat(value),
+        Spear or SpearProject => IsSpear(value),
         Hunt => PlaySurvivalFood.IsRawMeat(value),
         _ => false
     });
@@ -139,6 +148,11 @@ internal sealed partial class PlaySurvivalProduction
     public void Update(double gameTime)
     {
         if (Status is not null) return;
+        if (IsProject(Task))
+        {
+            AdvanceProject(gameTime);
+            return;
+        }
         if (gameTime >= deadline || player.ComponentSleep.IsSleeping
             || huntApproach is null && !PlaySurvivalSenses.OnDryGround(player.ComponentBody))
         {
@@ -295,6 +309,11 @@ internal sealed partial class PlaySurvivalProduction
 
     public void Stop()
     {
+        projectStep?.Stop();
+        projectStep = null;
+        projectRoute?.Stop();
+        projectRoute = null;
+        if (IsProject(Task)) return;
         StopHunt();
         if (action?.Result.Status == AtomicActionStatus.Running) owner.Cancel(action);
         action = null;
