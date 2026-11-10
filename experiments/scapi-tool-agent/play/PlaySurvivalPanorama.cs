@@ -37,8 +37,8 @@ internal static class PlaySurvivalPanorama
                     .OrderBy(block => block.Distance).Take(1).Select(block => Describe("dry_ground", block.Point, at, facing)).FirstOrDefault(),
                 softEarth = sector.Blocks.Where(IsSoftEarth).MinBy(block => (block.Point - at).LengthSquared()) is { } earth
                     ? Describe("soft_earth", earth.Point, at, facing) : null,
-                food = sector.Food.OrderBy(food => food.Distance).Take(4)
-                    .Select(food => Describe(food.Name, food.Point, at, facing)).ToArray(),
+                food = sector.Food.OrderBy(food => food.SicknessRisk).ThenBy(food => food.Distance).Take(4)
+                    .Select(food => DescribeFood(food, at, facing)).ToArray(),
                 animals = sector.Animals.Where(animal => !string.IsNullOrWhiteSpace(animal.Name)).Take(4)
                     .Select(animal => Describe(animal.Name, animal.Position, at, facing)).ToArray(),
                 itemTypes = sector.Items.GroupBy(item => item.Value).Take(2).Select(group =>
@@ -58,6 +58,19 @@ internal static class PlaySurvivalPanorama
         public Vector3? ShoreInDirection(Vector3 origin, Vector2 direction) => GroundInDirection(origin, direction,
             block => block.BareTop && IsDryGround(block.Value), 2f);
 
+        public PlaySurvivalFood.Food? FoodInDirection(ComponentPlayer player, Vector2 direction, float distance)
+        {
+            var origin = player.ComponentBody.Position;
+            return Sectors.SelectMany(sector => sector.Food).Where(food => PlaySurvivalFood.CanSeek(player, food))
+                .Where(food =>
+                {
+                    var offset = food.Point - origin;
+                    float horizontal = offset.XZ.Length();
+                    return offset.Y is >= -2f and <= 3f && horizontal > 0.1f && horizontal <= distance + 0.5f
+                        && Vector2.Dot(offset.XZ / horizontal, direction) >= 0.65f;
+                }).MinBy(food => (food.Point - origin).LengthSquared());
+        }
+
         private Vector3? GroundInDirection(Vector3 origin, Vector2 direction, Func<PanoramicBlock, bool> matching, float height)
         {
             var ground = Panorama.Blocks.Where(matching).Where(block =>
@@ -74,6 +87,15 @@ internal static class PlaySurvivalPanorama
             var delta = point - at;
             return new { name, bearing = Bearing(facing, delta.XZ), distance = Math.Round(delta.Length(), 1),
                 x = Math.Round(point.X, 1), y = Math.Round(point.Y, 1), z = Math.Round(point.Z, 1) };
+        }
+
+        private static object DescribeFood(PlaySurvivalFood.Food food, Vector3 at, Vector2 facing)
+        {
+            var point = food.Point;
+            var delta = point - at;
+            return new { name = food.Name, bearing = Bearing(facing, delta.XZ), distance = Math.Round(delta.Length(), 1),
+                x = Math.Round(point.X, 1), y = Math.Round(point.Y, 1), z = Math.Round(point.Z, 1),
+                sicknessRisk = food.SicknessRisk, nutrition = food.Nutrition };
         }
 
         private static bool IsDryGround(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)]

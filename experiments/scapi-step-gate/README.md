@@ -12,6 +12,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `navigate` 用一个 18 格目标验证接续走路和途中自动跳。`navigate-turn` 在路中放置障碍，验证走动中变更方向。`navigate-drop` 检查在缺少可验证落脚的三格落差前停下。`shelter-predator` 用原生黑熊验证开顶见敌后重封，夹具把熊的移动速度设为零以固定观察时机。
 
+`food-safety` 使用原生食物属性、饱食和疾病状态验证进食筛选。`shelter-illness` 先比较原生睡眠检查和实体封闭检查，再搭建土坑并用夹具设置的低血量和疾病状态触发白天原生睡眠。
+
 - `ObservedStepRoutes` 仅投影真实当前/≤3 秒历史观察的基底、身体、净空与落脚格。只支持一格、轴向、固定实心地面；不可见、未知、过高、空落点拒绝。
 - `StepTo` 是低层原生动作，不携带证据，**不能直接作为模型入口**。这里由 runner 强制校验逐帧包络与证据期限。未来集成必须保留这些约束。
 - 上台阶允许已观察落脚实心格的原生 SmoothRise 接触：仅开启原生功能，且脚高度差不超过 `min(MaxSmoothRiseHeight, 0.5)`。日志 `knownSupportContactUsed` 明示，不称全空气穿越。

@@ -30,6 +30,8 @@ internal sealed class PlaySurvivalTrial
         public long Meals => Player.PlayerStats.FoodItemsEaten - InitialMeals;
         public long Sleeps => Player.PlayerStats.TimesWentToSleep - InitialSleeps;
         public double? DiedAt { get; set; }
+        public bool WasSick { get; set; } = player.ComponentSickness.IsSick;
+        public bool HadFlu { get; set; } = player.ComponentFlu.HasFlu;
 
         public void OnMeal(int value)
         {
@@ -86,6 +88,15 @@ internal sealed class PlaySurvivalTrial
             var player = actor.Player;
             actor.MinFood = Math.Min(actor.MinFood, player.ComponentVitalStats.Food);
             actor.MinHealth = Math.Min(actor.MinHealth, player.ComponentHealth.Health);
+            bool sick = player.ComponentSickness.IsSick;
+            bool flu = player.ComponentFlu.HasFlu;
+            if (sick != actor.WasSick || flu != actor.HadFlu)
+            {
+                actor.WasSick = sick;
+                actor.HadFlu = flu;
+                log(new { kind = "play_survival_illness", actor = player.PlayerData.Name, sick, flu, gameTime,
+                    health = player.ComponentHealth.Health, food = player.ComponentVitalStats.Food });
+            }
             foreach (var meal in actor.NewMeals)
                 log(new { kind = "play_survival_meal", actor = player.PlayerData.Name, meal.Value, meal.FoodAfter,
                     meal.FromPickup, actor.Meals, gameTime });
@@ -142,6 +153,7 @@ internal sealed class PlaySurvivalTrial
             food = actor.Player.ComponentVitalStats.Food, sleep = actor.Player.ComponentVitalStats.Sleep,
             sleeping = actor.Player.ComponentSleep.IsSleeping, actor.MinHealth, actor.MinFood, actor.DiedAt,
             causeOfDeath = actor.Player.ComponentHealth.CauseOfDeath, temperature = actor.Player.ComponentVitalStats.Temperature,
+            wetness = actor.Player.ComponentVitalStats.Wetness, sick = actor.WasSick, flu = actor.HadFlu,
             actor.Meals, actor.PickedFood, actor.PickedFoodMeals, actor.Sleeps,
             position = new { x = actor.Player.ComponentBody.Position.X, y = actor.Player.ComponentBody.Position.Y,
                 z = actor.Player.ComponentBody.Position.Z }

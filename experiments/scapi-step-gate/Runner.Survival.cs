@@ -22,6 +22,29 @@ sealed partial class Runner
     private bool openedForRepair;
     private PlaySurvivalRest? fixtureDrying;
     private double dryingStarted;
+    private bool refusedOpenCover;
+
+    private void RunFoodSafety()
+    {
+        if (elapsed < 1) return;
+        var type = ((EggBlock)BlocksManager.Blocks[118]).EggTypes.First(egg => egg.NutritionalValue > 0f);
+        int egg = Terrain.MakeBlockValue(118, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, type.EggTypeIndex), true));
+        int pumpkin = Terrain.MakeBlockValue(PumpkinBlock.Index, 0, BasePumpkinBlock.SetSize(0, 7));
+        var stats = p.ComponentVitalStats;
+        stats.Food = 0.55f;
+        bool normal = !PlaySurvivalFood.CanEat(p, egg) && PlaySurvivalFood.CanEat(p, pumpkin);
+        stats.Food = 0.23f;
+        bool hungry = PlaySurvivalFood.CanEat(p, egg) && !PlaySurvivalFood.CanEat(p, RawBirdBlock.Index)
+            && !PlaySurvivalFood.CanEat(p, SeaUrchinBlock.Index);
+        p.ComponentSickness.StartSickness();
+        bool sick = !PlaySurvivalFood.CanEat(p, egg) && PlaySurvivalFood.CanEat(p, pumpkin);
+        stats.m_satiation[PumpkinBlock.Index] = 3.25f;
+        bool repeated = !PlaySurvivalFood.CanEat(p, pumpkin);
+        Passed = normal && hungry && sick && repeated;
+        Done = true;
+        Gate.Log(new { kind = "food_safety_result", Passed, normal, hungry, sick, repeated,
+            eggRisk = BlocksManager.Blocks[118].GetSicknessProbability(egg) });
+    }
 
     private void RunCoast()
     {
@@ -108,6 +131,11 @@ sealed partial class Runner
             for (int z = cell.Z - 5; z <= cell.Z + 5; z++)
             for (int y = cell.Y - 4; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
+
+            if (mode == "shelter-illness")
+                for (int x = cell.X - 1; x <= cell.X + 1; x++)
+                for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
+                    terrain.ChangeCell(x, cell.Y + 3, z, DirtBlock.Index);
 
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             body.Velocity = Vector3.Zero;
@@ -228,6 +256,11 @@ sealed partial class Runner
         bool wetTest = mode == "shelter-wet";
         if (stage == 1)
         {
+            if (mode == "shelter-illness")
+            {
+                if (!p.ComponentSleep.CanSleep(out _)) return;
+                refusedOpenCover = !PlaySurvivalRest.HasSecureCover(p);
+            }
             testSite = PlayEarthShelter.At(p.ComponentBody) ?? throw new InvalidOperationException("土坑测试地面不可用。");
             earthShelter = new(p, actions, testSite, false, now, Gate.Log);
             stage = 2;
@@ -304,6 +337,21 @@ sealed partial class Runner
         }
         if (stage == 3)
         {
+            if (mode == "shelter-illness")
+            {
+                if (!PlaySurvivalRest.HasSecureCover(p) || !p.ComponentSleep.CanSleep(out _)) return;
+                p.ComponentHealth.Health = 0.4f;
+                p.ComponentSickness.StartSickness();
+                bool daytime = calendar.TimeOfDay >= calendar.DayStart && calendar.TimeOfDay < calendar.DuskStart;
+                bool recovering = PlaySurvivalRest.NeedsRecovery(p);
+                run = actions.Start(new Sleep());
+                Passed = refusedOpenCover && daytime && recovering
+                    && run.Result.Status == AtomicActionStatus.Succeeded && p.ComponentSleep.IsSleeping;
+                Done = true;
+                Gate.Log(new { kind = "shelter_illness_result", Passed, refusedOpenCover, daytime, recovering,
+                    sleeping = p.ComponentSleep.IsSleeping, health = p.ComponentHealth.Health });
+                return;
+            }
             // 等角色自然产生疲劳，避免把刚出生时的睡眠前提误判为搭建失败。
             if (wetTest)
             {

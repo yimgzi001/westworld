@@ -211,6 +211,13 @@ internal sealed class PlayableActor
 
     private void DispatchStep(ToolDecisionStep step, PlayDecisionQueue queue, double gameTime)
     {
+        if (survival && step.Tool == PlayNavigationMenu.ScoutTool && Text(step.Arguments, "seek") == "dry_land"
+            && PlaySurvivalSenses.OnDryGround(player.ComponentBody))
+        {
+            Report(step.Tool, "succeeded", "dry_ground_already_reached", gameTime);
+            FinishStep(true, null, gameTime);
+            return;
+        }
         PlaySurvivalFood.Food? foodToHarvest = null;
         JsonElement context;
         PlaySurvivalFood.Food[]? foods;
@@ -248,14 +255,16 @@ internal sealed class PlayableActor
         if (step.Tool == PlayNavigationMenu.ScoutTool)
         {
             float bearing = step.Arguments.GetProperty("bearing").GetSingle();
+            float distance = step.Arguments.GetProperty("distance").GetSingle();
             string seek = step.Arguments.GetProperty("seek").GetString()!;
             var body = player.ComponentBody;
             var direction = PlaySurvivalTravel.Rotate(body.Matrix.Forward.XZ, bearing);
             var sweep = surroundings is { } current && gameTime - current.CompletedAt < 30 ? current : null;
+            var targetFood = seek == "food" ? sweep?.FoodInDirection(player, direction, distance) : null;
             var earth = seek == "shelter" ? sweep?.EarthInDirection(body.Position, direction) : null;
             var shore = seek == "dry_land" ? sweep?.ShoreInDirection(body.Position, direction) : null;
-            travel = new(player, owner, bearing, step.Arguments.GetProperty("distance").GetSingle(), seek,
-                false, gameTime, ObserveSurvival, ReadDryWindow, log, survivalMemory.VisitsTo, shelterTarget: earth, shoreTarget: shore);
+            travel = new(player, owner, bearing, distance, seek, false, gameTime, ObserveSurvival, ReadDryWindow, log,
+                survivalMemory.VisitsTo, foodTarget: targetFood, shelterTarget: earth, shoreTarget: shore);
         }
         else if (foodToHarvest is { } food)
         {
@@ -283,14 +292,14 @@ internal sealed class PlayableActor
             return;
         }
         if (tool == PlaySurvivalIntents.Rest && dry && RestWindow() && !player.ComponentSleep.IsSleeping
-            && !predators.Any(animal => !animal.Aquatic && animal.Distance < 12f))
+            && PlaySurvivalRest.HasSecureCover(player) && !predators.Any(animal => !animal.Aquatic && animal.Distance < 12f))
         {
             if (player.ComponentSleep.CanSleep(out _))
             {
                 Dispatch("act_Sleep", JsonSerializer.SerializeToElement(new { }), queue, gameTime);
                 return;
             }
-            if (PlaySurvivalRest.WetnessBlocksSleep(player) && PlaySurvivalRest.HasUsableCover(player))
+            if (PlaySurvivalRest.WetnessBlocksSleep(player))
             {
                 drying = new(player, gameTime);
                 log(new { kind = "play_survival_drying", actor = Name, wetness = player.ComponentVitalStats.Wetness, gameTime });
@@ -301,7 +310,7 @@ internal sealed class PlayableActor
         {
             var selected = context.GetProperty("inventory").GetProperty("slots").EnumerateArray()
                 .Where(item => item.GetProperty("item").TryGetProperty("nutrition", out var amount) && amount.GetSingle() > 0)
-                .Where(item => !PlaySurvivalFood.IsRawMeat(item.GetProperty("value").GetInt32()))
+                .Where(item => PlaySurvivalFood.CanEat(player, item.GetProperty("value").GetInt32()))
                 .Select(item =>
                 {
                     int value = item.GetProperty("value").GetInt32();
@@ -318,11 +327,7 @@ internal sealed class PlayableActor
         }
         if (tool == PlaySurvivalIntents.Gather && dry)
         {
-            var pastFood = surroundings is { } sweep && gameTime - sweep.CompletedAt <= 24
-                ? sweep.Sectors.SelectMany(sector => sector.Food).Select(item => item with { InReach = false })
-                : Enumerable.Empty<PlaySurvivalFood.Food>();
-            var food = foods.Concat(pastFood).Where(item => PlaySurvivalFood.CanApproachOnLand(item, body.Position)
-                    && !(blockedFood is { } blocked && gameTime < blocked.RetryAfter && item.Matches(blocked.Target)))
+            var food = NearbyFood(foods, body.Position, gameTime)
                 .OrderBy(item => PlaySurvivalFood.IsRawMeat(item.Value)).ThenBy(item => item.SicknessRisk)
                 .ThenByDescending(item => item.InReach).ThenBy(item => (item.Point - body.Position).XZ.LengthSquared()).FirstOrDefault();
             if (food is not null)
@@ -347,6 +352,15 @@ internal sealed class PlayableActor
         }
         Report(tool, "failed", "intent_conditions_not_met", gameTime);
         FinishStep(false, "intent_conditions_not_met", gameTime);
+    }
+
+    private IEnumerable<PlaySurvivalFood.Food> NearbyFood(IEnumerable<PlaySurvivalFood.Food> foods, Vector3 origin, double gameTime)
+    {
+        var pastFood = surroundings is { } sweep && gameTime - sweep.CompletedAt <= 24
+            ? sweep.Sectors.SelectMany(sector => sector.Food).Select(item => item with { InReach = false })
+            : Enumerable.Empty<PlaySurvivalFood.Food>();
+        return foods.Concat(pastFood).Where(item => PlaySurvivalFood.CanApproachOnLand(item, origin)
+            && !(blockedFood is { } blocked && gameTime < blocked.RetryAfter && item.Matches(blocked.Target)));
     }
 
     private void FinishFoodApproach(PlaySurvivalFood.Food target, string? reason, PlayDecisionQueue queue, double gameTime)
@@ -414,7 +428,7 @@ internal sealed class PlayableActor
                 || player.Entity.FindComponent<ComponentRider>()?.m_isAnimating == true))
             || (bridge is null && SmokeReady)) return false;
         if (gameTime < nextExit && earthSite?.Contains(player.ComponentBody) == true
-            && player.ComponentVitalStats.Food >= 0.18f && PlaySurvivalRest.HasUsableCover(player)) return false;
+            && player.ComponentVitalStats.Food >= 0.18f && PlaySurvivalRest.HasSecureCover(player)) return false;
 
         (Guid Observation, ToolDecisionPrompt Prompt, JsonElement Context, IReadOnlyList<ToolOffer> Offers,
             PlaySurvivalFood.Food[]? Foods) snapshot;
@@ -478,7 +492,7 @@ internal sealed class PlayableActor
         var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         float start = earthSite?.Contains(player.ComponentBody) == true ? calendar.DuskStart - 0.1f : calendar.DuskStart;
         return calendar.TimeOfDay >= start || calendar.TimeOfDay < calendar.DayStart
-            || player.ComponentVitalStats.Sleep <= 0.25f;
+            || player.ComponentVitalStats.Sleep <= 0.25f || PlaySurvivalRest.NeedsRecovery(player);
     }
 
     private PlayEarthShelter.Site? RepairableShelter()
@@ -496,7 +510,8 @@ internal sealed class PlayableActor
         var mountBody = survival ? player.Entity.FindComponent<ComponentRider>()?.Mount?.ComponentBody : null;
         bool mounted = mountBody is not null;
         var deck = survival ? PlaySurvivalSenses.BoatDeck(body) : null;
-        bool exposedToWater = survival && (mounted || deck is not null || body.ImmersionDepth > 0.12f);
+        bool onDryGround = survival && PlaySurvivalSenses.OnDryGround(body);
+        bool exposedToWater = survival && !onDryGround;
         var shore = exposedToWater ? PlaySurvivalSenses.VisibleShore(observation, body, mountBody ?? deck) : null;
         bool canDismount = !mounted || shore is { Distance: <= 2.5f }
             || mountBody!.StandingOnValue.HasValue || mountBody.ImmersionFactor > 0.92f;
@@ -514,21 +529,24 @@ internal sealed class PlayableActor
                 item = ReadItem(slot.GetProperty("value").GetInt32())
             }).ToArray();
         var visibleInventory = JsonSerializer.SerializeToElement(new { slots });
-        var eatInventory = survival
-            ? JsonSerializer.SerializeToElement(new { slots = slots.Where(item => !PlaySurvivalFood.IsRawMeat(item.value)).ToArray() })
-            : visibleInventory;
+        var eatSlots = survival ? slots.Where(item => PlaySurvivalFood.CanEat(player, item.value)).ToArray() : slots;
+        var eatInventory = survival ? JsonSerializer.SerializeToElement(new { slots = eatSlots }) : visibleInventory;
         var supported = tools.GetTools();
         string? sleepBlocker = null;
         bool nativeCanSleep = survival && !player.ComponentSleep.IsSleeping && player.ComponentSleep.CanSleep(out sleepBlocker);
-        bool canSleep = nativeCanSleep && RestWindow();
+        bool restWindow = survival && RestWindow();
         var calendar = survival ? player.Project.FindSubsystem<SubsystemTimeOfDay>(true) : null;
         bool nearNight = calendar is not null && (calendar.TimeOfDay >= calendar.DuskStart - 0.1f
             || calendar.TimeOfDay < calendar.DayStart);
+        bool recovering = survival && PlaySurvivalRest.NeedsRecovery(player);
         bool preferShelter = survival && !exposedToWater && player.ComponentVitalStats.Food > 0.23f
-            && (nearNight || player.ComponentVitalStats.Temperature < 5f);
+            && (nearNight || recovering || player.ComponentVitalStats.Temperature < 5f);
         bool inEarthShelter = earthSite?.Contains(body) == true;
+        var gatherCandidates = onDryGround && !inEarthShelter ? NearbyFood(visibleFood!, body.Position, gameTime).ToArray()
+            : Array.Empty<PlaySurvivalFood.Food>();
         var buildSite = survival && !inEarthShelter ? PlayEarthShelter.At(body) : null;
-        bool coverUsable = survival && !exposedToWater && (inEarthShelter || preferShelter) && PlaySurvivalRest.HasUsableCover(player);
+        bool coverUsable = onDryGround && (inEarthShelter || preferShelter || restWindow) && PlaySurvivalRest.HasSecureCover(player);
+        bool canSleep = nativeCanSleep && restWindow && coverUsable;
         bool needsDrying = coverUsable && PlaySurvivalRest.WetnessBlocksSleep(player);
         bool canLeaveShelter = inEarthShelter && gameTime >= nextExit
             && (!coverUsable || restedInEarth && !RestWindow() || player.ComponentVitalStats.Food < 0.18f);
@@ -562,10 +580,13 @@ internal sealed class PlayableActor
             if (!inEarthShelter)
                 offers.Add(exposedToWater ? PlayNavigationMenu.ShoreOffer
                     : preferShelter && !coverUsable && buildSite is null ? PlayNavigationMenu.ShelterOffer : PlayNavigationMenu.ScoutOffer);
-            offers.AddRange(PlaySurvivalIntents.Offers);
+            if (gatherCandidates.Length > 0) offers.Add(PlaySurvivalIntents.GatherOffer);
+            if (eatSlots.Length > 0 || gatherCandidates.Any(food => PlaySurvivalFood.CanEat(player, food.Value)))
+                offers.Add(PlaySurvivalIntents.EatOffer);
+            if (preferShelter || restWindow) offers.Add(PlaySurvivalIntents.RestOffer);
             if (canLeaveShelter) offers.Add(PlaySurvivalIntents.LeaveOffer);
             if ((inEarthShelter && !coverUsable && RepairableShelter() is not null)
-                || (!inEarthShelter && preferShelter && !nativeCanSleep && gameTime >= nextShelter))
+                || (!inEarthShelter && preferShelter && !coverUsable && gameTime >= nextShelter))
                 offers.Add(PlaySurvivalIntents.BuildOffer);
         }
         if (visibleFood is not null && forageInWater && PlaySurvivalFood.HarvestOffer(visibleFood.Where(food =>
@@ -574,7 +595,7 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。surroundings 是同一时刻的全向观察摘要，bearing 是相对方向。水上优先 scout_local 找 dry_land。近处鸟蛋或南瓜用 gather_available_food 和 eat_owned_food。需要移动时用 scout_local 选目标和方向，游戏连续导航到目标附近，普通陆地探索可一次走到 24 格。生肉留作烹饪。降温或临近黄昏先找遮蔽，脚下有软土且能 build_earth_shelter 就接 rest_when_safe。有顶而太湿时，rest_when_safe 会留在遮蔽处晾干再睡。天亮后或缺乏有效遮蔽时再 leave_earth_shelter。最多四步，游戏逐步核对实际条件。"
+                ? "先保命。surroundings 是同一时刻的全向观察摘要，bearing 是相对方向。水上用 scout_local 找 dry_land。陆地用 scout_local 连续导航，最多选择 24 格内的目标。优先找无致病风险的成熟南瓜和熟食，近处可 gather_available_food 后 eat_owned_food。饱食高于 24% 时生蛋留作储备，生肉留作烹饪。recovering 表示生病且血量低，白天也优先找庇护。降温或黄昏同样先找庇护。睡觉需要实体顶和墙，能 build_earth_shelter 就接 rest_when_safe。封闭处太湿就先晾干再睡。最多四步，游戏逐步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             actor = Name,
             previousGoal = goal,
@@ -586,15 +607,16 @@ internal sealed class PlayableActor
             visiblePredators = survival ? predators : null,
             environment = survival ? owner.Queries.ReadEnvironment() : null,
             survivalPriority = survival ? (exposedToWater ? "dry_land" : preferShelter ? "shelter" : "food_and_shelter") : null,
+            sickness = survival ? new { sick = player.ComponentSickness.IsSick, flu = player.ComponentFlu.HasFlu, recovering } : null,
             nearNight = survival ? nearNight : (bool?)null,
-            restWindow = survival ? RestWindow() : (bool?)null,
+            restWindow = survival ? restWindow : (bool?)null,
             inEarthShelter = survival ? inEarthShelter : (bool?)null,
             canBuildHere = survival ? (inEarthShelter ? !coverUsable && RepairableShelter() is not null : buildSite is not null) : (bool?)null,
             canRestHere = survival ? canSleep : (bool?)null,
             needsDrying = survival ? needsDrying : (bool?)null,
             hasUsableCover = survival ? coverUsable : (bool?)null,
             onBoatDeck = survival ? deck is not null : (bool?)null,
-            onDryGround = survival ? PlaySurvivalSenses.OnDryGround(body) : (bool?)null,
+            onDryGround = survival ? onDryGround : (bool?)null,
             localMemory = survival ? survivalMemory.Snapshot(gameTime) : null,
             surroundings = includePanorama && surroundings is { } surveyed
                 ? surveyed.Snapshot(body.Position, body.Matrix.Forward.XZ, gameTime) : null,
@@ -628,7 +650,8 @@ internal sealed class PlayableActor
         var receipt = tools.Call("read_item", new { value });
         if (receipt.State != "returned") return JsonSerializer.SerializeToElement(new { });
         var data = receipt.Data;
-        facts = JsonSerializer.SerializeToElement(new { name = data.GetProperty("name"), nutrition = data.GetProperty("nutrition") });
+        float? sicknessRisk = survival ? BlocksManager.Blocks[Terrain.ExtractContents(value)]?.GetSicknessProbability(value) : null;
+        facts = JsonSerializer.SerializeToElement(new { name = data.GetProperty("name"), nutrition = data.GetProperty("nutrition"), sicknessRisk });
         items.Add(value, facts);
         return facts;
     }

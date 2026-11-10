@@ -19,12 +19,12 @@ internal static class PlaySurvivalIntents
         additionalProperties = false
     });
 
-    public static IReadOnlyList<ToolOffer> Offers { get; } =
-    [
-        new(Gather, "Approach the best nearby edible food seen in the current view or recent sweep, then collect it with native reach checks.", NoArguments),
-        new(Eat, "At execution, choose a safe edible item from actual owned inventory and eat one.", NoArguments),
-        new(Rest, "Sleep when the real shelter and fatigue permit it. If wet, dry under usable cover before attempting sleep.", NoArguments)
-    ];
+    public static ToolOffer GatherOffer { get; } = new(Gather,
+        "Approach nearby observed food and collect it using native reach. Fresh safe food has priority. Uncooked food can be saved.", NoArguments);
+    public static ToolOffer EatOffer { get; } = new(Eat,
+        "Eat one owned item after checking its native sickness risk and how recently the actor ate that food type.", NoArguments);
+    public static ToolOffer RestOffer { get; } = new(Rest,
+        "Sleep under usable cover at night or while ill and injured. Dry under cover before attempting sleep if necessary.", NoArguments);
 
     public static ToolOffer BuildOffer { get; } = new(BuildShelter,
         "On dry soft earth, dig a temporary three-block-deep shelter and seal the top with owned dirt. Use rest_when_safe next if permitted.", NoArguments);

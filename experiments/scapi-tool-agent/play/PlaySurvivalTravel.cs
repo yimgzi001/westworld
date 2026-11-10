@@ -21,6 +21,7 @@ internal sealed class PlaySurvivalTravel
     private readonly Func<LocalObservationWindow> readDryWindow;
     private readonly Func<Position, int>? visits;
     private readonly PlaySurvivalFood.Food? foodTarget;
+    private readonly int? initialFoodStock;
     private readonly Vector3? shelterTarget;
     private readonly Vector3? shoreTarget;
     private readonly Vector3 surveyTarget;
@@ -51,6 +52,8 @@ internal sealed class PlaySurvivalTravel
         this.readDryWindow = readDryWindow;
         this.visits = visits;
         this.foodTarget = foodTarget;
+        if (foodTarget is not null)
+            initialFoodStock = NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value);
         this.shelterTarget = shelterTarget;
         this.shoreTarget = shoreTarget;
         this.log = log;
@@ -377,16 +380,19 @@ internal sealed class PlaySurvivalTravel
         }
         else if (seek == "food")
         {
+            if (foodTarget is not null && initialFoodStock is int before
+                && NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value) is int after && after > before)
+                return ("food_collected_en_route", null);
             var (_, food) = observe();
             var edible = food.Where(item => foodTarget is not null ? item.Matches(foodTarget)
-                    : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && !PlaySurvivalFood.IsRawMeat(item.Value)
-                        && item.SicknessRisk < 0.5f).MinBy(item => item.Distance);
+                    : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && PlaySurvivalFood.CanSeek(player, item))
+                .MinBy(item => item.Distance);
             if (edible?.InReach == true) return ("food_within_reach", null);
             approach = (edible ?? foodTarget)?.Point;
         }
         else if (seek == "shelter")
         {
-            if (player.ComponentSleep.CanSleep(out _)) return ("native_sleep_site_ready", null);
+            if (PlaySurvivalRest.HasSecureCover(player)) return ("enclosed_sleep_site_ready", null);
             if (PlayEarthShelter.At(body) is not null) return ("soft_earth_shelter_site", null);
             approach = shelterTarget;
         }

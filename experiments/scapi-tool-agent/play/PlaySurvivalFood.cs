@@ -13,6 +13,7 @@ internal static class PlaySurvivalFood
 {
     private const int NearbyBlockLimit = 8;
     private const int FoodBlockLimit = 8;
+    private const float EmergencyFood = 0.24f;
     public const string HarvestTool = "harvest_visible_food";
 
     public static bool IsRawMeat(int value)
@@ -20,6 +21,27 @@ internal static class PlaySurvivalFood
         int contents = Terrain.ExtractContents(value);
         return contents == RawMeatBlock.Index || contents == RawBirdBlock.Index || contents == RawFishBlock.Index;
     }
+
+    public static bool CanEat(ComponentPlayer player, int value)
+    {
+        int contents = Terrain.ExtractContents(value);
+        if (BlocksManager.Blocks[contents] is not { } block) return false;
+        var vitals = player.ComponentVitalStats;
+        bool sick = player.ComponentSickness.IsSick;
+        float nutrition = block.GetNutritionalValue(value);
+        if (nutrition <= 0f || vitals.Food >= 0.98f || IsRawMeat(value)
+            || !AcceptableRisk(block.GetSicknessProbability(value), vitals.Food, sick)) return false;
+
+        // 原生按方块种类累计同类食物。提前排除这次进食就会超过原生致病线的食物。
+        float added = Math.Max(0.5f, nutrition * (sick ? 0.75f : 1f));
+        return vitals.m_satiation.GetValueOrDefault(contents) + added <= 3.5f;
+    }
+
+    public static bool CanSeek(ComponentPlayer player, Food food) => !IsRawMeat(food.Value)
+        && AcceptableRisk(food.SicknessRisk, player.ComponentVitalStats.Food, player.ComponentSickness.IsSick);
+
+    private static bool AcceptableRisk(float risk, float food, bool sick) =>
+        risk <= 0f || !sick && food <= EmergencyFood && risk <= 0.15f;
 
     internal sealed record Food(string Reference, string Name, string Source, float Distance, float Nutrition,
         float SicknessRisk, bool Underwater, bool InReach, int Value, JsonElement Position)
