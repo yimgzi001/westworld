@@ -3,8 +3,11 @@
 import argparse, hashlib, json, pathlib, re, shutil
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
+def runtime_environment(suite,social_menu):
+ return {"WESTWORLD_CAPABILITY_MENU":"1","WESTWORLD_MATRIX41":suite,"WESTWORLD_SOCIAL42":"1" if social_menu else "0"}
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--suite',choices=['baseline','equipment','combat','furniture','items'],default='baseline',help='One isolated reviewed matrix family per fresh world');ap.add_argument('--label',required=True);ap.add_argument('--assets',required=True);ap.add_argument('--modes',nargs='+',choices=['matrix_single','matrix_social'],default=['matrix_single','matrix_social']);args=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--social-menu',action='store_true',help='Validate social actions through current per-actor dynamic menus');ap.add_argument('--suite',choices=['baseline','equipment','combat','furniture','items','mount','climb','sleep','interact'],default='baseline',help='One isolated reviewed matrix family per fresh world');ap.add_argument('--label',required=True);ap.add_argument('--assets',required=True);ap.add_argument('--modes',nargs='+',choices=['matrix_single','matrix_social'],default=['matrix_single','matrix_social']);args=ap.parse_args()
+ if args.social_menu and args.modes!=['matrix_social']:ap.error('social-menu requires --modes matrix_social')
  if len(set(args.modes))!=len(args.modes):ap.error('duplicate modes')
  if args.suite!='baseline' and args.modes!=['matrix_single']:ap.error('family suites require --modes matrix_single')
  if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',args.label):ap.error('invalid fresh label')
@@ -37,7 +40,7 @@ set +e
 python3 - <<'RUN'
 import json,os,pathlib,resource,subprocess,time
 started=time.monotonic()
-env=dict(os.environ,WESTWORLD_CAPABILITY_MENU='1',WESTWORLD_MATRIX41='SUITE41')
+env=dict(os.environ,**__ENV_JSON__)
 with open('console.log','w') as output:
  result=subprocess.run(['timeout','--signal=TERM','--kill-after=5s','140','SDK','ToolAgentGate.dll','MODE','file'],env=env,stdout=output,stderr=subprocess.STDOUT)
 usage=resource.getrusage(resource.RUSAGE_CHILDREN)
@@ -47,11 +50,12 @@ RUN
 code=$?
 printf '%s\\n' "$code" >exit.txt
 exit "$code"
-'''.replace('SDK',str(ROOT/'work/dotnet/dotnet')).replace('MODE',mode).replace('SUITE41',args.suite)
+'''.replace('SDK',str(ROOT/'work/dotnet/dotnet')).replace('MODE',mode).replace('__ENV_JSON__',json.dumps(runtime_environment(args.suite,args.social_menu)))
   (d/'run.sh').write_text(script);(d/'run.sh').chmod(0o755)
   print(d/'run.sh')
  batch_text='#!/usr/bin/env bash\nset +e\nfailed=0\n'
  for d,mode in zip(destinations,args.modes):
-  batch_text+=f'bash "{d}/run.sh"\ncode=$?\nif [ "$code" -ne 0 ]; then failed=1; fi\npython3 "{ROOT}/experiments/capability-matrix40/summarize.py" "{d}/tool-agent.jsonl" --mode {mode} > "{d}/summary.json"\nif [ "$?" -ne 0 ]; then failed=1; fi\n'
+  required=" --require-social-menu" if args.social_menu else ""
+  batch_text+=f'bash "{d}/run.sh"\ncode=$?\nif [ "$code" -ne 0 ]; then failed=1; fi\npython3 "{ROOT}/experiments/capability-matrix40/summarize.py" "{d}/tool-agent.jsonl" --mode {mode}{required} > "{d}/summary.json"\nif [ "$?" -ne 0 ]; then failed=1; fi\n'
  batch_text+='exit "$failed"\n';batch.write_text(batch_text);batch.chmod(0o755);print(batch)
 if __name__=='__main__':main()

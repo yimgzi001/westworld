@@ -45,6 +45,10 @@ internal sealed partial class ToolAgentScenario {
   if(Matrix41Suite!="baseline"){
    ToolAgentGate.Log(new{kind="matrix41_suite",suite=Matrix41Suite,isolatedWorld=true,modelApi=false});
    switch(Matrix41Suite){
+    case "mount": Matrix42EnqueueMount(); break;
+    case "climb":
+    case "sleep": Matrix42EnqueueBody(); break;
+    case "interact": Matrix42EnqueueInteract(); break;
     case "equipment": Matrix41EnqueueEquipment(); break;
     case "items": Matrix41EnqueueItems(); break;
     case "combat": Matrix41EnqueueCombat(); break;

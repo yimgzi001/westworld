@@ -1,0 +1,15 @@
+using System.Text.Json;
+class Harness {
+record Receipt(string State,JsonElement Data);
+Receipt next; int calls;
+Receipt Call(string name,object args,bool remember){calls++;return next;}
+/* CURRENT_PRODUCTION_OWN_WORKSPACE */
+
+static JsonElement J(string s)=>JsonDocument.Parse(s).RootElement.Clone();
+static void Main(){var h=new Harness();var observation=J("{\"craftingReference\":\"actual-public-ref\"}");
+void Check(bool b){if(!b)throw new Exception("regression failed");}
+h.next=new("returned",J("null"));var a=JsonSerializer.SerializeToElement(h.OwnWorkspace(observation));Check(a.GetProperty("unavailable").GetBoolean());Check(a.GetProperty("reference").GetString()=="actual-public-ref");Check(!a.TryGetProperty("slots",out _));
+h.next=new("returned",default);Check(JsonSerializer.SerializeToElement(h.OwnWorkspace(observation)).GetProperty("unavailable").GetBoolean());
+h.next=new("returned",J("{\"inventory\":{\"slots\":[{\"slot\":0,\"count\":0,\"value\":0},{\"slot\":1,\"count\":2,\"value\":9}]},\"crafting\":null}"));var b=JsonSerializer.SerializeToElement(h.OwnWorkspace(observation));Check(b.GetProperty("slots").GetArrayLength()==1);Check(b.GetProperty("emptySlotIds")[0].GetInt32()==0);Check(b.GetProperty("crafting").ValueKind==JsonValueKind.Null);
+h.next=new("failed",J("null"));Check(JsonSerializer.SerializeToElement(h.OwnWorkspace(observation)).GetProperty("unavailable").GetBoolean());var before=h.calls;Check(h.OwnWorkspace(J("{}"))==null);Check(h.calls==before);Console.WriteLine("10 assertions passed; exact extracted OwnWorkspace; stub receipts; no game/API.");}
+}

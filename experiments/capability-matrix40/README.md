@@ -50,3 +50,5 @@ python3 experiments/capability-matrix40/summarize.py <run>/tool-agent.jsonl --mo
 ## 隔离扩展矩阵
 
 阶段41使用 `--suite equipment`、`--suite combat` 或 `--suite furniture`，配合 `--modes matrix_single` 和各自全新label。每组在独立世界运行，只共享基础地形准备及当前菜单执行器，不依赖阶段40前序案例。扩展组失败即排空停止，不在可能污染的状态上继续。默认baseline保留阶段40场景。原始输出始终留本地。
+
+阶段42加入 `--suite mount|climb|sleep|interact`，仍为独立matrix_single世界。社交新菜单使用 `--social-menu --modes matrix_social`，会强制检查新菜单路径实际被执行；未加此参数仍保留原始社交负控矩阵。原生负控和菜单拒绝分别记录。

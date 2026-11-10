@@ -2,6 +2,8 @@ import unittest
 from summarize import summarize
 class Tests(unittest.TestCase):
  def test_requires_outer(self):self.assertFalse(summarize([{'kind':'matrix40_summary','passed':True}],'matrix_single')['passed'])
+ def test_social_menu(self):self.assertEqual(summarize([{'kind':'social42_adapter_validated','tool':'act_Speak'}],'matrix_social')['adapterValidatedTools'],['act_Speak'])
+ def test_required_social_menu_rejects_old_path(self):self.assertFalse(summarize([{'kind':'matrix40_social_result','passed':True},{'kind':'result','passed':True}],'matrix_social',True)['passed'])
  def test_suite(self):self.assertEqual(summarize([{'kind':'matrix41_suite','suite':'equipment'}],'matrix_single')['suite'],'equipment')
  def test_success(self):self.assertTrue(summarize([{'kind':'matrix40_summary','passed':True},{'kind':'result','passed':True}],'matrix_single')['passed'])
  def test_assert_failure(self):self.assertFalse(summarize([{'kind':'matrix40_summary','passed':True},{'kind':'result','passed':True},{'kind':'matrix40_assertion','passed':False}],'matrix_single')['passed'])
