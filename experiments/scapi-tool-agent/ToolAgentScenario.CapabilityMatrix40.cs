@@ -7,6 +7,7 @@ using System.Text.Json;
 // Deterministic native gateway coverage, not model autonomy or a claim that every
 // dynamic menu candidate has been exercised. Only run in a new disposable world.
 internal sealed partial class ToolAgentScenario {
+ string Matrix41Suite=>Environment.GetEnvironmentVariable("WESTWORLD_MATRIX41")??"baseline";
  bool Matrix40Enabled=>ToolAgentGate.Mode=="matrix_single";
  readonly Dictionary<Point3,int> matrix40Cells=[];
  readonly List<object> matrix40Failures=[]; bool matrix40Unsafe;
@@ -41,6 +42,17 @@ internal sealed partial class ToolAgentScenario {
   b.Position=new(matrix40X+.5f,matrix40Y,matrix40Z+.5f);b.Velocity=Vector3.Zero;b.Rotation=Quaternion.CreateFromAxisAngle(Vector3.UnitY,-MathF.PI/2);
   var inv=p.ComponentMiner.Inventory;if(inv.GetSlotCount(8)!=0||inv.GetSlotCount(10)!=0)throw new InvalidOperationException("fixture_slots_not_empty");inv.AddSlotItems(8,OakWoodBlock.Index,2);matrix40WoodBefore=ExactCount(OakWoodBlock.Index);matrix40PlanksBefore=ExactCount(PlanksBlock.Index);
   ToolAgentGate.Log(new{kind="matrix40_fixture",artificial=true,worldEdited=true,positionEdited=true,inventoryInjected=true,injected=new{slot=8,value=OakWoodBlock.Index,count=2},modelApi=false,route="adapter_validated",note="Deterministic selected-tool menu validation before native dispatch; not model autonomy. Preparation Dismount remains native-only."});
+  if(Matrix41Suite!="baseline"){
+   ToolAgentGate.Log(new{kind="matrix41_suite",suite=Matrix41Suite,isolatedWorld=true,modelApi=false});
+   switch(Matrix41Suite){
+    case "equipment": Matrix41EnqueueEquipment(); break;
+    case "items": Matrix41EnqueueItems(); break;
+    case "combat": Matrix41EnqueueCombat(); break;
+    case "furniture": Matrix41EnqueueFurniture(); break;
+    default: throw new InvalidOperationException("unknown_matrix41_suite");
+   }
+   return;
+  }
   foreach(string q in new[]{"read_self","read_environment","read_inventory","read_equipment","read_social"})Matrix40Enqueue(q,()=>new{});
   Matrix40Enqueue("read_map",()=>new{offset=0,limit=4});
   Matrix40Enqueue("act_SetPosture",()=>new{posture="crouching"});Matrix40Enqueue("act_SetPosture",()=>new{posture="standing"});
@@ -75,7 +87,7 @@ internal sealed partial class ToolAgentScenario {
   }
   throw new InvalidOperationException("matrix40_required_actions_not_on_a_single_plan_page");
  }
- bool Matrix40CanContinue(){if(matrix40Phase!=3||matrix40Unsafe||gateway.RequiresReconciliation!=null||actions.IsActionRunning)return false;var a=Call("action_status",new{},false);var t=Call("task_status",new{},false);var n=Call("host_navigation_status",new{},false);return a.State=="returned"&&t.State=="returned"&&n.State=="returned"&&Capability39.CapabilityDispatchPolicy.KnownIdle(a.Data,true)&&Capability39.CapabilityDispatchPolicy.KnownIdle(t.Data)&&Capability39.CapabilityDispatchPolicy.KnownIdle(n.Data);}
+ bool Matrix40CanContinue(){if(Matrix41Suite!="baseline"||matrix40Phase!=3||matrix40Unsafe||gateway.RequiresReconciliation!=null||actions.IsActionRunning)return false;var a=Call("action_status",new{},false);var t=Call("task_status",new{},false);var n=Call("host_navigation_status",new{},false);return a.State=="returned"&&t.State=="returned"&&n.State=="returned"&&Capability39.CapabilityDispatchPolicy.KnownIdle(a.Data,true)&&Capability39.CapabilityDispatchPolicy.KnownIdle(t.Data)&&Capability39.CapabilityDispatchPolicy.KnownIdle(n.Data);}
  public void RequestMatrix40Stop(string reason){if(Done||matrix40Draining)return;Passed=false;Reason=reason;matrix40Draining=true;matrix40DrainStarted=MonotonicSeconds;try{Call("cancel_task",new{},false);Call("cancel_action",new{},false);}catch(Exception e){ToolAgentGate.Log(new{kind="matrix40_cancel_error",error=e.Message});}ToolAgentGate.Log(new{kind="matrix40_stop_requested",reason});}
  void TickCapabilityMatrix40(){
   if(matrix40Draining){try{var a=Call("action_status",new{},false);var t=Call("task_status",new{},false);if(a.State=="returned"&&t.State=="returned"&&!actions.IsActionRunning&&Capability39.CapabilityDispatchPolicy.KnownIdle(a.Data,true)&&Capability39.CapabilityDispatchPolicy.KnownIdle(t.Data)){matrix40Draining=false;Done=true;ToolAgentGate.Log(new{kind="matrix40_failure_drained",nativeIdle=true});return;}}catch(Exception e){ToolAgentGate.Log(new{kind="matrix40_drain_error",error=e.Message});}if(MonotonicSeconds-matrix40DrainStarted>7){matrix40CleanupUncertain=true;matrix40Draining=false;Done=true;Reason="matrix40_cleanup_uncertain";ToolAgentGate.Log(new{kind="cleanup_failure",reason=Reason,terrainRestored=false});}return;}
@@ -85,11 +97,16 @@ internal sealed partial class ToolAgentScenario {
   if(matrix40Started==0)matrix40Started=MonotonicSeconds;if(MonotonicSeconds-matrix40Started>100){matrix40Unsafe=true;throw new TimeoutException("matrix40_wall_timeout");}
   if(matrix40Phase==0){if(p.ComponentBody.ParentBody is null){matrix40Phase=1;return;}if(p.Entity.FindComponent<ComponentRider>(true).m_isAnimating)return;matrix40Case="dismount";matrix40Receipt=Call("act_Dismount",new{},false);matrix40Waiting="action_status";matrix40Phase=1;return;}
   if(matrix40Waiting!=null){if(MonotonicSeconds<matrix40StatusPollAt)return;matrix40StatusPollAt=MonotonicSeconds+.05;var r=Call(matrix40Waiting,new{},false);if(r.State!="returned")throw new InvalidOperationException("status_unavailable");string s=Status(r.Data);if(s is "running" or "waiting" or "blocked" or "stopping")return;
+   if(Matrix41Suite!="baseline"&&matrix40Waiting=="action_status"){
+    matrix40Unsafe=!matrix40Receipt.Data.TryGetProperty("runId",out var issued)||!r.Data.TryGetProperty("runId",out var returned)||issued.ValueKind!=JsonValueKind.String||issued.GetString()!=returned.GetString();
+    Matrix40Check(!matrix40Unsafe,"action_identity_matches");
+   }
    if(matrix40Waiting=="task_status"){matrix40Unsafe=!Capability39.CapabilityDispatchPolicy.SameTask(matrix40Receipt.Data,r.Data);Matrix40Check(!matrix40Unsafe,"task_identity_matches");}
-   Matrix40Check(s==(matrix40CancelTask?"cancelled":"succeeded"),"native_terminal_"+s);if(matrix40CancelTask){matrix40CancelSnapshot=r.Data.GetRawText();matrix40CancelStableAt=MonotonicSeconds+.5;}matrix40CancelTask=false;matrix40Waiting=null;matrix40Verify?.Invoke();matrix40Verify=null;ToolAgentGate.Log(new{kind="matrix40_after",@case=matrix40Case,state=Matrix40State()});return;}
+   bool acceptedMovingTargetFailure=Matrix41Suite=="combat"&&matrix40Case=="act_MeleeAttack"&&Combat41AcceptObservedFailure(r.Data);
+   Matrix40Check(s==(matrix40CancelTask?"cancelled":"succeeded")||acceptedMovingTargetFailure,acceptedMovingTargetFailure?"native_terminal_expected_moving_target_rejection":"native_terminal_"+s);if(matrix40CancelTask){matrix40CancelSnapshot=r.Data.GetRawText();matrix40CancelStableAt=MonotonicSeconds+.5;}matrix40CancelTask=false;matrix40Waiting=null;matrix40Verify?.Invoke();matrix40Verify=null;ToolAgentGate.Log(new{kind="matrix40_after",@case=matrix40Case,state=Matrix40State()});return;}
   if(matrix40Phase==1){var terrain=p.Project.FindSubsystem<SubsystemTerrain>(true);int ax=Terrain.ToCell(p.ComponentBody.Position.X),az=Terrain.ToCell(p.ComponentBody.Position.Z);for(int x=ax-5;x<=ax+5;x++)for(int z=az-5;z<=az+5;z++)if(terrain.Terrain.GetChunkAtCell(x,z)?.State!=TerrainChunkState.Valid)return;Matrix40Prepare();matrix40Phase=2;return;}
   if(matrix40Phase==2){var t=p.Project.FindSubsystem<SubsystemTerrain>(true);for(int x=matrix40X-3;x<=matrix40X+3;x++)for(int z=matrix40Z-3;z<=matrix40Z+3;z++)if(t.Terrain.GetChunkAtCell(x,z)?.State!=TerrainChunkState.Valid)return;matrix40Phase=3;return;}
-  if(matrix40Cases.Count==0){Matrix40Check(!actions.IsActionRunning,"native_owner_idle_at_end");Done=true;Passed=matrix40Failures.Count==0;Reason=Passed?"matrix40_single_verified":"matrix40_cases_failed";ToolAgentGate.Log(new{kind="matrix40_summary",passed=Passed,failures=matrix40Failures,checks=matrix40Checks,modelApi=false,route="adapter_validated",notCovered=new[]{"equipment_effects","remaining_setting_subtypes","furniture","combat","model_menu_adoption"}});return;}
+  if(matrix40Cases.Count==0){Matrix40Check(!actions.IsActionRunning,"native_owner_idle_at_end");Done=true;Passed=matrix40Failures.Count==0;Reason=Passed?"matrix40_single_verified":"matrix40_cases_failed";ToolAgentGate.Log(new{kind="matrix40_summary",passed=Passed,failures=matrix40Failures,checks=matrix40Checks,modelApi=false,route="adapter_validated",suite=Matrix41Suite,note="Only executed assertions and recorded effects are covered; not all family variants or model autonomy."});return;}
   if(matrix40ObserveDeadline.HasValue&&MonotonicSeconds<matrix40ObserveRetryAt)return;
   var item=matrix40Cases.Peek();matrix40PendingHead=true;matrix40Case=item.Name;var args=item.Args();ToolAgentGate.Log(new{kind="matrix40_before",@case=item.Name,arguments=args,state=Matrix40State()});var prepared=Matrix40Prompt(item.Name,args);var prompt=prepared.Prompt;var offered=prepared.Offers;prompt.ParseResponse(JsonSerializer.Serialize(new{goal="Matrix40 deterministic interface contract",steps=new[]{new{tool=item.Name,arguments=args}}}));ToolAgentGate.Log(new{kind="matrix40_adapter_validated",tool=item.Name,offered=offered.Select(t=>t.Name).ToArray(),capture=currentObservationId});matrix40Cases.Dequeue();matrix40PendingHead=false;matrix40ObserveDeadline=null;matrix40Receipt=Call(item.Name,args,false);Matrix40Check(matrix40Receipt.State=="returned","gateway_returned");matrix40Verify=item.Verify;
   if(item.Name is "plan_craft" or "submit_plan"){matrix40Waiting="task_status";if(matrix40CancelTask){var cancel=Call("cancel_task",new{},false);Matrix40Check(cancel.State=="returned","cancel_task_returned");}}

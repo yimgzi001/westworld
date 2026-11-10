@@ -13,7 +13,8 @@ def summarize(rows,mode):
  receipt_tools+=sorted({r['receipt']['Tool'] for r in rows if r.get('kind')=='tool_receipt' and isinstance(r.get('receipt'),dict) and 'Tool' in r['receipt']})
  errors=[r.get('kind') for r in rows if r.get('kind') in ('matrix40_error','failure','fatal','cleanup_failure')]
  passed=bool(result and result[-1].get('passed') is True and outer and outer[-1].get('passed') is True and not failures and not errors)
- return dict(mode=mode,passed=passed,assertions=len(assertions),failedAssertions=len(failures),errors=errors,adapterValidatedTools=adapter,nativeCalledTools=sorted(set(receipt_tools)),modelApi=False,autonomousSurvival=False,note='Called tools are not all success coverage; positive effects require corresponding assertions. Social route is native-only.')
+ suite=[r.get('suite') for r in rows if r.get('kind')=='matrix41_suite']
+ return dict(mode=mode,suite=suite[-1] if suite else 'baseline',passed=passed,declaredFailedAttempts=sum(r.get('kind')=='combat41_declared_attempt_failed' for r in rows),assertions=len(assertions),failedAssertions=len(failures),errors=errors,adapterValidatedTools=adapter,nativeCalledTools=sorted(set(receipt_tools)),modelApi=False,autonomousSurvival=False,note='Called tools are not all success coverage; positive effects require corresponding assertions. Social route is native-only.')
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('log');ap.add_argument('--mode',choices=['matrix_single','matrix_social'],required=True);args=ap.parse_args()
  rows=[]

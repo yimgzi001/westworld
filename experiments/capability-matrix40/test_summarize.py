@@ -2,6 +2,7 @@ import unittest
 from summarize import summarize
 class Tests(unittest.TestCase):
  def test_requires_outer(self):self.assertFalse(summarize([{'kind':'matrix40_summary','passed':True}],'matrix_single')['passed'])
+ def test_suite(self):self.assertEqual(summarize([{'kind':'matrix41_suite','suite':'equipment'}],'matrix_single')['suite'],'equipment')
  def test_success(self):self.assertTrue(summarize([{'kind':'matrix40_summary','passed':True},{'kind':'result','passed':True}],'matrix_single')['passed'])
  def test_assert_failure(self):self.assertFalse(summarize([{'kind':'matrix40_summary','passed':True},{'kind':'result','passed':True},{'kind':'matrix40_assertion','passed':False}],'matrix_single')['passed'])
  def test_cleanup_failure(self):self.assertFalse(summarize([{'kind':'matrix40_social_result','passed':True},{'kind':'result','passed':True},{'kind':'cleanup_failure'}],'matrix_social')['passed'])

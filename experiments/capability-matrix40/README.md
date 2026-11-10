@@ -46,3 +46,7 @@ python3 experiments/capability-matrix40/summarize.py <run>/tool-agent.jsonl --mo
 - 宿主编译：0错误，39既有警告。
 - `python3 -m unittest discover -s experiments/capability-matrix40 -p 'test_*.py' -v`：6项汇总器纯测试通过。只读合成内存日志，不触发游戏/API。
 - 已执行的真实矩阵结果见 `docs/development/能力覆盖40/本轮结果.md`；这里的汇总器通过不等于游戏通过。
+
+## 隔离扩展矩阵
+
+阶段41使用 `--suite equipment`、`--suite combat` 或 `--suite furniture`，配合 `--modes matrix_single` 和各自全新label。每组在独立世界运行，只共享基础地形准备及当前菜单执行器，不依赖阶段40前序案例。扩展组失败即排空停止，不在可能污染的状态上继续。默认baseline保留阶段40场景。原始输出始终留本地。

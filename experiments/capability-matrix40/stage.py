@@ -4,8 +4,9 @@ import argparse, hashlib, json, pathlib, re, shutil
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--label',required=True);ap.add_argument('--assets',required=True);ap.add_argument('--modes',nargs='+',choices=['matrix_single','matrix_social'],default=['matrix_single','matrix_social']);args=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--suite',choices=['baseline','equipment','combat','furniture','items'],default='baseline',help='One isolated reviewed matrix family per fresh world');ap.add_argument('--label',required=True);ap.add_argument('--assets',required=True);ap.add_argument('--modes',nargs='+',choices=['matrix_single','matrix_social'],default=['matrix_single','matrix_social']);args=ap.parse_args()
  if len(set(args.modes))!=len(args.modes):ap.error('duplicate modes')
+ if args.suite!='baseline' and args.modes!=['matrix_single']:ap.error('family suites require --modes matrix_single')
  if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',args.label):ap.error('invalid fresh label')
  assets=pathlib.Path(args.assets).resolve();out=ROOT/'experiments/scapi-tool-agent/bin/Debug/net10.0'
  if not (assets/'Content.zip').is_file() or not (out/'ToolAgentGate.dll').is_file():ap.error('existing Content.zip and built Debug host required')
@@ -36,7 +37,7 @@ set +e
 python3 - <<'RUN'
 import json,os,pathlib,resource,subprocess,time
 started=time.monotonic()
-env=dict(os.environ,WESTWORLD_CAPABILITY_MENU='1')
+env=dict(os.environ,WESTWORLD_CAPABILITY_MENU='1',WESTWORLD_MATRIX41='SUITE41')
 with open('console.log','w') as output:
  result=subprocess.run(['timeout','--signal=TERM','--kill-after=5s','140','SDK','ToolAgentGate.dll','MODE','file'],env=env,stdout=output,stderr=subprocess.STDOUT)
 usage=resource.getrusage(resource.RUSAGE_CHILDREN)
@@ -46,7 +47,7 @@ RUN
 code=$?
 printf '%s\\n' "$code" >exit.txt
 exit "$code"
-'''.replace('SDK',str(ROOT/'work/dotnet/dotnet')).replace('MODE',mode)
+'''.replace('SDK',str(ROOT/'work/dotnet/dotnet')).replace('MODE',mode).replace('SUITE41',args.suite)
   (d/'run.sh').write_text(script);(d/'run.sh').chmod(0o755)
   print(d/'run.sh')
  batch_text='#!/usr/bin/env bash\nset +e\nfailed=0\n'
