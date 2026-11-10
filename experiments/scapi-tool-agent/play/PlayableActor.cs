@@ -42,7 +42,7 @@ internal sealed class PlayableActor
     private Harvest? harvest;
     private PlaySurvivalTravel? travel;
     private (PlaySurvivalFood.Food Target, int Before)? foodApproach;
-    private (PlaySurvivalFood.Food Target, double RetryAfter)? blockedFood;
+    private readonly List<(PlaySurvivalFood.Food Target, Vector3 Position, double RetryAfter)> blockedFood = new();
     private PlaySurvivalPanorama.Sweep? surroundings;
     private PlayEarthShelter? shelter;
     private PlaySurvivalProduction? production;
@@ -64,6 +64,8 @@ internal sealed class PlayableActor
         public PlaySurvivalFood.Food Food { get; } = food;
         public int StockBefore { get; } = stockBefore;
         public double CollectUntil { get; set; }
+        public bool Repositioning { get; set; }
+        public bool Repositioned { get; set; }
         public bool Moved { get; set; }
         public HashSet<string> PickupAttempts { get; } = new();
     }
@@ -202,6 +204,23 @@ internal sealed class PlayableActor
                     FinishStep(climbed, reason, gameTime);
                     return;
                 }
+                if (harvest is { Repositioning: true } crop)
+                {
+                    crop.Repositioning = false;
+                    var (_, observed) = ObserveSurvival();
+                    var nearby = observed.FirstOrDefault(item => item.InReach && item.Matches(crop.Food));
+                    if (nearby is not null && (player.ComponentBody.Position - route.Origin).XZ.LengthSquared() >= 0.16f)
+                        DigFood(nearby, queue, gameTime);
+                    else EndHarvest("failed", route.Reason ?? "harvest_position_unavailable", 0, gameTime);
+                    return;
+                }
+                if (harvest is { CollectUntil: > 0 } collecting)
+                {
+                    if (terminal == "failed" && FoodStock(collecting.Food.Value) <= collecting.StockBefore)
+                        EndHarvest("failed", route.Reason ?? "food_drop_not_reached", 0, gameTime);
+                    else CollectHarvest(collecting, queue, gameTime);
+                    return;
+                }
                 if (foodApproach is { } approach)
                 {
                     foodApproach = null;
@@ -325,6 +344,7 @@ internal sealed class PlayableActor
             var direction = PlaySurvivalTravel.Rotate(body.Matrix.Forward.XZ, bearing);
             var sweep = surroundings is { } current && gameTime - current.CompletedAt < 30 ? current : null;
             var targetFood = seek == "food" ? sweep?.FoodInDirection(player, direction, distance) : null;
+            if (targetFood is not null && !CanRetryFood(targetFood, body.Position, gameTime)) targetFood = null;
             if (seek == "shelter") earth = sweep?.EarthInDirection(body.Position, direction);
             var shore = seek == "dry_land" ? sweep?.ShoreInDirection(body.Position, direction) : null;
             travel = new(player, owner, bearing, distance, seek, false, gameTime, ObserveSurvival, ReadDryWindow, log,
@@ -333,7 +353,7 @@ internal sealed class PlayableActor
         else if (foodToHarvest is { } food)
         {
             harvest = new(food, FoodStock(food.Value));
-            Dispatch("act_Dig", JsonSerializer.SerializeToElement(new { target = food.Reference, timeout = 5 }), queue, gameTime);
+            DigFood(food, queue, gameTime);
         }
         else Dispatch(step.Tool, step.Arguments, queue, gameTime);
     }
@@ -432,7 +452,18 @@ internal sealed class PlayableActor
             : Enumerable.Empty<PlaySurvivalFood.Food>();
         return foods.Concat(pastFood).Where(item => PlaySurvivalFood.CanApproachOnLand(item, origin)
             && (PlaySurvivalFood.CanSeek(player, item) || PlaySurvivalFood.IsRawMeat(item.Value))
-            && !(blockedFood is { } blocked && gameTime < blocked.RetryAfter && item.Matches(blocked.Target)));
+            && CanRetryFood(item, origin, gameTime));
+    }
+
+    private bool CanRetryFood(PlaySurvivalFood.Food food, Vector3 position, double gameTime) =>
+        !blockedFood.Any(blocked => gameTime < blocked.RetryAfter && food.Matches(blocked.Target)
+            && (position - blocked.Position).LengthSquared() < 1f);
+
+    private void DelayFood(PlaySurvivalFood.Food food, double gameTime)
+    {
+        blockedFood.RemoveAll(item => item.RetryAfter <= gameTime);
+        if (blockedFood.Count >= 8) blockedFood.RemoveAt(0);
+        blockedFood.Add((food, player.ComponentBody.Position, gameTime + 24));
     }
 
     private void FinishFoodApproach(PlaySurvivalFood.Food target, string? reason, PlayDecisionQueue queue, double gameTime)
@@ -444,7 +475,7 @@ internal sealed class PlayableActor
             CollectFood(live, queue, gameTime);
             return;
         }
-        blockedFood = (target, gameTime + 16);
+        DelayFood(target, gameTime);
         Report(PlaySurvivalIntents.Gather, "failed", reason ?? "food_out_of_reach", gameTime);
         FinishStep(false, reason, gameTime);
     }
@@ -457,7 +488,30 @@ internal sealed class PlayableActor
             return;
         }
         harvest = new(food, FoodStock(food.Value));
-        Dispatch("act_Dig", JsonSerializer.SerializeToElement(new { target = food.Reference, timeout = 5 }), queue, gameTime);
+        DigFood(food, queue, gameTime);
+    }
+
+    private void DigFood(PlaySurvivalFood.Food food, PlayDecisionQueue queue, double gameTime)
+    {
+        float seconds = player.ComponentMiner.CalculateDigTime(food.Value, player.ComponentMiner.ActiveBlockValue);
+        var timeout = float.IsFinite(seconds) ? Math.Clamp(seconds + 2f, 5f, 25f) : 5f;
+        Dispatch("act_Dig", JsonSerializer.SerializeToElement(new { target = food.Reference, timeout }), queue, gameTime);
+    }
+
+    private bool TryRepositionForHarvest(Harvest attempt, double gameTime)
+    {
+        var body = player.ComponentBody;
+        if (attempt.Repositioned || !PlaySurvivalSenses.OnDryGround(body)) return false;
+        var offset = (attempt.Food.Point - body.Position).XZ;
+        float distance = offset.Length();
+        if (distance < 1.15f || distance > 4f) return false;
+        attempt.Repositioning = true;
+        attempt.Repositioned = true;
+        float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+        travel = new(player, owner, bearing, Math.Max(1f, distance - 0.85f), "survey", false, gameTime,
+            ObserveSurvival, ReadDryWindow, log);
+        log(new { kind = "play_harvest_reposition", actor = Name, attempt.Food.Name, distance, gameTime });
+        return true;
     }
 
     private void Dispatch(string tool, JsonElement arguments, PlayDecisionQueue queue, double gameTime)
@@ -558,8 +612,9 @@ internal sealed class PlayableActor
     {
         var (observation, _) = Observe(128);
         var (_, food) = PlaySurvivalFood.Project(observation);
-        survivalMemory.SeeFood(food, observation.GetProperty("gameTime").GetDouble());
-        return (observation, food);
+        double gameTime = observation.GetProperty("gameTime").GetDouble();
+        survivalMemory.SeeFood(food, gameTime);
+        return (observation, food.Where(item => CanRetryFood(item, player.ComponentBody.Position, gameTime)).ToArray());
     }
 
     private LocalObservationWindow ReadDryWindow() =>
@@ -686,7 +741,7 @@ internal sealed class PlayableActor
                 offers.Add(PlaySurvivalIntents.BuildOffer);
         }
         if (visibleFood is not null && forageInWater && PlaySurvivalFood.HarvestOffer(visibleFood.Where(food =>
-                PlaySurvivalFood.CanSeek(player, food))) is { } harvestOffer)
+                PlaySurvivalFood.CanSeek(player, food) && CanRetryFood(food, body.Position, gameTime))) is { } harvestOffer)
             offers.Add(harvestOffer);
         var context = JsonSerializer.SerializeToElement(new
         {
@@ -701,7 +756,7 @@ internal sealed class PlayableActor
             previousOutcome = outcome,
             observation = survival ? ModelSurvivalObservation(observation) : (object)observation,
             inventory = visibleInventory,
-            visibleFood,
+            visibleFood = visibleFood?.Where(food => CanRetryFood(food, body.Position, gameTime)).ToArray(),
             visibleShore = shore,
             visiblePredators = survival ? predators : null,
             environment = survival ? owner.Queries.ReadEnvironment() : null,
@@ -811,7 +866,11 @@ internal sealed class PlayableActor
         if (harvest is { } attempt && tool == "act_Dig")
         {
             if (status != "succeeded")
-                EndHarvest("failed", receipt.Error ?? Failure(receipt) ?? "dig_failed", 0, gameTime);
+            {
+                string reason = receipt.Error ?? Failure(receipt) ?? "dig_failed";
+                if (reason is not ("blocked" or "outOfReach") || !TryRepositionForHarvest(attempt, gameTime))
+                    EndHarvest("failed", reason, 0, gameTime);
+            }
             else
             {
                 attempt.CollectUntil = gameTime + 6;
@@ -842,18 +901,20 @@ internal sealed class PlayableActor
             Terrain.ExtractContents(food.Value) == Terrain.ExtractContents(attempt.Food.Value)
             && (Position(food.Position) - origin).LengthSquared() <= 4f).MinBy(food => food.Distance);
         if (drop is null) return;
-        if (attempt.PickupAttempts.Add(drop.Reference))
+        if (drop.InReach && attempt.PickupAttempts.Add(drop.Reference))
         {
             Dispatch("act_PickUp", JsonSerializer.SerializeToElement(new { target = drop.Reference, count = 1 }), queue, gameTime);
         }
-        else if (!attempt.Moved && player.Entity.FindComponent<ComponentRider>()?.Mount is null)
+        else if (!drop.InReach && !attempt.Moved && PlaySurvivalSenses.OnDryGround(player.ComponentBody))
         {
+            var body = player.ComponentBody;
+            var offset = (drop.Point - body.Position).XZ;
+            if (offset.LengthSquared() < 0.04f || !PlaySurvivalFood.CanApproachOnLand(drop, body.Position)) return;
             attempt.Moved = true;
-            attempt.PickupAttempts.Clear();
-            Dispatch("act_MoveTo", JsonSerializer.SerializeToElement(new
-            {
-                destination = drop.Reference, range = 0.7, timeout = 3
-            }), queue, gameTime);
+            attempt.CollectUntil = gameTime + 6;
+            float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+            travel = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 9f), "food", false, gameTime,
+                ObserveSurvival, ReadDryWindow, log, foodTarget: drop);
         }
     }
 
@@ -874,6 +935,7 @@ internal sealed class PlayableActor
 
     private void EndHarvest(string status, string reason, int count, double gameTime)
     {
+        if (status != "succeeded" && harvest is { } failed) DelayFood(failed.Food, gameTime);
         harvest = null;
         Report(PlaySurvivalFood.HarvestTool, status, reason, gameTime, count);
         FinishStep(status == "succeeded", reason, gameTime);

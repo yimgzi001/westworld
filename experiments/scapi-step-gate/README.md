@@ -24,6 +24,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `navigate-vegetation` 在长路线和台阶上铺设无碰撞的草和花。`shelter-shallow` 从背包无土的一格浅坑跳出。`shelter-camp` 在没有随机生成生物的夹具中验证过夜、出坑、走开、沿原生路线返回以及重建实体遮蔽。
 
+`forage-pumpkin` 将成熟南瓜放在一格落差后。先确认站在原处挖掘受阻，再沿干地换位，通过原生挖掘命中外露部分，最后沿确认的台阶下去并核对实际入包、落脚和生命值。
+
 - `ObservedStepRoutes` 仅投影真实当前/≤3 秒历史观察的基底、身体、净空与落脚格。只支持一格、轴向、固定实心地面；不可见、未知、过高、空落点拒绝。
 - `StepTo` 是低层原生动作，不携带证据，**不能直接作为模型入口**。这里由 runner 强制校验逐帧包络与证据期限。未来集成必须保留这些约束。
 - 上台阶允许已观察落脚实心格的原生 SmoothRise 接触：仅开启原生功能，且脚高度差不超过 `min(MaxSmoothRiseHeight, 0.5)`。日志 `knownSupportContactUsed` 明示，不称全空气穿越。

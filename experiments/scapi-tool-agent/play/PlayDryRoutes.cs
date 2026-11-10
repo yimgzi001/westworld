@@ -32,20 +32,22 @@ internal static class PlayDryRoutes
     private static readonly Vector2[] Cardinal = [Vector2.UnitX, -Vector2.UnitX, Vector2.UnitY, -Vector2.UnitY];
 
     public static Leg? Next(LocalObservationWindow window, Vector2 direction, float remaining, bool canAlign,
-        Func<Position, int>? visits = null)
+        Func<Position, int>? visits = null, bool towardLowerDrop = false)
     {
         var origin = window.Position;
         double Score(Position target) => (target.X - origin.X) * direction.X + (target.Z - origin.Z) * direction.Y
             - Math.Min(0.35, 0.07 * (visits?.Invoke(target) ?? 0));
         var steps = ReadSteps(window);
-        var forwardStep = steps.Where(step => step.Kind == StepKind.Up
-                && Vector2.Dot(Vector2.Normalize((PositionOf(step.Destination) - PositionOf(origin)).XZ), direction) >= 0.9f)
+        var forwardStep = steps.Where(step => (step.Kind == StepKind.Up || towardLowerDrop)
+                && Vector2.Dot(Vector2.Normalize((PositionOf(step.Destination) - PositionOf(origin)).XZ), direction)
+                    >= (step.Kind == StepKind.Up ? 0.9f : 0.78f))
             .MaxBy(step => Score(step.Destination));
         // 目标前方已经证实有一格台阶时，直接跳过去，避免绕去侧面的平地。
         if (forwardStep is not null) return StepLeg(forwardStep);
         var longRoute = LongRoutes(window, remaining, Cardinal.Where(axis => Vector2.Dot(axis, direction) > 0.3f))
             .MaxBy(candidate => Score(candidate.Destination));
         if (longRoute is not null) return FlatLeg(longRoute);
+        if (towardLowerDrop && canAlign && Alignment(window) is { } centered) return centered;
         return ShortRoutes(window).Concat(steps.Select(StepLeg))
             .Select(leg => (Leg: leg, Score: Score(new Position(leg.End.X, leg.End.Y, leg.End.Z)) - (leg.Step is null ? 0 : 0.04)))
             .Where(option => option.Score > 0.12).OrderByDescending(option => option.Score).FirstOrDefault().Leg

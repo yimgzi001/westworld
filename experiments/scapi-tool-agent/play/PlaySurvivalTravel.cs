@@ -163,7 +163,7 @@ internal sealed class PlaySurvivalTravel
                 Finish("failed", "navigation_distance_limit");
                 return;
             }
-            AdvanceOnLand(blocked, RemainingOnLand(body, approach, traveled), gameTime);
+            AdvanceOnLand(blocked, RemainingOnLand(body, approach, traveled), TowardLowerDrop(body, approach), gameTime);
             return;
         }
         var boat = BoatBody;
@@ -324,12 +324,12 @@ internal sealed class PlaySurvivalTravel
             action = action.GetType().Name, nativeStatus = leg.Result.Status.ToString(), legs });
     }
 
-    private void AdvanceOnLand(bool blocked, float remaining, double gameTime)
+    private void AdvanceOnLand(bool blocked, float remaining, bool towardLowerDrop, double gameTime)
     {
         dryLeg = true;
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
-        var route = DryRoute(window, remaining, !aligned);
+        var route = DryRoute(window, remaining, !aligned, towardLowerDrop);
         bool exploring = seek == "survey" || seek == "food" && foodTarget is null || seek == "shelter" && shelterTarget is null;
         if (route is null && exploring && !Evading && remaining >= 1f)
         {
@@ -369,9 +369,9 @@ internal sealed class PlaySurvivalTravel
         Finish("failed", "no_observed_dry_route");
     }
 
-    private PlayDryRoutes.Leg? DryRoute(LocalObservationWindow window, float remaining, bool canAlign) =>
+    private PlayDryRoutes.Leg? DryRoute(LocalObservationWindow window, float remaining, bool canAlign, bool towardLowerDrop) =>
         escapeFrom is { } readThreat ? PlayDryRoutes.Escape(window, readThreat(), remaining, canAlign)
-            : PlayDryRoutes.Next(window, direction, remaining, canAlign, visits);
+            : PlayDryRoutes.Next(window, direction, remaining, canAlign, visits, towardLowerDrop);
 
     private (MoveAlongObservedRoute Route, Action Accepted)? ContinueFlat(double gameTime)
     {
@@ -385,8 +385,12 @@ internal sealed class PlaySurvivalTravel
         float progress = (body.Position - legOrigin).XZ.Length();
         float remaining = RemainingOnLand(body, approach, traveled + progress);
         if (remaining < 1.1f) return null;
-        var route = DryRoute(readDryWindow(), remaining, false);
+        bool towardLowerDrop = TowardLowerDrop(body, approach);
+        var route = DryRoute(readDryWindow(), remaining, false, towardLowerDrop);
         if (route?.Action is not MoveAlongObservedRoute next || !route.Contains(body, 0)) return null;
+        // 低处拾取物需要对齐下台阶时，先结束当前平地段，避免连续改走侧向短步。
+        if (towardLowerDrop && Vector2.Dot(Vector2.Normalize((route.End - body.Position).XZ), direction) < 0.9f)
+            return null;
 
         return (next, () =>
         {
@@ -451,6 +455,9 @@ internal sealed class PlaySurvivalTravel
 
     private float RemainingOnLand(ComponentBody body, Vector3? approach, float used) => approach is { } destination
         ? Math.Min(landDistanceLimit - used, (destination - body.Position).XZ.Length() + 0.2f) : landDistanceLimit - used;
+
+    private bool TowardLowerDrop(ComponentBody body, Vector3? approach) =>
+        foodTarget?.Source == "pickup" && approach is { } point && point.Y < body.Position.Y - 0.45f;
 
     internal static Vector2 Rotate(Vector2 source, float degrees)
     {

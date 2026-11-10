@@ -599,28 +599,45 @@ namespace Game.Westworld {
                 if (face.HasValue) {
                     sample += (box.Max - box.Min) * CellFace.FaceToVector3(face.Value) * 0.5f;
                 }
+                if (TrySample(sample, box, out ray, out hit)) return AtomicActionFailure.None;
+                // 南瓜等矮方块的碰撞盒中心可能被地形遮住，仍可核对露出的边缘。
+                // 每条候选射线继续验证原生命中、距离和遮挡。
+                var size = box.Max - box.Min;
+                if (mode == RaycastMode.Digging && target is BlockTarget && !face.HasValue && size.Y < 0.95f) {
+                    var upper = sample + new Vector3(0f, 0.45f * size.Y, 0f);
+                    var x = new Vector3(0.35f * size.X, 0f, 0f);
+                    var z = new Vector3(0f, 0f, 0.35f * size.Z);
+                    foreach (var edge in new[] { upper, upper + x, upper - x, upper + z, upper - z }) {
+                        if (TrySample(edge, box, out ray, out hit)) return AtomicActionFailure.None;
+                    }
+                }
+            }
+            return inRange || boxes.Length == 0 ? AtomicActionFailure.Blocked : AtomicActionFailure.OutOfReach;
+
+            bool TrySample(Vector3 sample, BoundingBox box, out Ray3 acceptedRay, out object acceptedHit) {
+                acceptedRay = default;
+                acceptedHit = null;
                 Vector3 delta = sample - eye;
                 float lengthSquared = delta.LengthSquared();
                 if (!float.IsFinite(lengthSquared) || lengthSquared <= 0f) {
-                    continue;
+                    return false;
                 }
                 Ray3 candidate = new(eye, delta / MathF.Sqrt(lengthSquared));
                 object candidateHit = m_miner.Raycast(candidate, mode, Reach: reach);
                 if (!TryMatchWorldHit(target, candidateHit, out float distance)) {
-                    continue;
+                    return false;
                 }
                 if (target is EntityTarget) {
                     // The native body ray inflates hitboxes. Check for walls up to the physical body as well.
                     distance = candidate.Intersection(box) ?? distance;
                 }
                 if (distance > reach || IsWorldRayOccluded(candidate, distance, (target as BlockTarget)?.Cell)) {
-                    continue;
+                    return false;
                 }
-                ray = candidate;
-                hit = candidateHit;
-                return AtomicActionFailure.None;
+                acceptedRay = candidate;
+                acceptedHit = candidateHit;
+                return true;
             }
-            return inRange || boxes.Length == 0 ? AtomicActionFailure.Blocked : AtomicActionFailure.OutOfReach;
         }
 
         static bool TryMatchWorldHit(ActionTarget target, object hit, out float distance) {
