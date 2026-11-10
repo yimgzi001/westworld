@@ -23,7 +23,8 @@ sealed partial class Runner
     private PlaySurvivalRest? fixtureDrying;
     private double dryingStarted;
     private bool refusedOpenCover;
-    private bool latePredatorPlaced, exitThreatDuringJump;
+    private bool jumpPredatorPlaced, exitThreatDuringJump, exitThreatFromHost;
+    private int exitThreatLevel;
     private Point3 threatOrigin;
     private Vector3 threatPosition;
     private float sightDistance;
@@ -362,7 +363,8 @@ sealed partial class Runner
         }
         var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         bool wetTest = mode == "shelter-wet";
-        bool latePredator = mode == "shelter-late-predator";
+        bool middlePredator = mode == "shelter-middle-predator";
+        bool jumpPredator = middlePredator || mode == "shelter-late-predator";
         if (stage == 1)
         {
             if (mode == "shelter-illness")
@@ -392,16 +394,19 @@ sealed partial class Runner
             Gate.Log(new { kind = "shelter_built", earthShelter.Status, earthShelter.Reason, ready, blocker,
                 floor = p.ComponentBody.Position.Y, roof = terrain.Terrain.GetCellContents(roof.X, roof.Y, roof.Z) });
             if (earthShelter.Status != "succeeded") { Done = true; return; }
-            if (mode == "shelter-predator" || latePredator)
+            if (mode == "shelter-predator" || jumpPredator)
             {
-                if (!latePredator) PlaceShelterThreat(0.61f);
+                if (!jumpPredator) PlaceShelterThreat(0.61f);
                 vitalBefore = p.ComponentHealth.Health;
                 earthShelter = new(p, actions, testSite, true, now, entry =>
                 {
                     Gate.Log(entry);
                     var record = JsonSerializer.SerializeToElement(entry);
                     if (record.GetProperty("kind").GetString() == "play_shelter_exit_threat")
+                    {
                         exitThreatDuringJump = record.GetProperty("duringJump").GetBoolean();
+                        exitThreatLevel = record.GetProperty("level").GetInt32();
+                    }
                 });
                 stage = 7;
                 return;
@@ -434,21 +439,27 @@ sealed partial class Runner
         if (stage == 7)
         {
             var body = p.ComponentBody;
-            if (latePredator && !latePredatorPlaced && body.Position.Y >= testSite!.Surface - 0.45f
-                && body.Position.Y < testSite.Surface && body.Velocity.Y > 0f)
+            var site = testSite!;
+            int jumpLevel = site.Surface - (middlePredator ? 2 : 1);
+            if (jumpPredator && !jumpPredatorPlaced && body.Position.Y >= jumpLevel + 0.55f
+                && body.Position.Y < jumpLevel + 1f && body.Velocity.Y > 0f)
             {
-                PlaceShelterThreat(7.2f);
-                latePredatorPlaced = true;
+                PlaceShelterThreat(middlePredator ? 1.22f : 7.2f);
+                jumpPredatorPlaced = true;
             }
             jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
+            if (middlePredator && jumpPredatorPlaced && !exitThreatFromHost)
+                exitThreatFromHost = earthShelter!.TryRetreatFromPredators(PlaySurvivalSenses.Threats(p, actions.Queries), now);
             earthShelter!.Update(now);
             if (earthShelter.Status is null) return;
             bool covered = PlaySurvivalRest.HasUsableCover(p);
             Passed = earthShelter.Reason == "predator_at_exit_resealed" && covered
-                && (latePredator ? latePredatorPlaced && jumped && exitThreatDuringJump : !jumped)
-                && p.ComponentBody.Position.Y <= testSite!.Surface - 2.95f && p.ComponentHealth.Health >= vitalBefore;
+                && (jumpPredator ? jumpPredatorPlaced && jumped && exitThreatDuringJump && exitThreatLevel == jumpLevel : !jumped)
+                && (!middlePredator || exitThreatFromHost)
+                && p.ComponentBody.Position.Y <= site.Surface - 2.95f && p.ComponentHealth.Health >= vitalBefore;
             Done = true;
             Gate.Log(new { kind = "shelter_predator_result", Passed, earthShelter.Reason, covered, jumped, exitThreatDuringJump,
+                exitThreatLevel, exitThreatFromHost,
                 health = p.ComponentHealth.Health, floor = p.ComponentBody.Position.Y });
             return;
         }
@@ -461,11 +472,16 @@ sealed partial class Runner
                 p.ComponentSickness.StartSickness();
                 bool daytime = calendar.TimeOfDay >= calendar.DayStart && calendar.TimeOfDay < calendar.DuskStart;
                 bool recovering = PlaySurvivalRest.NeedsRecovery(p);
+                bool coldPriority = PlaySurvivalRest.ColdNeedsShelter(4.2f, 45, false)
+                    && !PlaySurvivalRest.ColdNeedsShelter(4.2f, 12, false)
+                    && PlaySurvivalRest.ColdNeedsShelter(4.2f, 0, true)
+                    && !PlaySurvivalRest.ColdNeedsShelter(6.1f, 100, true)
+                    && PlaySurvivalRest.ColdNeedsShelter(3.5f, 0, false);
                 run = actions.Start(new Sleep());
-                Passed = refusedOpenCover && daytime && recovering
+                Passed = refusedOpenCover && daytime && recovering && coldPriority
                     && run.Result.Status == AtomicActionStatus.Succeeded && p.ComponentSleep.IsSleeping;
                 Done = true;
-                Gate.Log(new { kind = "shelter_illness_result", Passed, refusedOpenCover, daytime, recovering,
+                Gate.Log(new { kind = "shelter_illness_result", Passed, refusedOpenCover, daytime, recovering, coldPriority,
                     sleeping = p.ComponentSleep.IsSleeping, health = p.ComponentHealth.Health });
                 return;
             }
@@ -532,7 +548,7 @@ sealed partial class Runner
 
     private void PlaceShelterThreat(float offset)
     {
-        // 夹具固定猎食者移动能力，保留原生实体和遮挡。晚出现的棕熊在最后一跳进入场景。
+        // 夹具固定猎食者移动能力，保留原生实体和遮挡。
         var bear = DatabaseManager.CreateEntity(p.Project, offset > 1f ? "Bear_Brown" : "Bear_Black", true);
         bear.FindComponent<ComponentBody>(true).Position = testSite!.Center(testSite.Surface) + offset * Vector3.UnitX;
         var locomotion = bear.FindComponent<ComponentLocomotion>(true);

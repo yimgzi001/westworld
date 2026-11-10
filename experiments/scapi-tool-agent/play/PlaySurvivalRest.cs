@@ -33,6 +33,11 @@ internal sealed class PlaySurvivalRest(ComponentPlayer player, double started)
     }
 
     public static bool WetnessBlocksSleep(ComponentPlayer player) => Blocked(player, "NotTooWet");
+    public static bool TiredEnough(ComponentPlayer player) => !Blocked(player, "TiredEnough");
+
+    // 原生流感在体温低于六度时逐渐累积，严重失温在三度以下直接掉血。
+    public static bool ColdNeedsShelter(float temperature, double coldSeconds, bool flu) =>
+        temperature < 3.8f || temperature < 6f && (flu || coldSeconds >= 45);
 
     public static bool NeedsRecovery(ComponentPlayer player) => player.ComponentHealth.Health < 0.55f
         && (player.ComponentSickness.IsSick || player.ComponentFlu.HasFlu);

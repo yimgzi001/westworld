@@ -15,6 +15,7 @@ internal sealed class PlayEarthShelter
     }
 
     private enum Phase { Center, SurveyFloor, DigFloor, Settle, SurveyWall, Seal, Resealed, SurveyRoof, Open, Peek, SurveyExitFloor, Jump, Raise }
+    private const float ExitPredatorRange = 16f;
     private static readonly Point3[] Walls = [new(1, 0, 0), new(0, 0, 1), new(-1, 0, 0), new(0, 0, -1)];
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
@@ -116,6 +117,11 @@ internal sealed class PlayEarthShelter
                         lastExitLevel = level;
                         jumpRetries = 0;
                     }
+                    if (retreating && level == site.Surface - 3 && PlaySurvivalRest.HasSecureCover(player))
+                    {
+                        Finish("failed", "predator_at_exit_resealed");
+                        break;
+                    }
                     var center = site.Center(body.Position.Y);
                     if ((body.Position - center).XZ.Length() > 0.14f)
                     {
@@ -181,13 +187,12 @@ internal sealed class PlayEarthShelter
             case Phase.Peek:
                 if (gameTime >= nextPeek)
                 {
-                    nextPeek = gameTime + 0.12;
-                    if (RetreatFromPredator(gameTime)) break;
+                    if (CheckExitThreat(gameTime)) break;
                     if (gameTime >= settleUntil) phase = Phase.SurveyExitFloor;
                 }
                 break;
             case Phase.SurveyExitFloor:
-                if (!RetreatFromPredator(gameTime))
+                if (!CheckExitThreat(gameTime))
                     Begin(new FaceTowards(site.Center(body.Position.Y), 2f, -81f), Phase.Jump);
                 break;
             case Phase.Jump:
@@ -205,11 +210,12 @@ internal sealed class PlayEarthShelter
                 Begin(new Jump(), Phase.Raise);
                 break;
             case Phase.Raise:
-                // 最后一跳才露出视野时，先查坑口。发现威胁就落回原位，再下撤和封顶。
-                if (level == site.Surface - 1 && body.Position.Y >= site.Surface - 0.45f && RetreatFromPredator(gameTime)) break;
+                // 每一跳都可能从坑口看见靠近的猎食者。放垫脚土前再核对一次。
+                bool canRaise = body.Position.Y >= level + 0.82f;
+                if ((canRaise || gameTime >= nextPeek) && CheckExitThreat(gameTime)) break;
                 // 原生放置用内缩 0.2 格的身体包围盒。接近一格时即可交给原生校验。
                 peakRise = Math.Max(peakRise, body.Position.Y - level);
-                if (body.Position.Y >= level + 0.82f && Focus(site.Cell(level - 1), 4) is { } baseBlock && Dirt() is { } earth)
+                if (canRaise && Focus(site.Cell(level - 1), 4) is { } baseBlock && Dirt() is { } earth)
                 {
                     log(new { kind = "play_shelter_jump_place", actor = player.PlayerData.Name, peakRise, gameTime });
                     Begin(new Place(baseBlock, earth), Phase.Settle);
@@ -251,14 +257,22 @@ internal sealed class PlayEarthShelter
 
     private static bool SoftEarth(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)] is GrassBlock or DirtBlock;
 
-    private bool RetreatFromPredator(double gameTime)
+    private bool CheckExitThreat(double gameTime)
     {
-        // 开顶后从坑内用原生遮挡读取出口。发现近处威胁就回到坑底并补回屋顶。
-        const float exitPredatorRange = 16f;
-        var threat = PlaySurvivalSenses.Threats(player, owner.Queries, exitPredatorRange).FirstOrDefault(animal => !animal.Aquatic
-            && animal.Y >= site.Surface - 1 && animal.Distance <= (animal.Predator ? exitPredatorRange : 4f));
+        nextPeek = gameTime + 0.12;
+        return TryRetreatFromPredators(PlaySurvivalSenses.Threats(player, owner.Queries, ExitPredatorRange), gameTime);
+    }
+
+    public bool TryRetreatFromPredators(IReadOnlyList<PlaySurvivalSenses.Threat> observed, double gameTime)
+    {
+        var body = player.ComponentBody;
+        if (!leaving || !opened || retreating || !site.SameColumn(body)
+            || body.Position.Y >= site.Surface - 0.05f && PlaySurvivalSenses.OnDryGround(body)) return false;
+        var threat = observed.FirstOrDefault(animal => !animal.Aquatic && animal.Y >= site.Surface - 1
+            && animal.Distance <= (animal.Predator ? ExitPredatorRange : 4f));
         if (threat is null) return false;
         bool duringJump = phase == Phase.Raise;
+        Stop();
         retreating = true;
         wall = 0;
         settleUntil = gameTime;

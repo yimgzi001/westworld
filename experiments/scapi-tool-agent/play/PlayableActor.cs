@@ -54,6 +54,7 @@ internal sealed class PlayableActor
     private PlaySurvivalSenses.Threat[] predators = [];
     private string[] reportedPredators = [];
     private double nextDecision, nextPoll, nextDangerScan, nextEvade, nextEscapeTurn, nextShelter, nextExit, nextProduction;
+    private double? coldSince;
     private bool retired, restedInEarth, shallowExit;
     private int requests;
     private string? goal;
@@ -115,6 +116,7 @@ internal sealed class PlayableActor
         {
             nextDangerScan = gameTime + 0.55;
             var body = player.ComponentBody;
+            coldSince = player.ComponentVitalStats.Temperature < 6f ? coldSince ?? gameTime : null;
             survivalMemory.VisitPosition(body.Position, PlaySurvivalSenses.OnDryGround(body), gameTime);
             if (CheckDanger(queue, gameTime)) reply = null;
             if (retired) return;
@@ -393,14 +395,14 @@ internal sealed class PlayableActor
             return;
         }
         if (tool == PlaySurvivalIntents.Rest && dry && RestWindow() && !player.ComponentSleep.IsSleeping
-            && PlaySurvivalRest.HasSecureCover(player) && !predators.Any(animal => !animal.Aquatic && animal.Distance < 12f))
+            && RestThreatClear && PlaySurvivalRest.HasSecureCover(player))
         {
             if (player.ComponentSleep.CanSleep(out _))
             {
                 Dispatch("act_Sleep", JsonSerializer.SerializeToElement(new { }), queue, gameTime);
                 return;
             }
-            if (PlaySurvivalRest.WetnessBlocksSleep(player))
+            if (PlaySurvivalRest.TiredEnough(player) && PlaySurvivalRest.WetnessBlocksSleep(player))
             {
                 drying = new(player, gameTime);
                 log(new { kind = "play_survival_drying", actor = Name, wetness = player.ComponentVitalStats.Wetness, gameTime });
@@ -642,6 +644,8 @@ internal sealed class PlayableActor
             || player.ComponentVitalStats.Sleep <= 0.25f || PlaySurvivalRest.NeedsRecovery(player);
     }
 
+    private bool RestThreatClear => !predators.Any(animal => !animal.Aquatic && animal.Distance < 12f);
+
     private PlayEarthShelter.Site? RepairableShelter()
     {
         var body = player.ComponentBody;
@@ -695,7 +699,8 @@ internal sealed class PlayableActor
         bool recovering = survival && PlaySurvivalRest.NeedsRecovery(player);
         float foodLevel = player.ComponentVitalStats.Food;
         float temperature = player.ComponentVitalStats.Temperature;
-        bool severeCold = temperature < 3.5f && player.ComponentHealth.Health < 0.4f;
+        bool severeCold = survival && PlaySurvivalRest.ColdNeedsShelter(temperature, gameTime - (coldSince ?? gameTime),
+            player.ComponentFlu.HasFlu);
         bool preferShelter = onDryGround && (nearNight && foodLevel > 0.23f
             || (recovering || temperature < 5f) && foodLevel > 0.08f || severeCold);
         bool inEarthShelter = earthSite?.Contains(body) == true;
@@ -704,8 +709,11 @@ internal sealed class PlayableActor
         var buildSite = survival && !inEarthShelter ? PlayEarthShelter.At(body) : null;
         bool coverUsable = onDryGround && (inEarthShelter || preferShelter || restWindow) && PlaySurvivalRest.HasSecureCover(player);
         var reuse = preferShelter && !inEarthShelter && !coverUsable && gameTime >= nextShelter ? ReusableSite(body) : null;
-        bool canSleep = nativeCanSleep && restWindow && coverUsable;
+        bool restIsSafe = restWindow && coverUsable && RestThreatClear;
+        bool canSleep = nativeCanSleep && restIsSafe;
         bool needsDrying = coverUsable && PlaySurvivalRest.WetnessBlocksSleep(player);
+        bool canBuildShelter = !coverUsable && (inEarthShelter ? RepairableShelter() is not null
+            : preferShelter && gameTime >= nextShelter);
         bool canLeaveShelter = inEarthShelter && gameTime >= nextExit
             && (!coverUsable || restedInEarth && !restWindow || foodLevel < (recovering || severeCold ? 0.06f : 0.18f));
         bool forageInWater = !exposedToWater || player.ComponentVitalStats.Food < 0.16f;
@@ -743,16 +751,17 @@ internal sealed class PlayableActor
             if (gatherCandidates.Length > 0) offers.Add(PlaySurvivalIntents.GatherOffer);
             if (eatSlots.Length > 0 || gatherCandidates.Any(food => PlaySurvivalFood.CanEat(player, food.Value)))
                 offers.Add(PlaySurvivalIntents.EatOffer);
-            if (preferShelter || restWindow) offers.Add(PlaySurvivalIntents.RestOffer);
+            if (canSleep || restIsSafe && needsDrying && PlaySurvivalRest.TiredEnough(player))
+                offers.Add(PlaySurvivalIntents.RestOffer);
+            else if (includePanorama && canBuildShelter && (nearNight || restWindow) && PlaySurvivalRest.TiredEnough(player))
+                offers.Add(PlaySurvivalIntents.RestAfterBuildOffer);
             if (onDryGround && !inEarthShelter && gameTime >= nextProduction
                 && PlaySurvivalProduction.Offer(player, surroundings is { } recent && gameTime - recent.CompletedAt <= 24
                     ? recent.Panorama : null, placedStations,
                     routineWork: !preferShelter && player.ComponentHealth.Health >= 0.6f && foodLevel > 0.28f) is { } supplyOffer)
                 offers.Add(supplyOffer);
             if (canLeaveShelter) offers.Add(PlaySurvivalIntents.LeaveOffer);
-            if ((inEarthShelter && !coverUsable && RepairableShelter() is not null)
-                || (!inEarthShelter && preferShelter && !coverUsable && gameTime >= nextShelter))
-                offers.Add(PlaySurvivalIntents.BuildOffer);
+            if (canBuildShelter) offers.Add(PlaySurvivalIntents.BuildOffer);
         }
         if (visibleFood is not null && forageInWater && PlaySurvivalFood.HarvestOffer(visibleFood.Where(food =>
                 PlaySurvivalFood.CanSeek(player, food) && CanRetryFood(food, body.Position, gameTime))) is { } harvestOffer)
@@ -761,7 +770,7 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向，绕开刚看到猎食者的位置。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
+                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向，绕开刚看到猎食者的位置。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏或生病低血量时找封闭庇护。持续低温时先躲进庇护回暖，太湿在顶下晾干。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             rows = survival && includePanorama
                 ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物还在行尾带致病概率和营养。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]，pastPredators[名称,x,z,距今秒]。"
@@ -979,6 +988,7 @@ internal sealed class PlayableActor
             reportedPredators = names;
             log(new { kind = "play_predator_sight", actor = Name, predators, gameTime });
         }
+        if (shelter?.TryRetreatFromPredators(predators, gameTime) == true) return true;
         var body = player.ComponentBody;
         bool inWater = IsOnWater(body);
         var threat = ThreatInRange(body, inWater);

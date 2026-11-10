@@ -25,6 +25,10 @@ internal static class PlaySurvivalIntents
         "Eat one owned item after checking its native sickness risk and how recently the actor ate that food type.", NoArguments);
     public static ToolOffer RestOffer { get; } = new(Rest,
         "Sleep under usable cover at night or while ill and injured. Dry under cover before attempting sleep if necessary.", NoArguments);
+    public static ToolOffer RestAfterBuildOffer { get; } = RestOffer with
+    {
+        Description = "Use only after build_earth_shelter in the same plan. Sleep or dry under the completed shelter."
+    };
 
     public static ToolOffer BuildOffer { get; } = new(BuildShelter,
         "On dry soft earth, dig a temporary three-block-deep shelter and seal the top with owned dirt. Use rest_when_safe next if permitted.", NoArguments);
