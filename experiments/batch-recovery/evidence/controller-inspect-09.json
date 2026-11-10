@@ -1,1 +1,0 @@
-{"automaticReplay": false, "case": "controller-recovery-09", "declaredOutcome": "passed", "environment": "dot-cloud", "issues": [], "recoveryStatus": "verified_record", "schema": "westworld-batch-checkpoint-v1", "stage": "offline-controller-recovery"}

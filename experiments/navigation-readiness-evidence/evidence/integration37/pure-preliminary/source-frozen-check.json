@@ -1,9 +1,0 @@
-{
-  "filesChecked": 135,
-  "changed": [],
-  "hostSha256": "629216e618365c31ed4cfd14d74dc8dcfe39326f3e5e671563c9686e64be9365",
-  "pureSuites": 40,
-  "assertions": 2613,
-  "terminalRepeatLoopAssertions": 1000,
-  "nativeCoverage": false
-}

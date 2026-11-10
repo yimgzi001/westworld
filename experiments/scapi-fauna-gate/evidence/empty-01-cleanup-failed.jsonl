@@ -1,6 +1,0 @@
-{"kind":"start","mode":"empty","models":0,"diagnosticOnly":true,"changesSpawnOutcome":false}
-{"kind":"bound","views":0,"gameTime":0.003211946925148368,"fullPlayer":true}
-{"kind":"native_periodic_entry","gameTime":2.004187804996036,"centers":0,"views":0,"season":"Summer","totalNonconstant":1}
-{"kind":"native_periodic_entry","gameTime":62.00133832229767,"centers":0,"views":0,"season":"Summer","totalNonconstant":1}
-{"kind":"result","passed":true,"reason":"empty centers periodic branch verified","periodicCalls":2,"candidateTrials":0,"spawnCalls":0,"seconds":67.1479113,"meaning":"candidate attempts are not animal generation or actor sightings"}
-{"kind":"error","error":"System.InvalidOperationException: Simulation-center provider ownership changed\n   at Westworld.Scapi.Adapter.ScapiInterestBackend.Publish() in /workspace/scratch/5b9c67580fe7/westworld-cloud/runtime/Westworld.Scapi.Adapter/ScapiInterestBackend.cs:line 38\n   at Westworld.Runtime.Core.InterestCoordinator.Release() in /workspace/scratch/5b9c67580fe7/westworld-cloud/runtime/Westworld.Runtime.Core/InterestCoordinator.cs:line 25\n   at FaunaGate.Finish(Boolean ok, String reason) in /workspace/scratch/5b9c67580fe7/westworld-cloud/experiments/scapi-fauna-gate/Program.cs:line 27\n   at FaunaGate.Frame() in /workspace/scratch/5b9c67580fe7/westworld-cloud/experiments/scapi-fauna-gate/Program.cs:line 25"}

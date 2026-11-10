@@ -43,3 +43,7 @@ game/Survivalcraft/Content.zip
 /outputs/
 /go.mod
 /go.sum
+
+# Test run archives: recover older runs from Git history, do not re-add
+/evidence/
+/experiments/**/evidence/

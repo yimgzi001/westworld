@@ -1,8 +1,0 @@
-{
-  "experiments/scapi-tool-agent/Program.cs": "b39ce79933e2cf50876611c4eafdc1fd93898bbdce8bd176768d7be7d67c8af7",
-  "experiments/scapi-tool-agent/NativeToolOffers.cs": "71ce2a81758f744cc532d19beee9cf3138f1e0b2bdf1bb7816df13853967eff9",
-  "runtime/Westworld.Decisions.Local/ToolDecisionPrompt.cs": "270045e584716cdff428d896e647c8c4299c097f8573d223f5758243f6a6d0d6",
-  "experiments/scapi-tool-agent/bin/Release/net10.0/ToolAgentGate.dll": "96f2e0d4b52dfd6c1a79dfe4747fc8c299d7e75472b4db5aa94840f8fe63b325",
-  "experiments/scapi-tool-agent/bin/Release/net10.0/Westworld.Decisions.Local.dll": "8a89e749b189f1f4b67c988ad9321d5bb90066e0efc1e755fdf8149f2dd1e69e",
-  "experiments/scapi-tool-agent/bin/Release/net10.0/Westworld.Scapi.Adapter.dll": "a90905dd530532f98a60e91f703525df6d4e8633ae96d7e19193b5893a8269ff"
-}

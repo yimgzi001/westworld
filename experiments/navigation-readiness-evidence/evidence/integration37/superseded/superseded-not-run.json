@@ -1,7 +1,0 @@
-{
-  "status": "superseded_not_run",
-  "reason": "Parent froze final host after stage completed; no GUI/API/processes started",
-  "oldHostSha256": "629216e618365c31ed4cfd14d74dc8dcfe39326f3e5e671563c9686e64be9365",
-  "replacementLabel": "integration37-final",
-  "checkpointNote": "Begun for staging only; no execution occurred. Do not launch or reinterpret as native result."
-}

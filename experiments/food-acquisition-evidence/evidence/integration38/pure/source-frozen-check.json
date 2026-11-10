@@ -1,8 +1,0 @@
-{
-  "filesChecked": 142,
-  "changed": [],
-  "hostSha256": "d9232e5704fa24d249c8ac3fd8e324826935fb273e98d5946dcfd7f40b6d1ac0",
-  "pureSuites": 43,
-  "assertionsExpected": 2822,
-  "nativeCoverage": false
-}

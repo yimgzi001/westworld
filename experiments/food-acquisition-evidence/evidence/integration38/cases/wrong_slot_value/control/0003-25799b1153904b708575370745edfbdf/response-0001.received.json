@@ -1,1 +1,0 @@
-{"sessionId": "b9bfd527-be19-44f3-a6ba-60f25ec5dcac", "actorId": "28e704c3-eab7-4c4d-8c37-833ba30bdf83", "observationId": "3b0513eb-2cc6-450d-84d9-c8c1ee8c6f17", "requestId": "25799b11-5390-4b70-8575-370745edfbdf", "decision": {"goal": "Controlled Eat argument contract probe; not survival policy", "steps": [{"tool": "act_Eat", "arguments": {"slot": 1, "value": 89, "count": 1}}]}}
