@@ -11,7 +11,7 @@ public sealed record FlatRouteInspection(ObservedFlatRoute? Route,string Reason,
 public static class ObservedFlatRoutes {
  public static ObservedFlatRoute? Project(LocalObservationWindow window,Position destination)=>Inspect(window,destination).Route;
  public static FlatRouteInspection Inspect(LocalObservationWindow window,Position destination,double maximumEvidenceAge=3,
-  RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable) {
+  RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable,Func<int,bool>? openCell=null) {
   ArgumentNullException.ThrowIfNull(window);var origin=window.Position;
   FlatRouteInspection No(string reason)=>new(null,reason,0,Array.Empty<FlatRouteCellIssue>());
   if(!double.IsFinite(maximumEvidenceAge)||maximumEvidenceAge<0||maximumEvidenceAge>3)return No("invalid_evidence_age_limit");
@@ -47,7 +47,7 @@ public static class ObservedFlatRoutes {
     ||!double.IsFinite(c.ObservedAt)||c.ObservedAt<0||Math.Abs(window.Time-c.ObservedAt-c.Age)>1e-6)reason="invalid_evidence";
    else if(c.Age>3)reason="stale_evidence";
    else if(c.Age>maximumEvidenceAge)reason="refresh_needed";
-   else if(support?!LocalRouteCandidates.SupportedGround(c.Value,groundPolicy):(c.Value&1023)!=0)
+   else if(support?!LocalRouteCandidates.SupportedGround(c.Value,groundPolicy):!(openCell?.Invoke(c.Value)??(c.Value&1023)==0))
     reason=support?"unsupported_ground":"observed_solid";
    if(reason is not null)issues.Add(new(x,y,z,reason,support));else proof.Add(c!);
   }

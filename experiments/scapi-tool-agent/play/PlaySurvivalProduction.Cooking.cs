@@ -6,7 +6,7 @@ using Game.Westworld;
 internal sealed partial class PlaySurvivalProduction
 {
     private RecipeGuideEntry? cookingRecipe;
-    private int cookingInput, retrievedValue;
+    private int cookingInput, retrievedValue, retrievalBefore, cookedPortions;
 
     private static bool IsCookedMeat(int value)
     {
@@ -22,11 +22,20 @@ internal sealed partial class PlaySurvivalProduction
     {
         if (retrievedValue != 0)
         {
-            if (Added > 0)
-                log(new { kind = "play_meat_cooked", actor = player.PlayerData.Name, input = cookingInput,
-                    value = retrievedValue, count = Added, gameTime });
-            Finish(Added > 0, Added > 0 ? "cooked_meat_retrieved" : "cooked_meat_inventory_unconfirmed");
-            return;
+            if (CountExact(retrievedValue) != retrievalBefore + 1)
+            {
+                Finish(false, "cooked_meat_inventory_unconfirmed");
+                return;
+            }
+            cookedPortions++;
+            log(new { kind = "play_meat_cooked", actor = player.PlayerData.Name, input = cookingInput,
+                value = retrievedValue, count = 1, cookedPortions, gameTime });
+            retrievedValue = 0;
+            if (cookedPortions >= 3)
+            {
+                Finish(true, "cooked_meat_retrieved");
+                return;
+            }
         }
         if (gameTime < nextPoll) return;
         nextPoll = gameTime + 0.2;
@@ -47,6 +56,7 @@ internal sealed partial class PlaySurvivalProduction
                 && carry.GetSlotCapacity(slot, value) > carry.GetSlotCount(slot), -1);
             if (!IsCookedMeat(value) || to < 0) { Finish(false, "furnace_output_unavailable"); return; }
             retrievedValue = value;
+            retrievalBefore = CountExact(value);
             Transfer(oven, resultSlot, carry, to);
             return;
         }
@@ -62,7 +72,7 @@ internal sealed partial class PlaySurvivalProduction
         int raw = loaded ? oven.GetSlotValue(0) : input >= 0 ? carry.GetSlotValue(input) : 0;
         if (!PlaySurvivalFood.IsRawMeat(raw) || oven.SmeltSpeed <= 0f || oven.FuelTimeEfficiency <= 0f)
         {
-            Finish(false, "raw_meat_or_furnace_unavailable");
+            Finish(cookedPortions > 0, cookedPortions > 0 ? "cooked_meat_retrieved" : "raw_meat_or_furnace_unavailable");
             return;
         }
         if (cookingRecipe is null || raw != cookingInput)
@@ -81,7 +91,11 @@ internal sealed partial class PlaySurvivalProduction
         if (!burning && !fueled)
         {
             int fuel = FindSlot(carry, value => FuelSuitable(value, recipeEntry.RequiredHeat, unscaledSeconds));
-            if (fuel < 0 || oven.GetSlotCount(fuelSlot) > 0) { Finish(false, "compatible_furnace_fuel_missing"); return; }
+            if (fuel < 0 || oven.GetSlotCount(fuelSlot) > 0)
+            {
+                Finish(cookedPortions > 0, cookedPortions > 0 ? "cooked_meat_partial_fuel" : "compatible_furnace_fuel_missing");
+                return;
+            }
             Transfer(carry, fuel, oven, fuelSlot);
             return;
         }

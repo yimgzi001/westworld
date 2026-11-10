@@ -243,7 +243,8 @@ def safe_usage(value):
         return None
     return walk(value)
 
-def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport=isolated_http_post, canceled=None):
+def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport=isolated_http_post, canceled=None,
+          implicit_cache=True):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
     validate_input(prompt, schema)
@@ -253,10 +254,14 @@ def infer(prompt, schema, key, *, model, reasoning_effort, timeout=45, transport
                "max_output_tokens": 512, "input": prompt,
                "text": {"format": {"type": "json_schema", "name": "westworld_tool_decision",
                                   "strict": False, "schema": schema}}}
+    if not implicit_cache:
+        # 生存每轮的动态菜单和地形不同。没有复用前缀时，避免写入整轮快照。
+        payload["prompt_cache_options"] = {"mode": "explicit"}
     started = time.monotonic()
     audit = {"driverSourceSha256": DRIVER_SOURCE_SHA256, "maxOutputTokens": 512, "requestedModel": model, "promptSha256": hashlib.sha256(prompt.encode()).hexdigest(),
              "schemaSha256": hashlib.sha256(compact(schema).encode()).hexdigest(),
-             "schemaStrict": False, "effort": reasoning_effort, "usage": None}
+             "schemaStrict": False, "effort": reasoning_effort, "usage": None,
+             "cacheMode": "implicit" if implicit_cache else "explicit"}
     try:
         body = transport(payload, key, timeout) if canceled is None else transport(payload, key, timeout, canceled=canceled)
         if key and key in compact(body):
@@ -451,13 +456,15 @@ def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12
         with LifecycleAudit(audit_file, mode="file", model=model, reasoning_effort=reasoning_effort) as events:
             return _file_mode(root, key, audit_file, model=model, reasoning_effort=reasoning_effort,
                               max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds,
-                              parallelism=parallelism, host_stopped=host_stopped, lifecycle=events)
+                              parallelism=parallelism, host_stopped=host_stopped, lifecycle=events,
+                              implicit_cache=not survival_run)
     return _file_mode(root, key, audit_file, model=model, reasoning_effort=reasoning_effort,
                       max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds,
-                      parallelism=parallelism, host_stopped=host_stopped, lifecycle=lifecycle)
+                      parallelism=parallelism, host_stopped=host_stopped, lifecycle=lifecycle,
+                      implicit_cache=not survival_run)
 
 def _file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests, total_seconds,
-               wait_seconds, parallelism, host_stopped, lifecycle):
+               wait_seconds, parallelism, host_stopped, lifecycle, implicit_cache):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
     deadline = math.inf if total_seconds is None else time.monotonic() + total_seconds
@@ -481,7 +488,8 @@ def _file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests, 
     def request_model(request, directory, remaining):
         return infer(request["prompt"], request["responseSchema"], key, model=model,
                      reasoning_effort=reasoning_effort, timeout=min(45, remaining),
-                     canceled=lambda: stopped() or host_remaining(request, directory) <= 0)
+                     canceled=lambda: stopped() or host_remaining(request, directory) <= 0,
+                     implicit_cache=implicit_cache)
 
     def record_result(audit, record):
         audit.write(compact(record) + "\n")

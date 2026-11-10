@@ -50,6 +50,10 @@ internal sealed class PlayEarthShelter
         if (body.ParentBody is not null || body.ImmersionDepth > 0.04f || body.StandingOnBody is not null
             || body.StandingOnValue is not int value || !SoftEarth(value) || MathF.Abs(body.Position.Y - feet.Y) > 0.05f)
             return null;
+        var terrain = body.Project.FindSubsystem<SubsystemTerrain>(true).Terrain;
+        // 接触面可能是相邻地块。挖坑前确认目标格中心下方本身也是软土。
+        if (!(terrain.GetChunkAtCell(feet.X, feet.Z)?.State >= TerrainChunkState.InvalidVertices1)
+            || !SoftEarth(terrain.GetCellValue(feet.X, feet.Y - 1, feet.Z))) return null;
         return new(feet.X, feet.Y, feet.Z);
     }
 
@@ -86,6 +90,7 @@ internal sealed class PlayEarthShelter
                 action = run.Action.GetType().Name, leaving, gameTime });
             if (phase == Phase.Settle && run.Action is Dig or Place) settleUntil = gameTime + 0.35;
             if (phase == Phase.Peek && run.Action is Dig) settleUntil = gameTime + 0.65;
+            if (!leaving && phase == Phase.Open && run.Action is Place) settleUntil = gameTime + 3f;
         }
 
         switch (phase)
@@ -159,7 +164,9 @@ internal sealed class PlayEarthShelter
             case Phase.Open:
                 if (!leaving)
                 {
-                    Finish("succeeded", "earth_roof_placed");
+                    // 放置会让所在区块重算光照。等原生遮蔽和实体围墙都确认后再交给休息动作。
+                    if (PlaySurvivalRest.HasSecureCover(player)) Finish("succeeded", "earth_roof_placed");
+                    else if (gameTime >= settleUntil) Finish("failed", "earth_cover_not_confirmed");
                     break;
                 }
                 opened = true;
@@ -184,9 +191,14 @@ internal sealed class PlayEarthShelter
                     Begin(new FaceTowards(site.Center(body.Position.Y), 2f, -81f), Phase.Jump);
                 break;
             case Phase.Jump:
-                if (Dirt() is null || Focus(site.Cell(level - 1), 4) is null)
+                if (Dirt() is null)
                 {
                     Finish("failed", "no_earth_for_exit");
+                    break;
+                }
+                if (Focus(site.Cell(level - 1), 4) is null)
+                {
+                    Finish("failed", "exit_floor_not_seen");
                     break;
                 }
                 peakRise = 0;

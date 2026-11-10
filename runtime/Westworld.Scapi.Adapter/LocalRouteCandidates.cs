@@ -34,13 +34,13 @@ public static class LocalRouteCandidates {
     // Historical evidence remains historical in Evidence and carries per-cell sources.
     // Use immediately at window.Time; callers must obtain a fresh window before execution.
     public static LocalRouteProjection Project(LocalObservationWindow window,double distance=1,
-        RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable) {
+        RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable,Func<int,bool>? openCell=null) {
         ArgumentNullException.ThrowIfNull(window);
         var source=window.Cells.ToDictionary(c=>(c.X,c.Y,c.Z));
         // Internal geometry normalization only; not exposed as a visual observation.
         var snapshot=new ActorObservation(window.SessionId,window.ActorId,window.ObservationId,window.Time,window.Position,window.Health,0,[],
             window.Cells.Select(c=>new CellObservation(c.X,c.Y,c.Z,"known",c.Value)).ToArray());
-        var result=Project(snapshot,distance,groundPolicy);
+        var result=Project(snapshot,distance,groundPolicy,openCell);
         var provenance=result.Evidence.ToDictionary(kv=>kv.Key,kv=>(IReadOnlyList<LocalObservedCell>)Array.AsReadOnly(kv.Value.Select(c=>source[(c.X,c.Y,c.Z)]).ToArray()));
         var evidence=provenance.ToDictionary(kv=>kv.Key,kv=>(IReadOnlyList<CellObservation>)Array.AsReadOnly(kv.Value.Select(c=>new CellObservation(c.X,c.Y,c.Z,c.IsCurrent?"known":"historical",c.Value)).ToArray()));
         return result with {Evidence=new System.Collections.ObjectModel.ReadOnlyDictionary<Guid,IReadOnlyList<CellObservation>>(evidence),
@@ -50,7 +50,7 @@ public static class LocalRouteCandidates {
 
     // One metre first; caller may explicitly request a two metre straight corridor.
     public static LocalRouteProjection Project(ActorObservation observation, double distance = 1,
-        RouteGroundPolicy groundPolicy = RouteGroundPolicy.StrictStable) {
+        RouteGroundPolicy groundPolicy = RouteGroundPolicy.StrictStable, Func<int,bool>? openCell = null) {
         ArgumentNullException.ThrowIfNull(observation);
         if (!Enum.IsDefined(groundPolicy)) throw new ArgumentOutOfRangeException(nameof(groundPolicy));
         if (!double.IsFinite(distance) || distance < 1 || distance > 2)
@@ -90,7 +90,7 @@ public static class LocalRouteCandidates {
                 proof.Add(ground);
                 int top=(int)Math.Floor(Math.Max(p.Y,feet)+ClearanceHeight-ContactEpsilon);
                 for(int y=feet;y<=top;y++) {
-                    if(!Known(x,y,z,out var air) || Contents(air.Value!.Value)!=0){safe=false;break;}
+                    if(!Known(x,y,z,out var air) || !(openCell?.Invoke(air.Value!.Value)??Contents(air.Value!.Value)==0)){safe=false;break;}
                     proof.Add(air);
                 }
             }

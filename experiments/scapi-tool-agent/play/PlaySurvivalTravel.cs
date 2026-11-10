@@ -69,7 +69,7 @@ internal sealed class PlaySurvivalTravel
         surveyTarget = Origin + offset;
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
         landDistanceLimit = escapeFrom is not null ? distance + 6f
-            : seek == "survey" ? MathF.Abs(offset.X) + MathF.Abs(offset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
+            : seek is "survey" or "camp" ? MathF.Abs(offset.X) + MathF.Abs(offset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
     }
 
     public bool Evading { get; }
@@ -146,7 +146,9 @@ internal sealed class PlaySurvivalTravel
             var (reached, approach) = ReadLandGoal(body);
             if (reached is not null)
             {
-                Finish("succeeded", reached);
+                if (seek == "camp" && (shelterTarget is not { } camp || PlayEarthShelter.At(body)?.Surface != Terrain.ToCell(camp.Y)))
+                    Finish("failed", "remembered_site_changed");
+                else Finish("succeeded", reached);
                 return;
             }
             if (legs >= LandLegLimit || traveled >= landDistanceLimit - 0.3f)
@@ -329,8 +331,8 @@ internal sealed class PlaySurvivalTravel
             if (action is MoveAlongObservedRoute flat)
             {
                 var body = player.ComponentBody;
-                var goalOffset = (surveyTarget - body.Position).XZ;
-                if (seek == "survey" && !Evading && goalOffset.LengthSquared() < 1 && flat.Points.Count == 1)
+                var goalOffset = ((seek == "camp" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
+                if ((seek is "survey" or "camp") && !Evading && goalOffset.LengthSquared() < 1 && flat.Points.Count == 1)
                 {
                     // 最后一小段沿已验证的走廊收短，避免为一格内的目标再走过头。
                     var corridor = flat.Points[0] - body.Position;
@@ -413,6 +415,12 @@ internal sealed class PlaySurvivalTravel
             if (PlaySurvivalRest.HasSecureCover(player)) return ("enclosed_sleep_site_ready", null);
             if (PlayEarthShelter.At(body) is not null) return ("soft_earth_shelter_site", null);
             approach = shelterTarget;
+        }
+        else if (seek == "camp" && shelterTarget is { } camp)
+        {
+            if ((camp - body.Position).XZ.LengthSquared() <= 0.45f * 0.45f)
+                return ("remembered_earth_shelter_reached", null);
+            approach = camp;
         }
         if (approach is { } destination)
         {

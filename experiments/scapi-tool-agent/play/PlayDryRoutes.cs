@@ -24,8 +24,8 @@ internal static class PlayDryRoutes
             var bounds = body.BoundingBox;
             var minimum = new Position(bounds.Min.X, bounds.Min.Y, bounds.Min.Z);
             var maximum = new Position(bounds.Max.X, bounds.Max.Y, bounds.Max.Z);
-            return Step is null ? LocalNavigationSkillGeometry.InObservedAir(Evidence, minimum, maximum)
-                : ObservedStepGuard.Check(Step, minimum, maximum, body.IsSmoothRiseEnabled, body.MaxSmoothRiseHeight).Inside;
+            return Step is null ? LocalNavigationSkillGeometry.InObservedAir(Evidence, minimum, maximum, OpenCell)
+                : ObservedStepGuard.Check(Step, minimum, maximum, body.IsSmoothRiseEnabled, body.MaxSmoothRiseHeight, OpenCell).Inside;
         }
     }
 
@@ -83,7 +83,7 @@ internal static class PlayDryRoutes
             return 2f * gain + 0.45f * delta.Length() - 1.6f * ledges - (leg.Step?.Kind == StepKind.Down ? 0.5f : 0f);
         }
 
-        bool IsAir(int x, int y, int z) => recent.TryGetValue((x, y, z), out var cell) && Terrain.ExtractContents(cell.Value) == 0;
+        bool IsAir(int x, int y, int z) => recent.TryGetValue((x, y, z), out var cell) && OpenCell(cell.Value);
     }
 
     private static Vector3 PositionOf(Position value) => new((float)value.X, (float)value.Y, (float)value.Z);
@@ -92,7 +92,11 @@ internal static class PlayDryRoutes
         new(new MoveAlongObservedRoute(flat.Points.Select(PositionOf).ToArray(), LevelGaze: true), flat.Evidence);
 
     private static ObservedStepRoute[] ReadSteps(LocalObservationWindow window) => ObservedStepRoutes.Project(window,
-        allowObservedSandAndGravel: true).Where(step => step.MaximumAge <= 1.25).ToArray();
+        allowObservedSandAndGravel: true, openCell: OpenCell).Where(step => step.MaximumAge <= 1.25).ToArray();
+
+    public static Vector3? ShallowExit(LocalObservationWindow window, int surface) => ReadSteps(window)
+        .FirstOrDefault(step => step.Kind == StepKind.Up && step.Destination.Y == surface) is { } exit
+            ? PositionOf(exit.Destination) : null;
 
     private static IEnumerable<ObservedFlatRoute> LongRoutes(LocalObservationWindow window, float remaining, IEnumerable<Vector2> headings)
     {
@@ -101,12 +105,12 @@ internal static class PlayDryRoutes
         var origin = window.Position;
         return headings.SelectMany(axis => Enumerable.Range(2, maxLength - 1).Reverse().Select(length => ObservedFlatRoutes.Inspect(window,
             new(origin.X + length * axis.X, origin.Y, origin.Z + length * axis.Y), maximumEvidenceAge: 1.75,
-            groundPolicy: RouteGroundPolicy.ObservedFullCube).Route).OfType<ObservedFlatRoute>().Take(1));
+            groundPolicy: RouteGroundPolicy.ObservedFullCube, openCell: OpenCell).Route).OfType<ObservedFlatRoute>().Take(1));
     }
 
     private static IEnumerable<Leg> ShortRoutes(LocalObservationWindow window)
     {
-        var flat = LocalRouteCandidates.Project(window, 1, RouteGroundPolicy.ObservedFullCube);
+        var flat = LocalRouteCandidates.Project(window, 1, RouteGroundPolicy.ObservedFullCube, OpenCell);
         return flat.Candidates.Where(candidate => flat.Provenance[candidate.EvidenceId].All(cell => cell.Age <= 1.75))
             .Select(candidate => new Leg(new MoveAlongObservedRoute([PositionOf(candidate.Destination)], 0.24f, 3f, LevelGaze: true),
                 flat.Provenance[candidate.EvidenceId]));
@@ -114,8 +118,17 @@ internal static class PlayDryRoutes
 
     private static Leg? Alignment(LocalObservationWindow window)
     {
-        var alignment = LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true, allowLeavingSmallOverhang: true);
+        var alignment = LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true, allowLeavingSmallOverhang: true,
+            openCell: OpenCell);
         return alignment is { MaximumAge: <= 1.5 }
             ? new(new MoveTo(PositionOf(alignment.Destination), 0.04f, 3f), alignment.Evidence) : null;
+    }
+
+    private static bool OpenCell(int value)
+    {
+        int contents = Terrain.ExtractContents(value);
+        var block = BlocksManager.Blocks[contents];
+        // 草和花保留原始方块证据，只在原生明确无碰撞时算作身体净空。
+        return contents == 0 || (block is TallGrassBlock or FlowerBlock) && !block.IsCollidable_(value);
     }
 }

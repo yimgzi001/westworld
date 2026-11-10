@@ -35,7 +35,8 @@ public static partial class SharedVoxelScanner {
   ArgumentNullException.ThrowIfNull(loadedRectangle);ArgumentNullException.ThrowIfNull(readVoxel);
   if(above<1||above>3||maxSamples<1||maxSamples>MaximumSamples||maxReads<1||maxReads>MaximumVoxelReads)throw new ArgumentOutOfRangeException("scan budget/grid");
   if(!Finite(body)||!Finite(eye)||!double.IsFinite(forward.X)||!double.IsFinite(forward.Y)||!double.IsFinite(forward.Z))throw new ArgumentException("finite scan pose required");
-  int bx=(int)Math.Floor(body.X),by=(int)Math.Floor(body.Y),bz=(int)Math.Floor(body.Z);
+  // 原生站稳的脚底可能比整数格面低几个浮点单位。全向落脚读取按同一格收集头顶净空。
+  int bx=(int)Math.Floor(body.X),by=(int)Math.Floor(body.Y+(allDirections?0.0001:0)),bz=(int)Math.Floor(body.Z);
   var output=new List<ScannedVoxel>();var cache=new Dictionary<(int,int,int),VisibilityVoxel?>();
   int samples=0,los=0,reads=0,hits=0,known=0,rectangles=0;bool exhausted=false;
   VisibilityVoxel? Read(int x,int y,int z){

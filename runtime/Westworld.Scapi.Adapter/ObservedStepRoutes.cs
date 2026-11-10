@@ -10,7 +10,8 @@ public sealed record ObservedStepRoute(Guid Id,Guid SessionId,Guid ActorId,Guid 
 /// This is geometric eligibility, NOT a proof the native controller can complete a jump.
 /// Missing/occluded launch or landing cells refuse the route. No terrain access.</summary>
 public static class ObservedStepRoutes {
-    public static IReadOnlyList<ObservedStepRoute> Project(LocalObservationWindow window,bool allowObservedSandAndGravel=false) {
+    public static IReadOnlyList<ObservedStepRoute> Project(LocalObservationWindow window,bool allowObservedSandAndGravel=false,
+        Func<int,bool>? openCell=null) {
         ArgumentNullException.ThrowIfNull(window);
         var p=window.Position;
         if(window.SessionId==Guid.Empty||window.ActorId==Guid.Empty||window.ObservationId==Guid.Empty
@@ -29,7 +30,7 @@ public static class ObservedStepRoutes {
             bool Need(int x,int y,int z,bool solid) {
                 if(!cells.TryGetValue((x,y,z),out var c)||c.Value<0||c.SourceObservationId==Guid.Empty
                   ||!double.IsFinite(c.ObservedAt)||c.ObservedAt<0||!double.IsFinite(c.Age)||c.Age<0||c.Age>3||Math.Abs(window.Time-c.ObservedAt-c.Age)>1e-6
-                  ||(solid?!Ground(c.Value,allowObservedSandAndGravel):((c.Value&1023)!=0)))return false;
+                  ||(solid?!Ground(c.Value,allowObservedSandAndGravel):!(openCell?.Invoke(c.Value)??(c.Value&1023)==0)))return false;
                 proof[(x,y,z)]=c;return true;
             }
             int sx0=(int)Math.Floor(p.X-.25+1e-5),sx1=(int)Math.Floor(p.X+.25-1e-5);

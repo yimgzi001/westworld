@@ -11,10 +11,12 @@ internal static class PlayNavigationMenu
     public static ToolOffer ScoutOffer { get; } = MakeScoutOffer(["food", "survey"], 24);
     public static ToolOffer ShoreOffer { get; } = MakeScoutOffer(["dry_land"], 12);
     public static ToolOffer ShelterOffer { get; } = MakeScoutOffer(["food", "shelter", "survey"], 24);
+    public static ToolOffer CampOffer { get; } = MakeScoutOffer(["food", "shelter", "survey", "camp"], 24);
 
     private static ToolOffer MakeScoutOffer(string[] purposes, int maxDistance) => new(ScoutTool,
         "Follow one local navigation goal. The game keeps moving while verifying the next route segment and jumping single-block steps. "
-        + "Bearing is relative to current facing, positive right. Stops early at the chosen need, danger, injury, or a blocked route.",
+        + "Bearing is relative to current facing, positive right. Stops early at the chosen need, danger, injury, or a blocked route."
+        + (purposes.Contains("camp") ? " Camp returns to a nearby site where you slept before, then you can rebuild the earth cover." : ""),
         JsonSerializer.SerializeToElement(new
         {
             type = "object",

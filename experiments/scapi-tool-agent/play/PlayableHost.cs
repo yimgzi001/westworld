@@ -145,7 +145,7 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         senses = new NativeActorSession(project, worldId, actionsEnabled: false, observationAbove: Survival ? 3 : 1);
         foreach (var player in external)
         {
-            var actor = new PlayableActor(player, worldId, Log, Survival, ActorMapRange.Content);
+            var actor = new PlayableActor(player, worldId, Log, Survival, ActorMapRange.Content, allowSocial: !Survival || actorCount > 1);
             actors.Add(actor);
             senses.Bind(actor.Id, player);
             if (Survival) actor.BindTravel(senses);

@@ -19,6 +19,19 @@ class Tests(unittest.TestCase):
         self.assertEqual(calls[0]["text"]["format"]["schema"],SCHEMA)
         self.assertFalse(calls[0]["store"]); self.assertEqual(calls[0]["reasoning"],{"effort":"none"})
         self.assertNotIn("fake-test-only",json.dumps(a))
+    def test_dynamic_survival_input_uses_explicit_cache_mode(self):
+        def transport(payload, key, timeout):
+            self.assertEqual(payload["prompt_cache_options"], {"mode": "explicit"})
+            self.assertEqual(payload["input"], "current visible terrain")
+            result = body()
+            result["usage"]["input_tokens_details"] = {"cached_tokens": 0, "cache_write_tokens": 0}
+            return result
+
+        decision, audit = c.infer("current visible terrain", SCHEMA, "fake-test-only", **OPTIONS,
+                                  transport=transport, implicit_cache=False)
+        self.assertEqual(decision, DECISION)
+        self.assertEqual(audit["cacheMode"], "explicit")
+        self.assertEqual(audit["usage"]["input_tokens_details"], {"cached_tokens": 0, "cache_write_tokens": 0})
     def test_incomplete_usage(self):
         d,a=c.infer("p",SCHEMA,"unused",**OPTIONS,transport=lambda *a:body("incomplete"))
         self.assertIsNone(d); self.assertEqual(a["usage"]["input_tokens"],12)

@@ -9,7 +9,7 @@ sealed partial class Runner
     private int continuations, stationaryLooks;
     private float slowestContinuation = float.PositiveInfinity;
     private float biggestContinuousTurn;
-    private bool insetAtStart;
+    private bool insetAtStart, passedThroughPlant;
     private ComponentBody? pursuingBear;
     private Vector3 bearOrigin;
     private float escapeStartDistance;
@@ -22,6 +22,7 @@ sealed partial class Runner
         bool turn = mode == "navigate-turn";
         bool edge = mode == "navigate-edge";
         bool inset = mode == "navigate-inset";
+        bool vegetation = mode == "navigate-vegetation";
         if (stage == 0)
         {
             if (elapsed < 3) return;
@@ -41,6 +42,9 @@ sealed partial class Runner
             }
             if (turn)
                 for (int y = cell.Y; y < cell.Y + 2; y++) terrain.ChangeCell(cell.X + 6, y, cell.Z, GraniteBlock.Index);
+            if (vegetation)
+                for (int x = 2; x <= 15; x++) terrain.ChangeCell(cell.X + x, cell.Y + (x >= 9 ? 1 : 0), cell.Z,
+                    x % 2 == 0 ? TallGrassBlock.Index : RedFlowerBlock.Index);
             body.Position = new(cell.X + (edge ? 0.231f : inset ? 0.474f : 0.5f), cell.Y, cell.Z + (inset ? 0.451f : 0.5f));
             body.Velocity = Vector3.Zero;
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
@@ -60,6 +64,12 @@ sealed partial class Runner
             () => (JsonSerializer.SerializeToElement(new { }), []),
             () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
         jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
+        if (vegetation)
+        {
+            var feet = Terrain.ToCell(body.Position + new Vector3(0, 0.05f, 0));
+            int contents = terrain.Terrain.GetCellContents(feet.X, feet.Y, feet.Z);
+            passedThroughPlant |= contents == TallGrassBlock.Index || contents == RedFlowerBlock.Index;
+        }
         if (cliff && (body.BoundingBox.Max.X > navigationOrigin.X + 8.03f || body.Position.Y < navigationOrigin.Y - 0.05f))
             throw new InvalidOperationException("移动进入了无有效落脚证据的断崖。");
         travel.Update(now);
@@ -72,11 +82,11 @@ sealed partial class Runner
         bool completed = cliff ? travel.Reason == "no_observed_dry_route" && moved > 6f && !jumped
             : travel.Status == "succeeded" && error <= 0.45f && (turn ? biggestContinuousTurn > 35f : edge ? insetAtStart : jumped);
         Passed = continuousMovement && completed && PlaySurvivalSenses.OnDryGround(body)
-            && (cliff || turn || edge || body.Position.Y >= navigationOrigin.Y + 0.95f);
+            && (cliff || turn || edge || body.Position.Y >= navigationOrigin.Y + 0.95f) && (!vegetation || passedThroughPlant);
         Done = true;
         Gate.Log(new { kind = "rolling_navigation_result", Passed, cliff, turn, edge, insetAtStart, travel.Status, travel.Reason, travel.Legs,
             continuations, slowestContinuation = float.IsFinite(slowestContinuation) ? (float?)slowestContinuation : null,
-            biggestContinuousTurn, stationaryLooks, jumped, moved, error, end = body.Position.ToString() });
+            biggestContinuousTurn, stationaryLooks, jumped, moved, error, vegetation, passedThroughPlant, end = body.Position.ToString() });
     }
 
     private void RunShortAlignment(ComponentBody body)

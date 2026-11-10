@@ -309,6 +309,11 @@ sealed partial class Runner
 
     private void RunShelter(double now)
     {
+        if (stage >= 8)
+        {
+            RunCampReturn(now);
+            return;
+        }
         var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         bool wetTest = mode == "shelter-wet";
         if (stage == 1)
@@ -456,7 +461,107 @@ sealed partial class Runner
         if (earthShelter.Status is null) return;
         Passed = earthShelter.Status == "succeeded" && p.ComponentBody.Position.Y >= testSite!.Surface - 0.05f
             && (mode != "shelter-retry" || changedDigSlot);
-        Done = true;
         Gate.Log(new { kind = "shelter_exit", Passed, earthShelter.Status, earthShelter.Reason, floor = p.ComponentBody.Position.Y });
+        if (Passed && mode == "shelter-camp")
+        {
+            var body = p.ComponentBody;
+            float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, Vector2.UnitX));
+            travel = new(p, actions, bearing, 4f, "survey", false, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []),
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log);
+            Passed = false;
+            stage = 8;
+        }
+        else Done = true;
+    }
+
+    private void RunCampReturn(double now)
+    {
+        var site = testSite!;
+        var body = p.ComponentBody;
+        if (stage == 10)
+        {
+            earthShelter!.Update(now);
+            if (earthShelter.Status is null) return;
+            bool contained = site.Contains(body);
+            bool covered = PlaySurvivalRest.HasSecureCover(p);
+            Passed = earthShelter.Status == "succeeded" && contained && covered;
+            Done = true;
+            Gate.Log(new { kind = "shelter_camp_result", Passed, earthShelter.Reason, contained, covered,
+                floor = body.Position.Y, site.X, site.Z });
+            return;
+        }
+        travel!.Update(now);
+        if (travel.Status is null) return;
+        if (travel.Status != "succeeded") throw new InvalidOperationException($"庇护复用导航失败。{travel.Reason}");
+        if (stage == 8)
+        {
+            var center = site.Center(site.Surface);
+            var offset = (center - body.Position).XZ;
+            if (offset.Length() <= 3f) throw new InvalidOperationException("夹具需要先走离庇护位置。");
+            float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+            travel = new(p, actions, bearing, offset.Length(), "camp", false, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []),
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log, shelterTarget: center);
+            stage = 9;
+            return;
+        }
+        if (travel.Reason != "remembered_earth_shelter_reached" || PlayEarthShelter.At(body) != site)
+            throw new InvalidOperationException("夹具没有回到原生确认的旧庇护格。");
+        earthShelter = new(p, actions, site, false, now, Gate.Log);
+        stage = 10;
+    }
+
+    private void RunShallowShelter()
+    {
+        var body = p.ComponentBody;
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        if (stage == 0)
+        {
+            if (elapsed < 3) return;
+            var cell = Terrain.ToCell(body.Position);
+            testSite = new(cell.X, cell.Y, cell.Z);
+            for (int x = cell.X - 3; x <= cell.X + 3; x++)
+            for (int z = cell.Z - 3; z <= cell.Z + 3; z++)
+            for (int y = cell.Y - 2; y <= cell.Y + 3; y++)
+            {
+                int floor = x == cell.X && z == cell.Z ? cell.Y - 2 : cell.Y - 1;
+                terrain.ChangeCell(x, y, z, y <= floor ? DirtBlock.Index : 0);
+            }
+            body.Position = new(cell.X + 0.424f, cell.Y - 1, cell.Z + 0.475f);
+            body.Velocity = Vector3.Zero;
+            elapsed = 0;
+            stage = 1;
+            return;
+        }
+        if (elapsed < 0.75) return;
+        var site = testSite!;
+        if (travel is null)
+        {
+            if (NativeAcquisitionAudit.InventoryCount(p.ComponentMiner.Inventory, DirtBlock.Index) != 0 || !site.Contains(body)
+                || !PlaySurvivalSenses.OnDryGround(body)) throw new InvalidOperationException("夹具需要在没有垫脚土的一格浅坑内。");
+            var window = memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true));
+            if (PlayDryRoutes.ShallowExit(window, site.Surface) is not { } point)
+            {
+                Gate.Log(new { kind = "shallow_exit_geometry", window.Position, site.Surface,
+                    eye = p.ComponentCreatureModel.EyePosition.ToString(), cells = window.Cells
+                        .Where(cell => Math.Abs(cell.X - site.X) + Math.Abs(cell.Z - site.Z) <= 1 && cell.Y >= site.Surface - 2)
+                        .Select(cell => new { x = cell.X - site.X, y = cell.Y - site.Surface, z = cell.Z - site.Z,
+                            value = Terrain.ExtractContents(cell.Value) }).ToArray() });
+                throw new InvalidOperationException("全向观察没有确认浅坑的安全出口。");
+            }
+            var offset = (point - body.Position).XZ;
+            float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+            travel = new(p, actions, bearing, offset.Length(), "survey", false, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []),
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log);
+        }
+        jumped |= p.ComponentLocomotion.LastJumpOrder > 0f;
+        travel.Update(now);
+        if (travel.Status is null) return;
+        Passed = travel.Status == "succeeded" && jumped && !site.Contains(body)
+            && MathF.Abs(body.Position.Y - site.Surface) <= 0.05f && p.ComponentHealth.Health >= 0.99f;
+        Done = true;
+        Gate.Log(new { kind = "shelter_shallow_result", Passed, travel.Status, travel.Reason, jumped, floor = body.Position.Y });
     }
 }

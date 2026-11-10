@@ -43,8 +43,8 @@ sealed partial class Runner
                 var drops = p.Project.FindSubsystem<SubsystemPickables>(true);
                 var at = body.Position + new Vector3(0, 0.2f, -0.2f);
                 drops.AddPickable(CobblestoneBlock.Index, 7, at, Vector3.Zero, null);
-                drops.AddPickable(RawMeatBlock.Index, 1, at, Vector3.Zero, null);
-                drops.AddPickable(PlanksBlock.Index, 1, at, Vector3.Zero, null);
+                drops.AddPickable(RawMeatBlock.Index, 2, at, Vector3.Zero, null);
+                drops.AddPickable(PlanksBlock.Index, 3, at, Vector3.Zero, null);
             }
             forageTools = new(Guid.NewGuid(), p, new ActorTools(actions, true));
             elapsed = 0;
@@ -69,7 +69,7 @@ sealed partial class Runner
         Passed = materialConsumed && (kitchen
             ? productionStations.ContainsKey(CraftingTableBlock.Index) && productionStations.ContainsKey(FurnaceBlock.Index)
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 0
-                && NativeAcquisitionAudit.InventoryCount(inventory, CookedMeatBlock.Index) == 1
+                && NativeAcquisitionAudit.InventoryCount(inventory, CookedMeatBlock.Index) == 2
                 && NativeAcquisitionAudit.InventoryCount(inventory, RawMeatBlock.Index) == 0
             : productionStations.ContainsKey(CampfireBlock.Index) && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 1
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Workbench) == 1);

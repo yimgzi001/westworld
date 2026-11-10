@@ -47,6 +47,8 @@ Check(VoxelSurfaceGeometry.LineOfSight(eye,new(45.5,66.6,.5),(_,_,_)=>false,48),
 var around=SharedVoxelScanner.Scan(body,eye,forward,Loaded,World,allDirections:true);
 Check(!scan.AllDirections&&around.AllDirections,"普通观察仍使用朝向");
 Check(around.Cells.Any(c=>c.X==-3&&c.Y==64&&c.Z==0&&c.Value==2),"走路的全向近距观察能看到身后地面");
+var settled=SharedVoxelScanner.Scan(new(.5,64.999996,.5),eye,forward,Loaded,World,above:3,allDirections:true);
+Check(settled.Cells.Any(c=>c.X==1&&c.Y==68&&c.Z==0&&c.Value==0),"格面浮点误差不丢失上台阶的净空层");
 var walledAround=SharedVoxelScanner.Scan(body,eye,forward,Loaded,Wall,allDirections:true);
 Check(walledAround.Cells.All(c=>c.X<3||!c.Value.HasValue),"全向近距观察仍受墙遮挡");
 Console.WriteLine($"PASS {n}/{n} shared scanner pure contracts; no native game executed");

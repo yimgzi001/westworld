@@ -4,7 +4,8 @@ namespace Westworld.Scapi.Adapter;
 public sealed record StepEnvelopeCheck(bool Inside,bool KnownSupportContactUsed,string Reason);
 /// <summary>Frozen observed envelope only; current obstacles remain native collision's responsibility.</summary>
 public static class ObservedStepGuard {
- public static StepEnvelopeCheck Check(ObservedStepRoute route,Position minimum,Position maximum,bool smoothRise,float maximumSmoothRise) {
+ public static StepEnvelopeCheck Check(ObservedStepRoute route,Position minimum,Position maximum,bool smoothRise,float maximumSmoothRise,
+  Func<int,bool>? openCell=null) {
   ArgumentNullException.ThrowIfNull(route);
   if(!Finite(minimum)||!Finite(maximum)||maximum.X<minimum.X||maximum.Y<minimum.Y||maximum.Z<minimum.Z
    ||maximum.X-minimum.X>.501||maximum.Z-minimum.Z>.501||maximum.Y-minimum.Y>1.901
@@ -14,7 +15,7 @@ public static class ObservedStepGuard {
    for(int z=(int)Math.Floor(minimum.Z+1e-5);z<=(int)Math.Floor(maximum.Z-1e-5);z++)
     for(int y=(int)Math.Floor(minimum.Y+1e-5);y<=(int)Math.Floor(maximum.Y-1e-5);y++) {
      if(!cells.TryGetValue((x,y,z),out var cell))return new(false,used,"outside_observed_envelope");
-     int contents=cell.Value&1023;if(contents==0)continue;
+     int contents=cell.Value&1023;if(openCell?.Invoke(cell.Value)??contents==0)continue;
      bool ground=ObservedStepRoutes.Ground(contents,route.AllowsLooseGround);
      bool up=route.Kind==StepKind.Up&&smoothRise&&ground&&y==(int)Math.Round(route.Destination.Y)-1
        &&x==(int)Math.Floor(route.Destination.X)&&z==(int)Math.Floor(route.Destination.Z)

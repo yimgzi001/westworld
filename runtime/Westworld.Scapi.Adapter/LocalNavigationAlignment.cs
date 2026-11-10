@@ -9,7 +9,7 @@ public sealed record ObservedAlignmentRoute(Guid Id,Guid SessionId,Guid ActorId,
 /// guarantee future clearance; native collision and bounded interruption remain mandatory.</summary>
 public static class LocalNavigationAlignment {
  public static ObservedAlignmentRoute? Project(LocalObservationWindow window,bool allowObservedSandAndGravel=false,
-  bool allowLeavingSmallOverhang=false) {
+  bool allowLeavingSmallOverhang=false,Func<int,bool>? openCell=null) {
   ArgumentNullException.ThrowIfNull(window);var p=window.Position;
   if(window.SessionId==Guid.Empty||window.ActorId==Guid.Empty||window.ObservationId==Guid.Empty
    ||!double.IsFinite(window.Time)||window.Time<0||!float.IsFinite(window.Health)||window.Health<=0
@@ -41,7 +41,8 @@ public static class LocalNavigationAlignment {
     ||Math.Abs(window.Time-c.ObservedAt-c.Age)>1e-6
     ||(c.IsCurrent&&(c.SourceObservationId!=window.ObservationId||c.Age!=0)))return false;
    int content=c.Value&1023;
-   if(ground?!(content is 1 or 2 or 3 or 4 or 5 or 8 || allowObservedSandAndGravel && content is 6 or 7):content!=0)return false;
+   if(ground?!(content is 1 or 2 or 3 or 4 or 5 or 8 || allowObservedSandAndGravel && content is 6 or 7)
+    :!(openCell?.Invoke(c.Value)??content==0))return false;
    proof.Add(c);return true;
   }
  }
