@@ -187,7 +187,13 @@ internal sealed class PlayableActor
             if (route.Status is { } terminal)
             {
                 travel = null;
-                if (route.Evading) nextEvade = Math.Min(nextEvade, gameTime + 1);
+                if (route.Evading)
+                {
+                    var body = player.ComponentBody;
+                    bool closeThreat = ThreatInRange(body, IsOnWater(body)) is { Distance: <= 8f, Predator: true };
+                    bool moved = (body.Position - route.Origin).XZ.LengthSquared() >= 0.25f;
+                    nextEvade = Math.Min(nextEvade, gameTime + (closeThreat && moved ? 0 : 1));
+                }
                 if (shallowExit)
                 {
                     shallowExit = false;
@@ -994,7 +1000,7 @@ internal sealed class PlayableActor
             {
                 lastSeen = ThreatInRange(body, false) ?? lastSeen;
                 return new(lastSeen.X, lastSeen.Z);
-            });
+            }, escapeClearance: !inWater && threat.Predator ? 10f : 0f);
         log(new { kind = "play_predator_evade", actor = Name, threat, gameTime, bearing });
         return true;
     }
@@ -1004,8 +1010,9 @@ internal sealed class PlayableActor
 
     private PlaySurvivalSenses.Threat? ThreatInRange(ComponentBody body, bool inWater) =>
         predators.FirstOrDefault(animal => PlaySurvivalSenses.NeedsAvoidance(animal, inWater)
-            && !(earthSite is { } site && site.Contains(body) && animal.Y >= site.Surface - 0.2f
-                && (shelter?.Leaving == true || body.Position.Y <= site.Surface - 2)));
+            && !(earthSite is { } site && site.SameColumn(body) && animal.Y >= site.Surface - 0.2f
+                && (body.Position.Y <= site.Surface - 2 || shelter?.Leaving == true
+                    && (body.Position.Y < site.Surface - 0.05f || !PlaySurvivalSenses.OnDryGround(body)))));
 
     private static Vector3 Position(JsonElement point) =>
         new(point.GetProperty("x").GetSingle(), point.GetProperty("y").GetSingle(), point.GetProperty("z").GetSingle());

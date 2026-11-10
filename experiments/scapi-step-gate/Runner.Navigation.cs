@@ -167,6 +167,7 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        bool verifyClearance = mode == "predator-clearance";
         bool extendedOverhang = mode == "predator-edge-tip";
         bool overhang = mode == "predator-edge-return" || extendedOverhang;
         if (stage == 0)
@@ -191,8 +192,14 @@ sealed partial class Runner
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
             var bear = DatabaseManager.CreateEntity(p.Project, overhang ? "Wolf_Coyote" : "Bear_Brown", true);
             pursuingBear = bear.FindComponent<ComponentBody>(true);
-            bearOrigin = body.Position - 15f * Vector3.UnitX;
+            bearOrigin = body.Position - (verifyClearance ? 7f : 15f) * Vector3.UnitX;
             pursuingBear.Position = bearOrigin;
+            if (verifyClearance)
+            {
+                var locomotion = bear.FindComponent<ComponentLocomotion>(true);
+                locomotion.WalkSpeed = 0f;
+                locomotion.JumpSpeed = 0f;
+            }
             p.Project.AddEntity(bear);
             elapsed = 0;
             stage = 1;
@@ -219,14 +226,14 @@ sealed partial class Runner
             escapeStartDistance = initial.Distance;
             var lastSeen = initial;
             pursuingBear!.Entity.FindComponent<ComponentChaseBehavior>(true).Attack(p, 24f, 20f, true);
-            travel = new(p, actions, 0, 9, "survey", true, now,
+            travel = new(p, actions, 0, verifyClearance ? 4f : 9f, "survey", true, now,
                 () => (JsonSerializer.SerializeToElement(new { }), []),
                 () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
                 escapeFrom: () =>
                 {
                     lastSeen = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(threat => threat.Predator && !threat.Aquatic) ?? lastSeen;
                     return new(lastSeen.X, lastSeen.Z);
-                });
+                }, escapeClearance: verifyClearance ? 10f : 0f);
             Gate.Log(new { kind = "predator_cliff_started", overhang, extendedOverhang, distance = escapeStartDistance,
                 origin = body.Position.ToString(), priorStopX = towardLedge?.End.X, cliffX = cliff });
         }
@@ -235,11 +242,14 @@ sealed partial class Runner
 
         float sideDistance = MathF.Abs(body.Position.Z - travel.Origin.Z);
         float pursuitDistance = (pursuingBear!.Position - bearOrigin).XZ.Length();
-        Passed = travel.Status == "succeeded" && recoveredGround && sideDistance > 6f && pursuitDistance > 2f && stationaryLooks == 0
+        float clearance = (body.Position - pursuingBear.Position).XZ.Length();
+        bool achieved = verifyClearance ? clearance >= 10f && (body.Position - travel.Origin).XZ.Length() > 4.5f
+            : sideDistance > 6f && pursuitDistance > 2f;
+        Passed = travel.Status == "succeeded" && recoveredGround && achieved && stationaryLooks == 0
             && continuations > 0 && p.ComponentHealth.Health >= 0.99f && PlaySurvivalSenses.OnDryGround(body);
         Done = true;
         Gate.Log(new { kind = "predator_cliff_result", Passed, overhang, extendedOverhang, recoveredGround, travel.Status, travel.Reason, escapeStartDistance,
-            sideDistance, pursuitDistance, continuations, stationaryLooks, health = p.ComponentHealth.Health });
+            sideDistance, pursuitDistance, clearance, verifyClearance, continuations, stationaryLooks, health = p.ComponentHealth.Health });
     }
 
     private void TrackNavigation(object value)

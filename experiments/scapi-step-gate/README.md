@@ -28,6 +28,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `predator-memory` 先看到原生黑熊，再用墙体遮挡。验证原路线朝它最后出现的位置时改走安全旁路，以及短期记忆到时失效。
 
+`predator-clearance` 验证走完最短撤离路程后，若仍靠近原生棕熊，角色继续走到最低安全距离。`shelter-late-predator` 在最后一跳才放入原生棕熊，验证落回坑内、撤下垫土和重封。
+
 `navigate-vegetation` 在长路线和台阶上铺设无碰撞的草和花。`shelter-shallow` 从背包无土的一格浅坑跳出。`shelter-camp` 在没有随机生成生物的夹具中验证过夜、出坑、走开、沿原生路线返回以及重建实体遮蔽。
 
 `forage-pumpkin` 将成熟南瓜放在一格落差后。先确认站在原处挖掘受阻，再沿干地换位，通过原生挖掘命中外露部分，最后沿确认的台阶下去并核对实际入包、落脚和生命值。

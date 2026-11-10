@@ -23,6 +23,7 @@ sealed partial class Runner
     private PlaySurvivalRest? fixtureDrying;
     private double dryingStarted;
     private bool refusedOpenCover;
+    private bool latePredatorPlaced, exitThreatDuringJump;
     private Point3 threatOrigin;
     private Vector3 threatPosition;
     private float sightDistance;
@@ -223,7 +224,7 @@ sealed partial class Runner
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
             if (mode == "forage" && !ForageCorridorReady(cell.X, cell.Z)) return;
-            int endX = cell.X + (mode == "forage" ? 39 : 5);
+            int endX = cell.X + (mode == "forage" ? 39 : mode == "shelter-late-predator" ? 10 : 5);
             for (int x = cell.X - 5; x <= endX; x++)
             for (int z = cell.Z - 5; z <= cell.Z + 5; z++)
             for (int y = cell.Y - 4; y <= cell.Y + 3; y++)
@@ -361,6 +362,7 @@ sealed partial class Runner
         }
         var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         bool wetTest = mode == "shelter-wet";
+        bool latePredator = mode == "shelter-late-predator";
         if (stage == 1)
         {
             if (mode == "shelter-illness")
@@ -390,17 +392,17 @@ sealed partial class Runner
             Gate.Log(new { kind = "shelter_built", earthShelter.Status, earthShelter.Reason, ready, blocker,
                 floor = p.ComponentBody.Position.Y, roof = terrain.Terrain.GetCellContents(roof.X, roof.Y, roof.Z) });
             if (earthShelter.Status != "succeeded") { Done = true; return; }
-            if (mode == "shelter-predator")
+            if (mode == "shelter-predator" || latePredator)
             {
-                // 真实黑熊停在出口旁。夹具固定其行走和跳跃速度，保留原生身体、遮挡和捕猎行为。
-                var bear = DatabaseManager.CreateEntity(p.Project, "Bear_Black", true);
-                bear.FindComponent<ComponentBody>(true).Position = testSite.Center(testSite.Surface) + 0.61f * Vector3.UnitX;
-                var locomotion = bear.FindComponent<ComponentLocomotion>(true);
-                locomotion.WalkSpeed = 0f;
-                locomotion.JumpSpeed = 0f;
-                p.Project.AddEntity(bear);
+                if (!latePredator) PlaceShelterThreat(0.61f);
                 vitalBefore = p.ComponentHealth.Health;
-                earthShelter = new(p, actions, testSite, true, now, Gate.Log);
+                earthShelter = new(p, actions, testSite, true, now, entry =>
+                {
+                    Gate.Log(entry);
+                    var record = JsonSerializer.SerializeToElement(entry);
+                    if (record.GetProperty("kind").GetString() == "play_shelter_exit_threat")
+                        exitThreatDuringJump = record.GetProperty("duringJump").GetBoolean();
+                });
                 stage = 7;
                 return;
             }
@@ -431,14 +433,22 @@ sealed partial class Runner
         }
         if (stage == 7)
         {
+            var body = p.ComponentBody;
+            if (latePredator && !latePredatorPlaced && body.Position.Y >= testSite!.Surface - 0.45f
+                && body.Position.Y < testSite.Surface && body.Velocity.Y > 0f)
+            {
+                PlaceShelterThreat(7.2f);
+                latePredatorPlaced = true;
+            }
             jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
             earthShelter!.Update(now);
             if (earthShelter.Status is null) return;
             bool covered = PlaySurvivalRest.HasUsableCover(p);
-            Passed = earthShelter.Reason == "predator_at_exit_resealed" && covered && !jumped
+            Passed = earthShelter.Reason == "predator_at_exit_resealed" && covered
+                && (latePredator ? latePredatorPlaced && jumped && exitThreatDuringJump : !jumped)
                 && p.ComponentBody.Position.Y <= testSite!.Surface - 2.95f && p.ComponentHealth.Health >= vitalBefore;
             Done = true;
-            Gate.Log(new { kind = "shelter_predator_result", Passed, earthShelter.Reason, covered, jumped,
+            Gate.Log(new { kind = "shelter_predator_result", Passed, earthShelter.Reason, covered, jumped, exitThreatDuringJump,
                 health = p.ComponentHealth.Health, floor = p.ComponentBody.Position.Y });
             return;
         }
@@ -518,6 +528,17 @@ sealed partial class Runner
             stage = 8;
         }
         else Done = true;
+    }
+
+    private void PlaceShelterThreat(float offset)
+    {
+        // 夹具固定猎食者移动能力，保留原生实体和遮挡。晚出现的棕熊在最后一跳进入场景。
+        var bear = DatabaseManager.CreateEntity(p.Project, offset > 1f ? "Bear_Brown" : "Bear_Black", true);
+        bear.FindComponent<ComponentBody>(true).Position = testSite!.Center(testSite.Surface) + offset * Vector3.UnitX;
+        var locomotion = bear.FindComponent<ComponentLocomotion>(true);
+        locomotion.WalkSpeed = 0f;
+        locomotion.JumpSpeed = 0f;
+        p.Project.AddEntity(bear);
     }
 
     private void RunCampReturn(double now)

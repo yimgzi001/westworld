@@ -15,6 +15,7 @@ internal sealed class PlaySurvivalTravel
     private readonly AtomicActions owner;
     private readonly string seek;
     private readonly float distance, landDistanceLimit;
+    private readonly float escapeClearance;
     private readonly float initialHealth;
     private readonly double deadline;
     private readonly Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe;
@@ -45,7 +46,8 @@ internal sealed class PlaySurvivalTravel
         string seek, bool evading, double gameTime, Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe,
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
         PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null,
-        Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null)
+        Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null,
+        float escapeClearance = 0f)
     {
         this.player = player;
         this.owner = owner;
@@ -60,6 +62,7 @@ internal sealed class PlaySurvivalTravel
         this.shelterTarget = shelterTarget;
         this.shoreTarget = shoreTarget;
         this.escapeFrom = escapeFrom;
+        this.escapeClearance = escapeClearance;
         this.permitLandLeg = permitLandLeg;
         this.log = log;
         Evading = evading;
@@ -70,7 +73,7 @@ internal sealed class PlaySurvivalTravel
         var offset = distance * new Vector3(direction.X, 0, direction.Y);
         surveyTarget = Origin + offset;
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
-        landDistanceLimit = escapeFrom is not null ? distance + 6f
+        landDistanceLimit = escapeFrom is not null ? distance + (escapeClearance > 0f ? 12f : 6f)
             : seek is "survey" or "camp" ? MathF.Abs(offset.X) + MathF.Abs(offset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
     }
 
@@ -418,9 +421,10 @@ internal sealed class PlaySurvivalTravel
     private (string? Reached, Vector3? Approach) ReadLandGoal(ComponentBody body)
     {
         Vector3? approach = null;
-        if (escapeFrom is not null)
+        if (escapeFrom is { } currentThreat)
         {
-            if ((body.Position - Origin).XZ.Length() >= distance - 0.45f)
+            if ((body.Position - Origin).XZ.Length() >= distance - 0.45f
+                && (escapeClearance <= 0f || (body.Position.XZ - currentThreat()).Length() >= escapeClearance))
                 return ("escaped_along_supported_ground", null);
         }
         else if (seek == "survey")

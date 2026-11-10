@@ -10,8 +10,8 @@ internal sealed class PlayEarthShelter
     {
         public Vector3 Center(float y) => new(X + 0.5f, y, Z + 0.5f);
         public Point3 Cell(int y) => new(X, y, Z);
-        public bool Contains(ComponentBody body) => Terrain.ToCell(body.Position.X) == X && Terrain.ToCell(body.Position.Z) == Z
-            && body.Position.Y < Surface - 0.5f;
+        public bool SameColumn(ComponentBody body) => Terrain.ToCell(body.Position.X) == X && Terrain.ToCell(body.Position.Z) == Z;
+        public bool Contains(ComponentBody body) => SameColumn(body) && body.Position.Y < Surface - 0.5f;
     }
 
     private enum Phase { Center, SurveyFloor, DigFloor, Settle, SurveyWall, Seal, Resealed, SurveyRoof, Open, Peek, SurveyExitFloor, Jump, Raise }
@@ -205,6 +205,8 @@ internal sealed class PlayEarthShelter
                 Begin(new Jump(), Phase.Raise);
                 break;
             case Phase.Raise:
+                // 最后一跳才露出视野时，先查坑口。发现威胁就落回原位，再下撤和封顶。
+                if (level == site.Surface - 1 && body.Position.Y >= site.Surface - 0.45f && RetreatFromPredator(gameTime)) break;
                 // 原生放置用内缩 0.2 格的身体包围盒。接近一格时即可交给原生校验。
                 peakRise = Math.Max(peakRise, body.Position.Y - level);
                 if (body.Position.Y >= level + 0.82f && Focus(site.Cell(level - 1), 4) is { } baseBlock && Dirt() is { } earth)
@@ -252,14 +254,16 @@ internal sealed class PlayEarthShelter
     private bool RetreatFromPredator(double gameTime)
     {
         // 开顶后从坑内用原生遮挡读取出口。发现近处威胁就回到坑底并补回屋顶。
-        var threat = PlaySurvivalSenses.Threats(player, owner.Queries, 8f).FirstOrDefault(animal => !animal.Aquatic
-            && animal.Y >= site.Surface - 1 && animal.Distance <= (animal.Predator ? 8f : 4f));
+        const float exitPredatorRange = 16f;
+        var threat = PlaySurvivalSenses.Threats(player, owner.Queries, exitPredatorRange).FirstOrDefault(animal => !animal.Aquatic
+            && animal.Y >= site.Surface - 1 && animal.Distance <= (animal.Predator ? exitPredatorRange : 4f));
         if (threat is null) return false;
+        bool duringJump = phase == Phase.Raise;
         retreating = true;
         wall = 0;
         settleUntil = gameTime;
         phase = Phase.Settle;
-        log(new { kind = "play_shelter_exit_threat", actor = player.PlayerData.Name, threat, level, gameTime });
+        log(new { kind = "play_shelter_exit_threat", actor = player.PlayerData.Name, threat, level, duringJump, gameTime });
         return true;
     }
 
