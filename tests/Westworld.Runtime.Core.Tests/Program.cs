@@ -3,6 +3,9 @@ using System.Text.Json;
 int checks=0;
 void Check(bool value,string name){checks++;if(!value)throw new Exception(name);}
 void Reject(Action action,string name){bool failed=false;try{action();}catch(ArgumentException){failed=true;}catch(InvalidOperationException){failed=true;}catch(FormatException){failed=true;}catch(JsonException){failed=true;}Check(failed,name);}
+var fixture47Radii=new InterestRadii(16,24);fixture47Radii.Validate();
+Check(fixture47Radii.FullReady>=Math.Sqrt(8*8+3*3),"scale47 legal fixture interest covers edit/readiness extent");
+Reject(()=>new InterestRadii(12,20).Validate(),"scale47 prior below-minimum fixture rejected before native setup");
 var world=Guid.NewGuid();var r=new ActorRegistry(world);var ids=Enumerable.Range(0,5).Select(_=>Guid.NewGuid()).ToArray();
 foreach(var (id,i) in ids.Select((id,i)=>(id,i)))r.Add(id,"native-"+i,new(i*100,65,-i*100));
 Check(r.Capture().Actors.Length==5,"five identity records, not five game bodies");

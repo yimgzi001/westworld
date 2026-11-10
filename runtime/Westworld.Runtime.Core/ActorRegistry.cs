@@ -17,7 +17,7 @@ public sealed record WorldSnapshot(int Schema, Guid WorldId, ActorState[] Actors
 
 // One owning game thread. This layer stores native-validated bindings/positions only;
 // it never creates entities, moves bodies, loads chunks or changes health/inventory.
-public sealed class ActorRegistry {
+public sealed partial class ActorRegistry {
     const int MaxActors=1000;
     readonly int ownerThread=Environment.CurrentManagedThreadId;
     readonly Dictionary<Guid,ActorState> actors=new();
@@ -46,7 +46,7 @@ public sealed class ActorRegistry {
         Owner();var a=new ActorState(id,nativeEntityKey,nativePosition,0,true);Valid(a);
         if(actors.Count>=MaxActors || (actors.ContainsKey(id)||retired.Contains(id)) || actors.Values.Any(x=>x.EntityKey==nativeEntityKey))
             throw new InvalidOperationException("Duplicate identity/binding or capacity exceeded");
-        actors.Add(id,a);bound.Add(id);
+        actors.Add(id,a);bound.Add(id);healthUpdates.Add(id,0);healthVersion++;
     }
     public ActorState Read(Guid id) {Owner();return actors[id];}
     public void Update(Guid session,Guid id,long expectedRevision,Position nativePosition,bool active) {
@@ -55,13 +55,14 @@ public sealed class ActorRegistry {
         var a=actors[id];
         if(a.Revision!=expectedRevision)throw new InvalidOperationException("Stale actor revision");
         actors[id]=a with {Position=nativePosition,Active=active,Revision=checked(a.Revision+1)};
+        healthUpdates[id]++;healthTotalUpdates++;healthVersion++;
     }
     public void Rebind(Guid session,Guid id,string nativeEntityKey,Position nativePosition) {
         Owner();nativePosition.Validate();var a=actors[id];
         if(session!=SessionId||bound.Contains(id)||a.EntityKey!=nativeEntityKey)throw new InvalidOperationException("Invalid native rebind");
-        actors[id]=a with {Position=nativePosition,Revision=checked(a.Revision+1)};bound.Add(id);
+        actors[id]=a with {Position=nativePosition,Revision=checked(a.Revision+1)};bound.Add(id);healthVersion++;
     }
-    public void Remove(Guid id) {Owner();if(!actors.ContainsKey(id))throw new KeyNotFoundException("Unknown actor");if(retired.Count>=10_000)throw new InvalidOperationException("Retired identity capacity exceeded");actors.Remove(id);bound.Remove(id);retired.Add(id);}
+    public void Remove(Guid id) {Owner();if(!actors.ContainsKey(id))throw new KeyNotFoundException("Unknown actor");if(retired.Count>=10_000)throw new InvalidOperationException("Retired identity capacity exceeded");actors.Remove(id);bound.Remove(id);retired.Add(id);healthUpdates.Remove(id);healthVersion++;}
     // Human presentation is separate and optional. No AI view is constructed by Add/Restore.
     public void SetView(Guid id,Position camera) {
         Owner();camera.Validate();if(id==Guid.Empty)throw new ArgumentException("View id required");

@@ -32,3 +32,17 @@ Next integration gate: connect these identities and interests to real SCAPI enti
 Independent review found remove/re-add could reset revision and accept an old request in the same session. Persisted retired-ID tombstones now reject reuse both before and after restart; regression covers this. Identity-stage cloud result:49/49 pure contract checks, no native game integration tested.
 
 Activity-center stage: InterestCoordinator and IInterestBackend now separate actor activity from camera state.70/70 pure core checks pass; native adapter details and remaining world-test gaps are in ../Westworld.Scapi.Adapter/README.md.
+
+## 阶段47：同世界角色健康分页
+
+`NativeActorSession.Registry.CaptureHealthPage(session, expectedVersion: null, offset: 0, limit: 128)`
+复用现有注册表，而不是引入第二个调度器或任务所有者。返回世界、会话、版本、当前角色数、
+活动/已绑定/活动且已绑定数量、退役数量，以及各角色的 Revision 和本会话 UpdateCount。
+`TotalUpdates` 仅统计成功的 `Registry.Update`，不代表成功动作、距离或公平调度证明。
+Add/Update/Rebind/Remove 成功后均更新健康版本；后续页必须传首份 Version，任何角色变更
+都会使游标失效，应从第一页重读。最多返回128条，当前注册表仍沿用原来的1000角色上限。
+
+只保留当前角色的计数，Remove 会释放该角色计数，退役历史沿用已有有界集合。
+Restore 仍生成新 Session 并要求原生 Rebind；健康计数不写入世界存档，恢复后重新统计。
+该接口是宿主运维信息，不能当作模型可见的其他角色状态或全图感知。
+纯验证入口：`tests/Westworld.CohortHealth.Tests/Tests.csproj`；原核心回归入口不变。
