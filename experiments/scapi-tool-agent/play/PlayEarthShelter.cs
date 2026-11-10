@@ -25,7 +25,8 @@ internal sealed class PlayEarthShelter
     private AtomicActionRun? action;
     private Phase phase = Phase.Center;
     private double settleUntil;
-    private int wall, level, digRetries;
+    private int wall, level, digRetries, jumpRetries, lastExitLevel = int.MinValue;
+    private float peakRise;
     private bool opened;
 
     public PlayEarthShelter(ComponentPlayer player, AtomicActions owner, Site site, bool leaving,
@@ -83,7 +84,7 @@ internal sealed class PlayEarthShelter
             if (run.Action is Dig) digRetries = 0;
             log(new { kind = "play_shelter_native", actor = player.PlayerData.Name,
                 action = run.Action.GetType().Name, leaving, gameTime });
-            if (phase == Phase.Settle && run.Action is Dig or Place) settleUntil = gameTime + 0.25;
+            if (phase == Phase.Settle && run.Action is Dig or Place) settleUntil = gameTime + 0.35;
         }
 
         switch (phase)
@@ -96,8 +97,27 @@ internal sealed class PlayEarthShelter
             case Phase.Settle:
                 if (gameTime < settleUntil || !body.StandingOnValue.HasValue || MathF.Abs(body.Velocity.Y) > 0.2f) return;
                 level = (int)MathF.Round(body.Position.Y);
-                if (leaving && level >= site.Surface) Finish("succeeded", "surface_reached");
-                else if (leaving) phase = opened ? Phase.SurveyExitFloor : Phase.SurveyRoof;
+                if (leaving)
+                {
+                    if (MathF.Abs(body.Position.Y - level) > 0.05f) return;
+                    if (level >= site.Surface)
+                    {
+                        Finish("succeeded", "surface_reached");
+                        break;
+                    }
+                    if (level != lastExitLevel)
+                    {
+                        lastExitLevel = level;
+                        jumpRetries = 0;
+                    }
+                    var center = site.Center(body.Position.Y);
+                    if ((body.Position - center).XZ.Length() > 0.14f)
+                    {
+                        Begin(new MoveTo(center, 0.12f, 2f), Phase.Settle);
+                        break;
+                    }
+                    phase = opened ? Phase.SurveyExitFloor : Phase.SurveyRoof;
+                }
                 else if (level == site.Surface - 3 && BlocksManager.Blocks[Terrain.ExtractContents(body.StandingOnValue.Value)].SleepSuitability > 0f)
                     phase = Phase.SurveyWall;
                 else if (level > site.Surface - 3 && SoftEarth(body.StandingOnValue.Value)) phase = Phase.SurveyFloor;
@@ -150,15 +170,28 @@ internal sealed class PlayEarthShelter
                     Finish("failed", "no_earth_for_exit");
                     break;
                 }
+                peakRise = 0;
                 Begin(new Jump(), Phase.Raise);
                 break;
             case Phase.Raise:
                 // 原生放置用内缩 0.2 格的身体包围盒。接近一格时即可交给原生校验。
-                if (body.Position.Y >= level + 0.9f && Focus(site.Cell(level - 1), 4) is { } baseBlock && Dirt() is { } earth)
+                peakRise = Math.Max(peakRise, body.Position.Y - level);
+                if (body.Position.Y >= level + 0.82f && Focus(site.Cell(level - 1), 4) is { } baseBlock && Dirt() is { } earth)
                 {
+                    log(new { kind = "play_shelter_jump_place", actor = player.PlayerData.Name, peakRise, gameTime });
                     Begin(new Place(baseBlock, earth), Phase.Settle);
                 }
-                else if (body.Velocity.Y <= 0f) Finish("failed", "native_jump_could_not_place_earth");
+                else if (body.Velocity.Y <= 0f)
+                {
+                    log(new { kind = "play_shelter_jump_blocked", actor = player.PlayerData.Name, peakRise, level,
+                        position = body.Position.ToString(), jumpRetries, gameTime });
+                    if (jumpRetries++ >= 2) Finish("failed", "native_jump_could_not_place_earth");
+                    else
+                    {
+                        settleUntil = gameTime + 0.35;
+                        phase = Phase.Settle;
+                    }
+                }
                 break;
         }
     }

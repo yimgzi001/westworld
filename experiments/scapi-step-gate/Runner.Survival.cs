@@ -19,6 +19,9 @@ sealed partial class Runner
     private float vitalBefore;
     private double sleepDay;
     private bool changedDigSlot;
+    private bool openedForRepair;
+    private PlaySurvivalRest? fixtureDrying;
+    private double dryingStarted;
 
     private void RunCoast()
     {
@@ -222,6 +225,7 @@ sealed partial class Runner
     private void RunShelter(double now)
     {
         var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
+        bool wetTest = mode == "shelter-wet";
         if (stage == 1)
         {
             testSite = PlayEarthShelter.At(p.ComponentBody) ?? throw new InvalidOperationException("土坑测试地面不可用。");
@@ -246,11 +250,53 @@ sealed partial class Runner
             Gate.Log(new { kind = "shelter_built", earthShelter.Status, earthShelter.Reason, ready, blocker,
                 floor = p.ComponentBody.Position.Y, roof = terrain.Terrain.GetCellContents(roof.X, roof.Y, roof.Z) });
             if (earthShelter.Status != "succeeded") { Done = true; return; }
+            if (wetTest && !openedForRepair)
+            {
+                earthShelter = new(p, actions, testSite, true, now, Gate.Log);
+                stage = 6;
+                return;
+            }
             stage = 3;
+        }
+        if (stage == 6)
+        {
+            earthShelter!.Update(now);
+            var roof = testSite!.Cell(testSite.Surface - 1);
+            if (terrain.Terrain.GetCellContents(roof.X, roof.Y, roof.Z) != 0)
+            {
+                if (earthShelter.Status is not null) throw new InvalidOperationException("未能在出坑中断前拆顶。");
+                return;
+            }
+            // 真实拆顶后停止出坑，保留已有地形和掉落，验证同一位置能再次封顶。
+            earthShelter.Stop();
+            openedForRepair = true;
+            earthShelter = new(p, actions, testSite, false, now, Gate.Log);
+            stage = 2;
+            Gate.Log(new { kind = "shelter_repair_started", now });
+            return;
         }
         if (stage == 3)
         {
             // 等角色自然产生疲劳，避免把刚出生时的睡眠前提误判为搭建失败。
+            if (wetTest)
+            {
+                if (fixtureDrying is null)
+                {
+                    if (!p.ComponentSleep.CanSleep(out _)) return;
+                    p.ComponentVitalStats.Wetness = 1f;
+                    if (p.ComponentSleep.CanSleep(out _) || !PlaySurvivalRest.HasUsableCover(p))
+                        throw new InvalidOperationException("湿睡夹具的庇护或湿度前提不符。");
+                    fixtureDrying = new(p, now);
+                    dryingStarted = now;
+                    Gate.Log(new { kind = "shelter_fixture_wet", wetness = p.ComponentVitalStats.Wetness, now });
+                }
+                var dryingState = fixtureDrying.Update(now);
+                if (dryingState == PlaySurvivalRest.State.Drying) return;
+                if (dryingState != PlaySurvivalRest.State.Ready)
+                    throw new InvalidOperationException("原生晾干等待没有完成。");
+                Gate.Log(new { kind = "shelter_fixture_dried", wetness = p.ComponentVitalStats.Wetness,
+                    seconds = now - dryingStarted, openedForRepair });
+            }
             if (!p.ComponentSleep.CanSleep(out _)) return;
             // 固定测试起始时间在黄昏后，等待游戏自行完成睡眠和醒来。
             calendar.TimeOfDayOffset += calendar.DuskStart + 0.02f - calendar.TimeOfDay;
@@ -269,6 +315,7 @@ sealed partial class Runner
             Gate.Log(new { kind = "shelter_morning", slept, sleepBefore = vitalBefore, sleepAfter = p.ComponentVitalStats.Sleep,
                 days = calendar.Day - sleepDay, calendar.TimeOfDay });
             if (!slept) { Done = true; return; }
+            if (wetTest) p.ComponentLocomotion.JumpSpeed *= 0.95f;
             earthShelter = new(p, actions, testSite!, true, now, Gate.Log);
             stage = 5;
         }

@@ -23,7 +23,7 @@ internal static class PlaySurvivalIntents
     [
         new(Gather, "Approach the best nearby edible food seen in the current view or recent sweep, then collect it with native reach checks.", NoArguments),
         new(Eat, "At execution, choose a safe edible item from actual owned inventory and eat one.", NoArguments),
-        new(Rest, "At execution, sleep if the real local shelter, ground, wetness and fatigue permit it.", NoArguments)
+        new(Rest, "Sleep when the real shelter and fatigue permit it. If wet, dry under usable cover before attempting sleep.", NoArguments)
     ];
 
     public static ToolOffer BuildOffer { get; } = new(BuildShelter,

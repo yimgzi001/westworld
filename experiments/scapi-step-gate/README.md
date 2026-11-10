@@ -8,6 +8,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `coast` 让角色背对近岸，验证直接使用全向快照里的目标。`coast-boat` 把岸移远，验证对准船座后重新上船。
 
+`shelter-wet` 先搭建土坑，拆顶后原地重新封顶，再把夹具湿度设为 100%。等待原生晾干、睡到天亮，并把出坑时的起跳速度降至 95% 验证连续垫土。
+
 - `ObservedStepRoutes` 仅投影真实当前/≤3 秒历史观察的基底、身体、净空与落脚格。只支持一格、轴向、固定实心地面；不可见、未知、过高、空落点拒绝。
 - `StepTo` 是低层原生动作，不携带证据，**不能直接作为模型入口**。这里由 runner 强制校验逐帧包络与证据期限。未来集成必须保留这些约束。
 - 上台阶允许已观察落脚实心格的原生 SmoothRise 接触：仅开启原生功能，且脚高度差不超过 `min(MaxSmoothRiseHeight, 0.5)`。日志 `knownSupportContactUsed` 明示，不称全空气穿越。
