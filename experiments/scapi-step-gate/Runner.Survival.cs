@@ -79,7 +79,8 @@ sealed partial class Runner
     private void RunFoodSafety()
     {
         if (elapsed < 1) return;
-        var type = ((EggBlock)BlocksManager.Blocks[118]).EggTypes.First(egg => egg.NutritionalValue > 0f);
+        var eggs = (EggBlock)BlocksManager.Blocks[118];
+        var type = eggs.EggTypes.First(egg => egg.NutritionalValue > 0f);
         int egg = Terrain.MakeBlockValue(118, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, type.EggTypeIndex), true));
         int pumpkin = Terrain.MakeBlockValue(PumpkinBlock.Index, 0, BasePumpkinBlock.SetSize(0, 7));
         var stats = p.ComponentVitalStats;
@@ -92,9 +93,21 @@ sealed partial class Runner
         bool sick = !PlaySurvivalFood.CanEat(p, egg) && PlaySurvivalFood.CanEat(p, pumpkin);
         stats.m_satiation[PumpkinBlock.Index] = 3.25f;
         bool repeated = !PlaySurvivalFood.CanEat(p, pumpkin);
-        Passed = normal && hungry && sick && repeated;
+        var weak = eggs.EggTypes.Where(item => item.NutritionalValue > 0f).MinBy(item => item.NutritionalValue)!;
+        var rich = eggs.EggTypes.MaxBy(item => item.NutritionalValue)!;
+        int weakEgg = Terrain.MakeBlockValue(118, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, weak.EggTypeIndex), true));
+        int richEgg = Terrain.MakeBlockValue(118, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, rich.EggTypeIndex), true));
+        var inventory = p.ComponentMiner.Inventory;
+        int slot = Enumerable.Range(0, inventory.SlotsCount).First(index => inventory.GetSlotCount(index) == 0);
+        inventory.AddSlotItems(slot, weakEgg, 2);
+        var reserve = PlaySurvivalFood.RawEggReserve(p);
+        PlaySurvivalFood.Food Drop(int value) => new("", "鸟蛋", "pickup", 1, eggs.GetNutritionalValue(value),
+            eggs.GetSicknessProbability(value), false, true, value, default);
+        bool reserveQuality = reserve.Count == 2 && reserve.Nutrition < 0.4f && !PlaySurvivalFood.CanSeek(p, Drop(weakEgg))
+            && PlaySurvivalFood.CanSeek(p, Drop(richEgg));
+        Passed = normal && hungry && sick && repeated && reserveQuality;
         Done = true;
-        Gate.Log(new { kind = "food_safety_result", Passed, normal, hungry, sick, repeated,
+        Gate.Log(new { kind = "food_safety_result", Passed, normal, hungry, sick, repeated, reserveQuality, reserve.Nutrition,
             eggRisk = BlocksManager.Blocks[118].GetSicknessProbability(egg) });
     }
 

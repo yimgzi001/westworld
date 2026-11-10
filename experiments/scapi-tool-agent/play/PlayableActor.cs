@@ -428,7 +428,7 @@ internal sealed class PlayableActor
         FinishStep(false, "intent_conditions_not_met", gameTime);
     }
 
-    private bool TryEatOwned(PlayDecisionQueue queue, double gameTime, bool safeOnly)
+    private bool TryEatOwned(PlayDecisionQueue queue, double gameTime, bool safeOnly, bool automatic = false)
     {
         var inventory = player.ComponentMiner.Inventory;
         var meal = Enumerable.Range(0, inventory.SlotsCount).Where(slot => inventory.GetSlotCount(slot) > 0)
@@ -440,7 +440,8 @@ internal sealed class PlayableActor
             }).Where(item => !safeOnly || item.Risk <= 0f)
             .OrderBy(item => item.Risk).ThenByDescending(item => item.Nutrition).FirstOrDefault();
         if (meal.Nutrition <= 0f) return false;
-        if (safeOnly) log(new { kind = "play_survival_emergency_meal", actor = Name, value = meal.Value, gameTime });
+        if (automatic) log(new { kind = "play_survival_emergency_meal", actor = Name, value = meal.Value,
+            meal.Nutrition, meal.Risk, gameTime });
         Dispatch("act_Eat", JsonSerializer.SerializeToElement(new { slot = meal.Slot, value = meal.Value, count = 1 }), queue, gameTime);
         return true;
     }
@@ -555,8 +556,9 @@ internal sealed class PlayableActor
             || (bridge is null && SmokeReady)) return false;
         // 已确认的危险由游戏线程处置。避险重试间隔内发出的请求很快会被下一次避险取消。
         if (survival && ThreatInRange(player.ComponentBody, IsOnWater(player.ComponentBody)) is not null) return false;
-        if (survival && player.ComponentVitalStats.Food <= 0.24f && PlaySurvivalSenses.OnDryGround(player.ComponentBody)
-            && TryEatOwned(queue, gameTime, safeOnly: true)) return false;
+        float foodLevel = player.ComponentVitalStats.Food;
+        if (survival && foodLevel <= 0.24f && PlaySurvivalSenses.OnDryGround(player.ComponentBody)
+            && TryEatOwned(queue, gameTime, safeOnly: foodLevel > 0.09f, automatic: true)) return false;
         if (gameTime < nextExit && earthSite?.Contains(player.ComponentBody) == true
             && player.ComponentVitalStats.Food >= 0.18f && PlaySurvivalRest.HasSecureCover(player)) return false;
 
@@ -743,10 +745,11 @@ internal sealed class PlayableActor
         if (visibleFood is not null && forageInWater && PlaySurvivalFood.HarvestOffer(visibleFood.Where(food =>
                 PlaySurvivalFood.CanSeek(player, food) && CanRetryFood(food, body.Position, gameTime))) is { } harvestOffer)
             offers.Add(harvestOffer);
+        var eggReserve = survival ? PlaySurvivalFood.RawEggReserve(player) : default;
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向。水上先用 dry_land 上岸。优先成熟南瓜和熟食，附近生蛋可先储备两枚，饱食不高于 24% 才吃。可用木矛捕近处食用鸟，生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
+                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             rows = survival && includePanorama
                 ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物还在行尾带致病概率和营养。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]。"
@@ -762,7 +765,8 @@ internal sealed class PlayableActor
             environment = survival ? owner.Queries.ReadEnvironment() : null,
             survivalPriority = survival ? (exposedToWater ? "dry_land" : preferShelter ? "shelter" : "food_and_shelter") : null,
             sickness = survival ? new { sick = player.ComponentSickness.IsSick, flu = player.ComponentFlu.HasFlu, recovering } : null,
-            rawEggReserve = survival ? PlaySurvivalFood.RawEggStock(player) : (int?)null,
+            rawEggReserve = survival ? eggReserve.Count : (int?)null,
+            rawEggNutrition = survival ? Math.Round(eggReserve.Nutrition, 2) : (double?)null,
             nearNight = survival ? nearNight : (bool?)null,
             restWindow = survival ? restWindow : (bool?)null,
             inEarthShelter = survival ? inEarthShelter : (bool?)null,

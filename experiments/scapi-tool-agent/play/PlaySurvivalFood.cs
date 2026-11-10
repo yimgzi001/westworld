@@ -37,19 +37,31 @@ internal static class PlaySurvivalFood
         return vitals.m_satiation.GetValueOrDefault(contents) + added <= 3.5f;
     }
 
-    public static bool CanSeek(ComponentPlayer player, Food food) => !food.Underwater && !IsRawMeat(food.Value)
-        && (food.SicknessRisk <= 0f || food.SicknessRisk <= 0.15f
-            && BlocksManager.Blocks[Terrain.ExtractContents(food.Value)] is EggBlock && RawEggStock(player) < 2);
+    public static bool CanSeek(ComponentPlayer player, Food food)
+    {
+        if (food.Underwater || IsRawMeat(food.Value)) return false;
+        if (food.SicknessRisk <= 0f) return true;
+        if (food.SicknessRisk > 0.15f || BlocksManager.Blocks[Terrain.ExtractContents(food.Value)] is not EggBlock) return false;
+        var (count, nutrition) = RawEggReserve(player);
+        // 两枚小蛋的营养可能还不到一枚大蛋，储量不足时仍可以拾取更有营养的蛋。
+        return count < 2 || count < 4 && nutrition < 0.4f && food.Nutrition >= 0.15f;
+    }
 
-    public static int RawEggStock(ComponentPlayer player)
+    public static (int Count, float Nutrition) RawEggReserve(ComponentPlayer player)
     {
         var inventory = player.ComponentMiner.Inventory;
-        return Enumerable.Range(0, inventory.SlotsCount).Where(slot =>
+        int count = 0;
+        float nutrition = 0;
+        for (int slot = 0; slot < inventory.SlotsCount; slot++)
         {
+            int held = inventory.GetSlotCount(slot);
             int value = inventory.GetSlotValue(slot);
-            return inventory.GetSlotCount(slot) > 0 && BlocksManager.Blocks[Terrain.ExtractContents(value)] is EggBlock egg
-                && egg.GetSicknessProbability(value) is > 0f and <= 0.15f;
-        }).Sum(inventory.GetSlotCount);
+            if (held <= 0 || BlocksManager.Blocks[Terrain.ExtractContents(value)] is not EggBlock egg
+                || egg.GetSicknessProbability(value) is <= 0f or > 0.15f) continue;
+            count += held;
+            nutrition += held * egg.GetNutritionalValue(value);
+        }
+        return (count, nutrition);
     }
 
     private static bool AcceptableRisk(float risk, float food, bool sick) =>

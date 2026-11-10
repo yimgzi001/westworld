@@ -160,7 +160,9 @@ internal sealed class PlaySurvivalTravel
             }
             if (legs >= LandLegLimit || traveled >= landDistanceLimit - 0.3f)
             {
-                Finish("failed", "navigation_distance_limit");
+                bool explored = seek == "food" && foodTarget is null && traveled >= landDistanceLimit - 0.3f
+                    && (body.Position - Origin).XZ.Length() >= Math.Min(4f, distance * 0.5f);
+                Finish(explored ? "succeeded" : "failed", explored ? "food_search_segment_complete" : "navigation_distance_limit");
                 return;
             }
             AdvanceOnLand(blocked, RemainingOnLand(body, approach, traveled), TowardLowerDrop(body, approach), gameTime);

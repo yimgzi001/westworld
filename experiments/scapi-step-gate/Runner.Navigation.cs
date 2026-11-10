@@ -174,11 +174,11 @@ sealed partial class Runner
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
             for (int x = (cell.X - 17) & ~15; x <= cell.X + 7; x += 16)
-            for (int z = (cell.Z - 5) & ~15; z <= cell.Z + 17; z += 16)
+            for (int z = (cell.Z - 17) & ~15; z <= cell.Z + 17; z += 16)
                 if (!(terrain.Terrain.GetChunkAtCell(x, z)?.State >= TerrainChunkState.InvalidVertices1)) return;
             navigationOrigin = cell;
             for (int x = cell.X - 17; x <= cell.X + 7; x++)
-            for (int z = cell.Z - 5; z <= cell.Z + 17; z++)
+            for (int z = cell.Z - 17; z <= cell.Z + 17; z++)
             {
                 int floor = x < cell.X + 2 ? cell.Y - 1 : cell.Y - 8;
                 for (int y = cell.Y - 8; y <= cell.Y + 4; y++)
@@ -203,7 +203,7 @@ sealed partial class Runner
         recoveredGround |= body.BoundingBox.Max.X <= cliff + 0.03f;
         float allowedEdge = overhang && !recoveredGround ? cliff + (extendedOverhang ? 0.46f : 0.30f) : cliff + 0.03f;
         if (body.BoundingBox.Max.X > allowedEdge || body.Position.Y < navigationOrigin.Y - 0.05f)
-            throw new InvalidOperationException("追击时跨进了断崖。");
+            throw new InvalidOperationException($"追击时跨进了断崖。位置 {body.Position}，边界 {allowedEdge}，脚底高度 {navigationOrigin.Y}。");
         if (travel is null)
         {
             var initial = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(threat => threat.Predator && !threat.Aquatic);
