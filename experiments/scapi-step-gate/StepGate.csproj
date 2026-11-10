@@ -28,5 +28,7 @@
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalIntents.cs" Link="PlaySurvivalIntents.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalTrial.cs" Link="PlaySurvivalTrial.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayShelterSites.cs" Link="PlayShelterSites.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlayObservedPath.cs" Link="PlayObservedPath.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlayFoodBudget.cs" Link="PlayFoodBudget.cs" />
   </ItemGroup>
 </Project>

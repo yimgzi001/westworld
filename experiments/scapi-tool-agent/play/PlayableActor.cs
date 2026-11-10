@@ -59,6 +59,7 @@ internal sealed class PlayableActor
     private PlaySurvivalSenses.Threat[] predators = [];
     private string[] reportedPredators = [];
     private double nextDecision, nextPoll, nextDangerScan, nextEvade, nextEscapeTurn, nextShelter, nextExit, nextProduction;
+    private double nextPreSleepMeal;
     private double? coldSince;
     private (Vector3 Origin, double Time, Vector3[] Frozen)? nearbyCold;
     private bool retired, restedInEarth, shallowExit, leavingShelterLane;
@@ -507,9 +508,22 @@ internal sealed class PlayableActor
             return;
         }
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+        var path = PlanFoodPath(body.Position, food.Point, gameTime);
+        if (path is not null)
+            log(new { kind = "play_food_observed_path", actor = Name, cells = path.Cells, waypoints = path.Waypoints.Length, gameTime });
         foodApproach = (food, FoodStock(food.Value), resuming);
         travel = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 40f), "food", false, gameTime,
-            ObserveSurvival, ReadDryWindow, log, survivalMemory.VisitsTo, foodTarget: food, permitLandLeg: PermitSurvivalLeg);
+            ObserveSurvival, ReadDryWindow, log, survivalMemory.VisitsTo, foodTarget: food, permitLandLeg: PermitSurvivalLeg,
+            observedPath: path);
+    }
+
+    private PlayObservedPath.Plan? PlanFoodPath(Vector3 origin, Vector3 target, double gameTime)
+    {
+        if ((target - origin).XZ.LengthSquared() < 25f || surroundings is not { } sweep || gameTime - sweep.CompletedAt > 30
+            || (origin - sweep.Origin).XZ.LengthSquared() > 36f) return null;
+        var frozen = PlaySurvivalCold.CanEnterSnow(player) ? Array.Empty<Vector3>() : sweep.FrozenGround;
+        return PlayObservedPath.Find(sweep.Panorama, origin, target, (from, to) => survivalMemory.AvoidsPredatorAreas(from, to, gameTime)
+            && PlaySurvivalCold.AllowsRoute(from, to, frozen));
     }
 
     private bool TryEatOwned(PlayDecisionQueue queue, double gameTime, bool safeOnly, string? automaticReason = null)
@@ -628,6 +642,7 @@ internal sealed class PlayableActor
 
     private void Dispatch(string tool, JsonElement arguments, PlayDecisionQueue queue, double gameTime)
     {
+        if (survival && tool == "act_Sleep" && TryEatBeforeNightSleep(queue, gameTime)) return;
         if (owner.IsActionRunning)
         {
             Retire(queue, "native_owner_busy");
@@ -656,6 +671,20 @@ internal sealed class PlayableActor
             else Retire(queue, "native_run_missing");
         }
         else Complete(tool, origin, receipt, gameTime);
+    }
+
+    private bool TryEatBeforeNightSleep(PlayDecisionQueue queue, double gameTime)
+    {
+        var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
+        if (gameTime < nextPreSleepMeal || !PlaySurvivalRest.NightCoverDue(calendar)
+            || player.ComponentVitalStats.Food >= PlayFoodBudget.NeedThroughMorning(player, calendar)
+            || !TryEatOwned(queue, gameTime, safeOnly: true, automaticReason: "before_night")) return false;
+        nextPreSleepMeal = gameTime + 4;
+        var later = planned.ToArray();
+        planned.Clear();
+        planned.Enqueue(new(PlaySurvivalIntents.Rest, JsonSerializer.SerializeToElement(new { })));
+        foreach (var step in later) planned.Enqueue(step);
+        return true;
     }
 
     public bool Request(PlayDecisionQueue queue, StructuredFileController? bridge, double gameTime,
@@ -947,11 +976,14 @@ internal sealed class PlayableActor
         bool recovering = survival && PlaySurvivalRest.NeedsRecovery(player);
         float foodLevel = player.ComponentVitalStats.Food;
         float temperature = player.ComponentVitalStats.Temperature;
+        var reserves = calendar is not null && PlayFoodBudget.StockWindow(calendar) ? PlayFoodBudget.Count(player) : null;
+        float morningFood = reserves is not null ? PlayFoodBudget.NeedThroughMorning(player, calendar!) : 0f;
+        bool stockBeforeDusk = reserves is not null && foodLevel + reserves.Safe < morningFood;
         bool snowReady = survival && PlaySurvivalCold.CanEnterSnow(player);
         bool nearSnow = onDryGround && PlaySurvivalCold.NearSnow(body.Position, FrozenAround(body.Position, gameTime));
         bool severeCold = survival && PlaySurvivalRest.ColdNeedsShelter(temperature, gameTime - (coldSince ?? gameTime),
             player.ComponentFlu.HasFlu);
-        bool preferShelter = onDryGround && (nightCoverDue || nearNight && foodLevel > 0.23f
+        bool preferShelter = onDryGround && (nightCoverDue || nearNight && foodLevel > 0.23f && !stockBeforeDusk
             || (recovering || temperature < 5f) && foodLevel > 0.08f || severeCold);
         bool inEarthShelter = earthSite?.Contains(body) == true;
         var gatherCandidates = onDryGround && !inEarthShelter ? NearbyFood(visibleFood!, body.Position, gameTime).ToArray()
@@ -1015,7 +1047,7 @@ internal sealed class PlayableActor
             if (onDryGround && !inEarthShelter && gameTime >= nextProduction
                 && PlaySurvivalProduction.Offer(player, surroundings is { } recent && gameTime - recent.CompletedAt <= 24
                     ? recent.Panorama : null, placedStations,
-                    routineWork: !preferShelter && player.ComponentHealth.Health >= 0.6f && foodLevel > 0.28f,
+                    routineWork: !preferShelter && !stockBeforeDusk && player.ComponentHealth.Health >= 0.6f && foodLevel > 0.28f,
                     allowProjects: !preferShelter && ProjectVitalsReady(gameTime),
                     permitted: end => PermitSurvivalLeg(end, gameTime)) is { } supplyOffer)
                 offers.Add(supplyOffer);
@@ -1029,7 +1061,7 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。看见合适食物就用 foodTargets 的编号执行收集，没找到再探索。bearing 相对朝向，height 相对脚下。走 walkableBearings 的可起步方向，绕开危险动物。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮看营养。生蛋在饱食不高于 24% 才吃。木矛可捕食用鸟，生肉用熔炉和燃料做熟。黄昏、持续低温或伤病时找封闭庇护。warmingNeeded 表示需回暖或晾干，readyToForage 时可出坑补粮。最多四步，每步核对实际条件。"
+                ? "先保命。看见合适食物就用 foodTargets 的编号收集，没找到再探索。bearing 相对朝向，height 相对脚下。走 walkableBearings 的方向，绕开危险动物。水上先用 dry_land 上岸。stock_before_dusk 时先备能过夜的食物，优先南瓜和熟食。生蛋在饱食不高于 24% 才吃。木矛可捕食用鸟，生肉用熔炉和燃料做熟。黄昏、持续低温或伤病时找封闭庇护。warmingNeeded 表示需回暖或晾干，readyToForage 时可出坑补粮。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             rows = survival && includePanorama
                 ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物行尾带致病概率和营养。foodTargets 行首为目标编号。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]，pastPredators[名称,x,z,距今秒]。"
@@ -1048,7 +1080,11 @@ internal sealed class PlayableActor
             visiblePredators = survival ? predators : null,
             environment = survival ? owner.Queries.ReadEnvironment() : null,
             survivalPriority = survival ? (exposedToWater ? "dry_land" : preferShelter ? "shelter"
-                : nearSnow && !snowReady ? "warmer_ground" : "food_and_shelter") : null,
+                : nearSnow && !snowReady ? "warmer_ground" : stockBeforeDusk ? "stock_before_dusk" : "food_and_shelter") : null,
+            foodThroughMorning = reserves is not null ? new
+            {
+                safe = Math.Round(reserves.Safe, 2), risky = Math.Round(reserves.Risky, 2), needed = Math.Round(morningFood, 2)
+            } : null,
             coldSafety = survival && (nearSnow || surroundings?.FrozenGround.Length > 0) ? new
             {
                 nearSnow, snowReady, temperature = Math.Round(temperature, 1),

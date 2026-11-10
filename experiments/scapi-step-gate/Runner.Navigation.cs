@@ -22,10 +22,11 @@ sealed partial class Runner
         var body = p.ComponentBody;
         bool cotton = mode == "navigate-natural-cotton";
         bool pumpkin = mode == "predator-pumpkin-corner";
-        var stalled = pumpkin ? new Vector3(-131.16777f, 66f, 257.81088f)
+        bool lengthBoundary = mode == "predator-length-boundary";
+        var stalled = lengthBoundary ? new Vector3(7.484409f, 67f, 152.49844f) : pumpkin ? new Vector3(-131.16777f, 66f, 257.81088f)
             : cotton ? new Vector3(-26.385578f, 65f, 156.83945f) : new Vector3(-101.541466f, 67f, 119.49001f);
-        // 使用死亡场第一次撤离时记录的棕熊位置。夹具只复现路线计算和原生移动。
-        var threat = new Vector2(-149.43459f, 247.28473f);
+        // 使用死亡场第一次撤离时记录的威胁位置。夹具只复现路线计算和原生移动。
+        var threat = lengthBoundary ? new Vector2(3.843923f, 148.61324f) : new Vector2(-149.43459f, 247.28473f);
         var cell = Terrain.ToCell(stalled);
         if (stage == 0)
         {
@@ -51,6 +52,27 @@ sealed partial class Runner
             if (elapsed < 0.9) return;
             terrain.TerrainUpdater.RemoveUpdateLocation(fixtureTerrainKey);
             var window = memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true));
+            if (lengthBoundary)
+            {
+                var legacyPoints = Enumerable.Range(1, 4).Select(index =>
+                    new Vector3((float)(window.Position.X + index), (float)window.Position.Y, (float)window.Position.Z)).ToArray();
+                var legacy = actions.Start(new MoveAlongObservedRoute(legacyPoints, LevelGaze: true));
+                var safe = PlayDryRoutes.Escape(window, threat, 3.75f, true);
+                float originalLength = (legacyPoints[^1] - body.Position).XZ.Length();
+                float? correctedLength = safe is not null ? (safe.End - body.Position).XZ.Length() : null;
+                Gate.Log(new { kind = "predator_length_geometry", window.Position, originalLength, correctedLength,
+                    legacyFailure = legacy.Result.Failure.ToString(), chosen = safe?.End.ToString() });
+                if (originalLength <= 4f || legacy.Result.Failure != AtomicActionFailure.InvalidArgument
+                    || correctedLength is not (>= 3.5f and <= 4f) || !PlaySurvivalSenses.OnDryGround(body))
+                    throw new InvalidOperationException("未复现老虎撤离场的四格长度边界。");
+                float bearingToSafety = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, body.Position.XZ - threat));
+                travel = new(p, actions, bearingToSafety, 3.75f, "survey", true, now,
+                    () => (JsonSerializer.SerializeToElement(new { }), []),
+                    () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
+                    escapeFrom: () => threat);
+                stage = 3;
+                return;
+            }
             if (pumpkin)
             {
                 bool ordinaryBlocked = PlayDryRoutes.Escape(window, threat, 12f, true) is null;
@@ -87,13 +109,14 @@ sealed partial class Runner
         travel!.Update(now);
         if (travel.Status is null) return;
         float moved = (body.Position - travel.Origin).XZ.Length();
-        bool reached = pumpkin ? travel.Reason == "escaped_along_supported_ground" && moved >= 11.5f && travel.Legs >= 2
+        bool reached = lengthBoundary ? travel.Reason == "escaped_along_supported_ground" && moved >= 3.5f
+            : pumpkin ? travel.Reason == "escaped_along_supported_ground" && moved >= 11.5f && travel.Legs >= 2
             : cotton ? travel.Status == "succeeded" && jumped && moved >= 2.5f
             : travel.Reason == "scout_detoured_to_open_ground" && moved >= 1f;
         Passed = reached && PlaySurvivalSenses.OnDryGround(body)
             && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
         Done = true;
-        Gate.Log(new { kind = "natural_stall_result", Passed, cotton, pumpkin, travel.Status, travel.Reason, moved, jumped, stationaryLooks });
+        Gate.Log(new { kind = "natural_stall_result", Passed, cotton, pumpkin, lengthBoundary, travel.Status, travel.Reason, moved, jumped, stationaryLooks });
     }
 
     private void RunRollingNavigation()

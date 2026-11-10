@@ -57,7 +57,8 @@ internal static class PlayDryRoutes
             ?? (canAlign ? Alignment(window) : null);
     }
 
-    public static Leg? Escape(LocalObservationWindow window, Vector2 threat, float remaining, bool canAlign)
+    public static Leg? Escape(LocalObservationWindow window, Vector2 threat, float remaining, bool canAlign,
+        Func<Vector3, bool>? permitted = null)
     {
         var origin = PositionOf(window.Position);
         var separation = origin.XZ - threat;
@@ -65,8 +66,9 @@ internal static class PlayDryRoutes
         if (distance <= 0.05f) return null;
         var away = separation / distance;
         var recent = window.Cells.Where(cell => cell.Age <= 1.75).ToDictionary(cell => (cell.X, cell.Y, cell.Z));
-        var best = LongRoutes(window, remaining, Cardinal).Select(FlatLeg)
+        var best = LongRoutes(window, remaining, Cardinal, permitted).Select(FlatLeg)
             .Concat(ShortRoutes(window)).Concat(ReadSteps(window).Select(StepLeg))
+            .Where(leg => permitted?.Invoke(leg.End) != false)
             .Select(leg => (Leg: leg, Score: Score(leg)))
             .Where(option => float.IsFinite(option.Score)).OrderByDescending(option => option.Score).FirstOrDefault().Leg;
         return best ?? (canAlign ? Alignment(window) : null);
@@ -149,8 +151,24 @@ internal static class PlayDryRoutes
 
     private static Vector3 PositionOf(Position value) => new((float)value.X, (float)value.Y, (float)value.Z);
     private static Leg StepLeg(ObservedStepRoute step) => new(new StepTo(PositionOf(step.Destination)), step.Evidence, step);
-    private static Leg FlatLeg(ObservedFlatRoute flat) =>
-        new(new MoveAlongObservedRoute(flat.Points.Select(PositionOf).ToArray(), LevelGaze: true), flat.Evidence);
+    private static Leg FlatLeg(ObservedFlatRoute flat)
+    {
+        var points = flat.Points.Select(PositionOf).ToArray();
+        points[^1] = NativeFlatEnd(flat);
+        return new(new MoveAlongObservedRoute(points, LevelGaze: true), flat.Evidence);
+    }
+
+    private static Vector3 NativeFlatEnd(ObservedFlatRoute flat)
+    {
+        var origin = PositionOf(flat.Origin);
+        var end = PositionOf(flat.Destination);
+        // 四格证据使用双精度。转成原生单精度时若末点稍微超界，收回一个可表示单位。
+        if (MathF.Abs(end.X - origin.X) > 4f)
+            end.X = end.X > origin.X ? MathF.BitDecrement(end.X) : MathF.BitIncrement(end.X);
+        if (MathF.Abs(end.Z - origin.Z) > 4f)
+            end.Z = end.Z > origin.Z ? MathF.BitDecrement(end.Z) : MathF.BitIncrement(end.Z);
+        return end;
+    }
 
     private static ObservedStepRoute[] ReadSteps(LocalObservationWindow window, Position? plannedOrigin = null) =>
         ObservedStepRoutes.Project(window, allowObservedSandAndGravel: true, openCell: OpenCell, plannedOrigin: plannedOrigin)
@@ -167,7 +185,7 @@ internal static class PlayDryRoutes
         if (maxLength < 2) return [];
         return headings.SelectMany(axis => Enumerable.Range(2, maxLength - 1).Reverse()
             .Select(length => FlatRoute(window, axis, length)).OfType<ObservedFlatRoute>()
-            .Where(route => permitted?.Invoke(PositionOf(route.Destination)) != false).Take(1));
+            .Where(route => permitted?.Invoke(NativeFlatEnd(route)) != false).Take(1));
     }
 
     private static ObservedFlatRoute? FlatRoute(LocalObservationWindow window, Vector2 axis, int length, Position? plannedOrigin = null)
@@ -181,7 +199,9 @@ internal static class PlayDryRoutes
     private static IEnumerable<Leg> ShortRoutes(LocalObservationWindow window)
     {
         var flat = LocalRouteCandidates.Project(window, 1, RouteGroundPolicy.ObservedFullCube, OpenCell);
-        return flat.Candidates.Where(candidate => flat.Provenance[candidate.EvidenceId].All(cell => cell.Age <= 1.75))
+        var origin = PositionOf(window.Position);
+        return flat.Candidates.Where(candidate => (PositionOf(candidate.Destination) - origin).XZ.LengthSquared() <= 1.5f * 1.5f
+                && flat.Provenance[candidate.EvidenceId].All(cell => cell.Age <= 1.75))
             .Select(candidate => new Leg(new MoveAlongObservedRoute([PositionOf(candidate.Destination)], 0.24f, 3f, LevelGaze: true),
                 flat.Provenance[candidate.EvidenceId]));
     }

@@ -32,6 +32,7 @@ internal sealed class PlaySurvivalTravel
     private readonly Vector3 surveyTarget;
     private readonly Func<Vector2>? escapeFrom;
     private readonly Func<Vector3, double, bool>? permitLandLeg;
+    private readonly Vector3[] waypoints;
     private readonly Action<object> log;
     private Vector2 direction;
     private Vector3 legOrigin;
@@ -41,7 +42,9 @@ internal sealed class PlaySurvivalTravel
     private long proofStarted;
     private int scans, legs;
     private readonly HashSet<(int X, int Z)> visitedGoalCells = new();
+    private readonly HashSet<Vector3> refusedDryEndpoints = new();
     private int goalDetours;
+    private int nextWaypoint;
     private float traveled;
     private bool detourUsed, jumpUsed, dryLeg, aligned, detouring;
     private bool approachingEscapeTurn;
@@ -55,7 +58,7 @@ internal sealed class PlaySurvivalTravel
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
         PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null,
         Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null,
-        float escapeClearance = 0f, bool allowEscapeTurn = false)
+        float escapeClearance = 0f, bool allowEscapeTurn = false, PlayObservedPath.Plan? observedPath = null)
     {
         this.player = player;
         this.owner = owner;
@@ -81,6 +84,7 @@ internal sealed class PlaySurvivalTravel
         this.allowEscapeTurn = allowEscapeTurn;
         this.permitLandLeg = permitLandLeg;
         this.log = log;
+        waypoints = observedPath?.Waypoints ?? [];
         Evading = evading;
         Origin = player.ComponentBody.Position;
         initialHealth = player.ComponentHealth.Health;
@@ -93,6 +97,7 @@ internal sealed class PlaySurvivalTravel
         bool hasLandTarget = seek is "survey" or "camp" or "work" || foodTarget is not null || shelterTarget is not null;
         landDistanceLimit = escapeFrom is not null ? distance + (escapeClearance > 0f ? 12f : 6f)
             : hasLandTarget ? MathF.Abs(destinationOffset.X) + MathF.Abs(destinationOffset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
+        if (observedPath is not null) landDistanceLimit = Math.Max(landDistanceLimit, observedPath.Cells + 3f);
     }
 
     public bool Evading { get; }
@@ -141,6 +146,13 @@ internal sealed class PlaySurvivalTravel
         }
 
         var previous = leg;
+        if (previous?.Result.Failure == AtomicActionFailure.InvalidArgument && dryProof is { } refused
+            && (body.Position - legOrigin).XZ.LengthSquared() < 0.04f)
+        {
+            refusedDryEndpoints.Add(refused.End);
+            log(new { kind = "play_scout_route_rejected", actor = player.PlayerData.Name, seek,
+                target = refused.End.ToString(), gameTime });
+        }
         leg = null;
         dryProof = null;
         approachingEscapeTurn = false;
@@ -386,6 +398,16 @@ internal sealed class PlaySurvivalTravel
         var window = readDryWindow();
         if (KeepsTarget) visitedGoalCells.Add(CellXZ(player.ComponentBody.Position));
         var route = DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
+        if (route is null && nextWaypoint < waypoints.Length)
+        {
+            // 局部净空与先前路标冲突时放弃路标，保留原来的食物目标。
+            nextWaypoint = waypoints.Length;
+            var body = player.ComponentBody;
+            var (_, direct) = ReadLandGoal(body);
+            remaining = RemainingOnLand(body, direct, traveled);
+            route = DryRoute(window, remaining, !aligned, TowardLowerDrop(body, direct), gameTime);
+            log(new { kind = "play_scout_path_hint_dropped", actor = player.PlayerData.Name, seek, gameTime });
+        }
         if (route is null && !aligned)
         {
             route = PlayDryRoutes.RecoverBesidePumpkin(window, player.Project.FindSubsystem<SubsystemTerrain>(true));
@@ -462,14 +484,15 @@ internal sealed class PlaySurvivalTravel
                 return side;
             escapeOutlet = null;
         }
-        return PlayDryRoutes.Escape(window, threat, remaining, canAlign);
+        return PlayDryRoutes.Escape(window, threat, remaining, canAlign, end => !refusedDryEndpoints.Contains(end));
     }
 
     private bool KeepsTarget => foodTarget is not null || seek == "work" || seek == "shelter" && shelterTarget is not null;
 
     private static (int X, int Z) CellXZ(Vector3 point) => (Terrain.ToCell(point.X), Terrain.ToCell(point.Z));
 
-    private bool CanUseLandLeg(Vector3 end, double gameTime) => (!KeepsTarget || !visitedGoalCells.Contains(CellXZ(end)))
+    private bool CanUseLandLeg(Vector3 end, double gameTime) => !refusedDryEndpoints.Contains(end)
+        && (!KeepsTarget || !visitedGoalCells.Contains(CellXZ(end)))
         && permitLandLeg?.Invoke(end, gameTime) != false;
 
     private (MoveAlongObservedRoute Route, Action Accepted)? ContinueFlat(double gameTime)
@@ -510,10 +533,14 @@ internal sealed class PlaySurvivalTravel
 
     private MoveAlongObservedRoute LimitFinalFlat(MoveAlongObservedRoute route)
     {
-        if (seek is not ("survey" or "camp" or "work" or "shelter") || seek == "shelter" && shelterTarget is null || Evading)
-            return route;
+        Vector3 goal;
+        if (Evading) return route;
+        if (nextWaypoint < waypoints.Length) goal = waypoints[nextWaypoint];
+        else if (seek is "survey" or "work") goal = surveyTarget;
+        else if (seek is "camp" or "shelter" && shelterTarget is { } site) goal = site;
+        else return route;
         var body = player.ComponentBody;
-        var goalOffset = ((seek is "camp" or "shelter" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
+        var goalOffset = (goal - body.Position).XZ;
         var corridor = route.Points[^1] - body.Position;
         float length = corridor.XZ.Length();
         float along = Vector2.Dot(goalOffset, corridor.XZ) / length;
@@ -541,10 +568,10 @@ internal sealed class PlaySurvivalTravel
         }
         else if (seek == "food")
         {
-            var (_, food) = observe();
-            var edible = food.Where(item => foodTarget is not null ? item.Matches(foodTarget)
-                    : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && PlaySurvivalFood.CanSeek(player, item))
-                .OrderBy(item => item.SicknessRisk).ThenBy(item => item.Distance).FirstOrDefault();
+            var edible = foodTarget is not null && (foodTarget.Point - body.Position).XZ.LengthSquared() > 16f * 16f ? null
+                : observe().Foods.Where(item => foodTarget is not null ? item.Matches(foodTarget)
+                        : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && PlaySurvivalFood.CanSeek(player, item))
+                    .OrderBy(item => item.SicknessRisk).ThenBy(item => item.Distance).FirstOrDefault();
             if (edible?.InReach == true) return ("food_within_reach", null);
             approach = (edible ?? foodTarget)?.Point;
         }
@@ -562,6 +589,10 @@ internal sealed class PlaySurvivalTravel
                 return ("remembered_earth_shelter_reached", null);
             approach = camp;
         }
+        while (nextWaypoint < waypoints.Length && (waypoints[nextWaypoint] - body.Position).XZ.LengthSquared() <= 0.65f * 0.65f
+            && MathF.Abs(waypoints[nextWaypoint].Y - body.Position.Y) <= 0.35f)
+            nextWaypoint++;
+        if (nextWaypoint < waypoints.Length) approach = waypoints[nextWaypoint];
         if (approach is { } destination)
         {
             var offset = (destination - body.Position).XZ;
