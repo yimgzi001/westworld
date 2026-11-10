@@ -29,6 +29,7 @@ internal sealed partial class PlaySurvivalProduction
     private readonly Action<object> log;
     private readonly Func<LocalObservationWindow> readDryWindow;
     private readonly Func<Vector3, double, bool>? permitLandLeg;
+    private readonly int? selectedBird;
     private readonly double deadline;
     private readonly int before;
     private Phase phase;
@@ -37,12 +38,14 @@ internal sealed partial class PlaySurvivalProduction
     private Guid? craftTask;
     private int craftValue, craftBefore, craftCount;
     private int digRetries;
+    private PlaySurvivalTravel? materialPickupRoute;
+    private bool approachedMaterialDrop;
     private readonly HashSet<Point3> missedMaterials = new();
     private double collectUntil, nextPoll;
 
     public PlaySurvivalProduction(ComponentPlayer player, AtomicActions owner, NativeToolSession tools, string task,
         double gameTime, Action<object> log, Dictionary<int, Point3> stations, Func<LocalObservationWindow> readDryWindow,
-        Func<Vector3, double, bool>? permitLandLeg = null)
+        Func<Vector3, double, bool>? permitLandLeg = null, int? selectedBird = null)
     {
         this.player = player;
         this.owner = owner;
@@ -51,6 +54,7 @@ internal sealed partial class PlaySurvivalProduction
         this.stations = stations;
         this.readDryWindow = readDryWindow;
         this.permitLandLeg = permitLandLeg;
+        this.selectedBird = selectedBird;
         Task = task;
         before = Stock(player, task);
         deadline = gameTime + (IsProject(task) ? 180 : 36);
@@ -154,7 +158,7 @@ internal sealed partial class PlaySurvivalProduction
             return;
         }
         if (gameTime >= deadline || player.ComponentSleep.IsSleeping
-            || huntApproach is null && !PlaySurvivalSenses.OnDryGround(player.ComponentBody))
+            || huntApproach is null && materialPickupRoute is null && !PlaySurvivalSenses.OnDryGround(player.ComponentBody))
         {
             Finish(false, "supply_task_interrupted");
             return;
@@ -207,13 +211,7 @@ internal sealed partial class PlaySurvivalProduction
                 phase = Phase.PickUp;
                 break;
             case Phase.PickUp:
-                if (Added > 0) { Finish(true, "material_acquired"); break; }
-                if (gameTime >= collectUntil) { Finish(false, "material_drop_not_acquired"); break; }
-                if (gameTime < nextPoll) break;
-                nextPoll = gameTime + 0.25;
-                var drop = owner.Queries.FindVisibleObjectsAround(3.2f).Pickables.FirstOrDefault(item => Task == Wood
-                    ? IsMaterial(item.Value, Wood) : Terrain.ExtractContents(item.Value) == CobblestoneBlock.Index);
-                if (drop is not null) owner.Start(drop.CreatePickup(1));
+                AdvanceMaterialPickup(gameTime);
                 break;
             case Phase.Craft:
                 AdvanceCraft(gameTime);
@@ -222,7 +220,7 @@ internal sealed partial class PlaySurvivalProduction
                 PlaceStation();
                 break;
             case Phase.AimStation:
-                AimStation();
+                AimStation(Center(stationCell));
                 break;
             case Phase.Cook:
                 AdvanceCook(gameTime);
@@ -231,6 +229,47 @@ internal sealed partial class PlaySurvivalProduction
                 AdvanceHunt(gameTime);
                 break;
         }
+    }
+
+    private void AdvanceMaterialPickup(double gameTime)
+    {
+        if (Added > 0) { Finish(true, "material_acquired"); return; }
+        if (materialPickupRoute is { } route)
+        {
+            route.Update(gameTime);
+            if (route.Status is null) return;
+            materialPickupRoute = null;
+            if (route.Status != "succeeded" && !PlaySurvivalSenses.OnDryGround(player.ComponentBody))
+            {
+                Finish(false, "material_drop_route_blocked");
+                return;
+            }
+        }
+        if (gameTime >= collectUntil) { Finish(false, "material_drop_not_acquired"); return; }
+        if (gameTime < nextPoll) return;
+        nextPoll = gameTime + 0.25;
+        var drop = owner.Queries.FindVisibleObjectsAround(3.2f).Pickables.FirstOrDefault(item => Task == Wood
+            ? IsMaterial(item.Value, Wood) : Terrain.ExtractContents(item.Value) == CobblestoneBlock.Index);
+        if (drop is null) return;
+        var pickup = owner.Start(drop.CreatePickup(1));
+        if (pickup.Result.Failure is not (AtomicActionFailure.OutOfReach or AtomicActionFailure.Blocked)) return;
+        if (approachedMaterialDrop)
+        {
+            Finish(false, "material_drop_unreachable_after_approach");
+            return;
+        }
+
+        var body = player.ComponentBody;
+        var offset = drop.Position - body.Position;
+        float distance = offset.XZ.Length();
+        if (distance < 1f || offset.Y is < -1.05f or > 1.9f || permitLandLeg?.Invoke(drop.Position, gameTime) == false) return;
+        // 挖掘成功后掉落可能弹开。只试一次有落脚证据的短程接近，库存增加才完成采集。
+        approachedMaterialDrop = true;
+        collectUntil = gameTime + 7;
+        float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset.XZ));
+        materialPickupRoute = new(player, owner, bearing, distance - 0.55f, "work", false, gameTime,
+            () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log, permitLandLeg: permitLandLeg);
+        log(new { kind = "play_production_drop_approach", actor = player.PlayerData.Name, task = Task, distance, gameTime });
     }
 
     private void AdvanceCraft(double gameTime)
@@ -314,6 +353,8 @@ internal sealed partial class PlaySurvivalProduction
         projectRoute?.Stop();
         projectRoute = null;
         if (IsProject(Task)) return;
+        materialPickupRoute?.Stop();
+        materialPickupRoute = null;
         StopHunt();
         if (action?.Result.Status == AtomicActionStatus.Running) owner.Cancel(action);
         action = null;

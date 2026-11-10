@@ -33,6 +33,11 @@ internal sealed class PlaySurvivalTravel
     private readonly Func<Vector2>? escapeFrom;
     private readonly Func<Vector3, double, bool>? permitLandLeg;
     private readonly Vector3[] waypoints;
+    private readonly Func<Vector3?>? readMovingTarget;
+    private readonly float movingTargetReach;
+    private Vector3? movingTarget;
+    private double nextMovingTargetRead, lastMovingTargetSeen;
+    private bool movingTargetVisible;
     private readonly Action<object> log;
     private Vector2 direction;
     private Vector3 legOrigin;
@@ -58,7 +63,8 @@ internal sealed class PlaySurvivalTravel
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
         PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null,
         Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null,
-        float escapeClearance = 0f, bool allowEscapeTurn = false, PlayObservedPath.Plan? observedPath = null)
+        float escapeClearance = 0f, bool allowEscapeTurn = false, PlayObservedPath.Plan? observedPath = null,
+        Func<Vector3?>? readMovingTarget = null, float movingTargetReach = 0f)
     {
         this.player = player;
         this.owner = owner;
@@ -85,6 +91,8 @@ internal sealed class PlaySurvivalTravel
         this.permitLandLeg = permitLandLeg;
         this.log = log;
         waypoints = observedPath?.Waypoints ?? [];
+        this.readMovingTarget = readMovingTarget;
+        this.movingTargetReach = movingTargetReach;
         Evading = evading;
         Origin = player.ComponentBody.Position;
         initialHealth = player.ComponentHealth.Health;
@@ -98,6 +106,7 @@ internal sealed class PlaySurvivalTravel
         landDistanceLimit = escapeFrom is not null ? distance + (escapeClearance > 0f ? 12f : 6f)
             : hasLandTarget ? MathF.Abs(destinationOffset.X) + MathF.Abs(destinationOffset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
         if (observedPath is not null) landDistanceLimit = Math.Max(landDistanceLimit, observedPath.Cells + 3f);
+        if (readMovingTarget is not null) landDistanceLimit = Math.Min(20f, distance + 6f);
     }
 
     public bool Evading { get; }
@@ -133,6 +142,7 @@ internal sealed class PlaySurvivalTravel
             Finish("failed", "travel_interrupted");
             return;
         }
+        if (readMovingTarget is { } read && RefreshMovingTarget(read, body, gameTime)) return;
         if (leg?.Result.Status == AtomicActionStatus.Running)
         {
             bool threatClosing = approachingEscapeTurn && escapeFrom is { } readThreat
@@ -365,6 +375,37 @@ internal sealed class PlaySurvivalTravel
         dryProof = null;
     }
 
+    private bool RefreshMovingTarget(Func<Vector3?> read, ComponentBody body, double gameTime)
+    {
+        if (gameTime >= nextMovingTargetRead)
+        {
+            nextMovingTargetRead = gameTime + 0.2;
+            var seen = read();
+            movingTargetVisible = seen.HasValue;
+            if (seen is { } point)
+            {
+                if (movingTarget is { } old && (point - old).XZ.LengthSquared() >= 0.25f * 0.25f)
+                    log(new { kind = "play_scout_moving_target", actor = player.PlayerData.Name, seek, gameTime,
+                        target = point.ToString() });
+                movingTarget = point;
+                lastMovingTargetSeen = gameTime;
+            }
+            else if (movingTarget is null || gameTime - lastMovingTargetSeen > 1.2)
+            {
+                Finish("failed", "moving_target_no_longer_visible");
+                return true;
+            }
+        }
+        if (movingTargetVisible && movingTarget is { } current && PlaySurvivalSenses.OnDryGround(body)
+            && MathF.Abs(body.Position.Y - current.Y) <= 1.05f
+            && (body.Position - current).XZ.LengthSquared() <= movingTargetReach * movingTargetReach)
+        {
+            Finish("succeeded", "moving_target_in_range");
+            return true;
+        }
+        return false;
+    }
+
     private void TrackFoodPickup(NativeAcquisitionFact fact)
     {
         // 同种同值的另一枚蛋入包也不能完成当前指定目标。
@@ -434,7 +475,7 @@ internal sealed class PlaySurvivalTravel
                 goalDetours++;
                 targetedDetour = true;
                 log(new { kind = "play_scout_target_detour", actor = player.PlayerData.Name, seek, gameTime,
-                    target = (foodTarget?.Point ?? surveyTarget).ToString(), via = route.End.ToString(), attempts = goalDetours });
+                    target = (foodTarget?.Point ?? movingTarget ?? surveyTarget).ToString(), via = route.End.ToString(), attempts = goalDetours });
             }
         }
         if (route is null && exploring && !Evading && remaining >= 1f)
@@ -484,10 +525,12 @@ internal sealed class PlaySurvivalTravel
                 return side;
             escapeOutlet = null;
         }
-        return PlayDryRoutes.Escape(window, threat, remaining, canAlign, end => !refusedDryEndpoints.Contains(end));
+        return PlayDryRoutes.Escape(window, threat, remaining, canAlign, end => Evading
+            ? !refusedDryEndpoints.Contains(end) : CanUseLandLeg(end, gameTime));
     }
 
-    private bool KeepsTarget => foodTarget is not null || seek == "work" || seek == "shelter" && shelterTarget is not null;
+    private bool KeepsTarget => foodTarget is not null || readMovingTarget is not null
+        || seek == "work" || seek == "shelter" && shelterTarget is not null;
 
     private static (int X, int Z) CellXZ(Vector3 point) => (Terrain.ToCell(point.X), Terrain.ToCell(point.Z));
 
@@ -565,6 +608,13 @@ internal sealed class PlaySurvivalTravel
             if ((surveyTarget - body.Position).XZ.LengthSquared() <= 0.45f * 0.45f)
                 return ("navigation_goal_reached", null);
             approach = surveyTarget;
+        }
+        else if (movingTarget is { } observed)
+        {
+            var delta = (observed - body.Position).XZ;
+            float distanceToTarget = delta.Length();
+            approach = distanceToTarget > movingTargetReach
+                ? observed - (movingTargetReach - 0.2f) * new Vector3(delta.X, 0f, delta.Y) / distanceToTarget : observed;
         }
         else if (seek == "food")
         {

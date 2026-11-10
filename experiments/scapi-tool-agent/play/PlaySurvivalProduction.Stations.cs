@@ -6,6 +6,7 @@ using Game.Westworld;
 
 internal sealed partial class PlaySurvivalProduction
 {
+    private const float StationReach = 4.5f;
     private static readonly Point3 Up = new(0, 1, 0);
     private Point3 stationCell;
     private PanoramicBlock? placementFloor;
@@ -34,7 +35,7 @@ internal sealed partial class PlaySurvivalProduction
         if (Stock(player, Fire) > 0 && player.ComponentVitalStats.Temperature < 8f) available.Add(Warm);
     }
 
-    private static PanoramicBlock? SeenStation(ActorPanorama? panorama, Dictionary<int, Point3> stations, int block, float reach = 4.5f) =>
+    private static PanoramicBlock? SeenStation(ActorPanorama? panorama, Dictionary<int, Point3> stations, int block, float reach = StationReach) =>
         stations.TryGetValue(block, out var cell)
             ? panorama?.Blocks.FirstOrDefault(item => item.Cell == cell && item.Distance <= reach && StationMatches(item.Value, block))
             : null;
@@ -48,11 +49,12 @@ internal sealed partial class PlaySurvivalProduction
     private void StartStation()
     {
         stationBlock = Task switch { Furnace or Spear => CraftingTableBlock.Index, Cook => FurnaceBlock.Index, _ => CampfireBlock.Index };
-        var panorama = owner.Queries.ReadPanorama(4.5f);
+        // 全景先按方块中心筛选，再量到可见表面。留出中心到表面的距离，交互仍按原距离核对。
+        var panorama = owner.Queries.ReadPanorama(StationReach + 0.6f);
         if (Task != Warm && SeenStation(panorama, stations, stationBlock) is { } existing)
         {
             stationCell = existing.Cell;
-            AimStation();
+            AimStation(existing.Point);
             return;
         }
         var carry = player.ComponentMiner.Inventory;
@@ -111,9 +113,9 @@ internal sealed partial class PlaySurvivalProduction
         return false;
     }
 
-    private void AimStation()
+    private void AimStation(Vector3 point)
     {
-        action = owner.Start(new FaceTowards(Center(stationCell), 3f));
+        action = owner.Start(new FaceTowards(point, 3f));
         phase = Task is Furnace or Spear ? Phase.Craft : Phase.Cook;
     }
 

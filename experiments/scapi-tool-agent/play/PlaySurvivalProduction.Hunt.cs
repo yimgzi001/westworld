@@ -45,7 +45,8 @@ internal sealed partial class PlaySurvivalProduction
     {
         var carry = player.ComponentMiner.Inventory;
         int weapon = HuntWeapon(player);
-        var target = FindFoodBird(player, owner.Queries.FindVisibleObjectsAround(HuntApproachReach).Entities, HuntApproachReach);
+        var visible = owner.Queries.FindVisibleObjectsAround(HuntApproachReach).Entities;
+        var target = FindFoodBird(player, visible.Where(animal => selectedBird is null || animal.EntityId == selectedBird), HuntApproachReach);
         if (weapon < 0 && target is not null && CanReadyHuntWeapon(player))
         {
             int to = Enumerable.Range(0, carry.VisibleSlotsCount).First(slot => carry.GetSlotCount(slot) == 0);
@@ -83,6 +84,11 @@ internal sealed partial class PlaySurvivalProduction
             route.Update(gameTime);
             if (route.Status is null) return;
             huntApproach = null;
+            if (approachedLivePrey && !approachedPreyDrop && route.Status != "succeeded")
+            {
+                Finish(false, route.Reason ?? "live_prey_approach_failed");
+                return;
+            }
         }
         var health = preyHealth!;
         if (health.Health > 0f)
@@ -139,10 +145,18 @@ internal sealed partial class PlaySurvivalProduction
             return false;
         approachedLivePrey = true;
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
-        huntApproach = new(player, owner, bearing, distance, "survey", false, gameTime,
-            ObserveHuntFood, readDryWindow, log, permitLandLeg: permitLandLeg);
+        huntApproach = new(player, owner, bearing, distance, "prey", false, gameTime,
+            ObserveHuntFood, readDryWindow, log, permitLandLeg: permitLandLeg,
+            readMovingTarget: () => ReadFoodBirdPoint(visible.EntityId, HuntApproachReach), movingTargetReach: 3.8f);
         log(new { kind = "play_hunt_stalk", actor = player.PlayerData.Name, gameTime, observedDistance = visible.Distance, distance });
         return true;
+    }
+
+    private Vector3? ReadFoodBirdPoint(int entity, float range)
+    {
+        var visible = owner.Queries.FindVisibleObjectsAround(range).Entities.FirstOrDefault(view => view.EntityId == entity);
+        return visible is not null && player.Project.FindEntity(entity)?.FindComponent<ComponentCreature>() is { } bird
+            && bird.ComponentHealth.Health > 0f && PlaySurvivalSenses.OnDryGround(bird.ComponentBody) ? visible.Position : null;
     }
 
     private void PrepareSpearThrow(double gameTime)

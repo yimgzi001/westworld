@@ -20,12 +20,18 @@ sealed partial class Runner
     private bool projectRejectedOverhead;
     private Point3 overheadWood;
     private int projectTablePlacements;
+    private ComponentBody? movingFixtureBird;
+    private float fixtureBirdStartZ;
+    private double fixtureBirdMoveUntil;
+    private bool fixtureBirdMotionEnded, trackedFixtureBird;
+    private bool movedFirstWoodDrop, approachedFirstWoodDrop;
 
     private void RunProduction()
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-        bool approach = mode == "production-hunt-approach";
+        bool tracking = mode == "production-hunt-tracking";
+        bool approach = mode == "production-hunt-approach" || tracking;
         bool project = mode == "production-project";
         bool ranged = approach || mode == "production-hunt-ranged";
         bool hunt = mode == "production-hunt" || ranged || project;
@@ -74,6 +80,7 @@ sealed partial class Runner
             if (kitchen)
             {
                 var drops = p.Project.FindSubsystem<SubsystemPickables>(true);
+                if (project) drops.PickableAdded += MoveFirstWoodDrop;
                 var at = body.Position + new Vector3(0, 0.2f, -0.2f);
                 drops.AddPickable(CobblestoneBlock.Index, 7, at, Vector3.Zero, null);
                 if (!hunt)
@@ -88,7 +95,15 @@ sealed partial class Runner
                 for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
                 for (int y = cell.Y; y <= cell.Y + 2; y++) terrain.ChangeCell(wallX, y, z, GraniteBlock.Index);
                 var duck = DatabaseManager.CreateEntity(p.Project, "Duck", true);
-                duck.FindComponent<ComponentBody>(true).Position = body.Position + (approach || project ? 8.2f : ranged ? 3.65f : 1.1f) * Vector3.UnitX;
+                var duckBody = duck.FindComponent<ComponentBody>(true);
+                // 制作链验证接续库存和工作站，把静止鸭子放在木堆另一侧的开阔地。
+                duckBody.Position = body.Position + (project ? new Vector3(7.6f, 0f, 1.65f)
+                    : (approach ? 8.2f : ranged ? 3.65f : 1.1f) * Vector3.UnitX);
+                if (tracking)
+                {
+                    movingFixtureBird = duckBody;
+                    fixtureBirdStartZ = duckBody.Position.Z;
+                }
                 var legs = duck.FindComponent<ComponentLocomotion>(true);
                 legs.WalkSpeed = legs.FlySpeed = legs.JumpSpeed = 0f;
                 p.Project.AddEntity(duck);
@@ -99,6 +114,14 @@ sealed partial class Runner
             return;
         }
         if (elapsed < 1) return;
+        if (movingFixtureBird is { } bird && fixtureBirdMoveUntil > 0 && !fixtureBirdMotionEnded)
+        {
+            // 用原生速度让猎物在接近途中横移，角色仍必须通过观察更新目标。
+            var velocity = bird.Velocity;
+            fixtureBirdMotionEnded = now >= fixtureBirdMoveUntil || bird.Position.Z - fixtureBirdStartZ >= 2.3f;
+            velocity.Z = fixtureBirdMotionEnded ? 0f : 2.2f;
+            bird.Velocity = velocity;
+        }
         if (project && !projectRejectedOverhead)
         {
             var visible = actions.Queries.ReadPanorama(10f) ?? throw new InvalidOperationException("生产夹具缺少全向观察。");
@@ -153,10 +176,13 @@ sealed partial class Runner
             : productionStations.ContainsKey(CampfireBlock.Index) && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 1
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Workbench) == 1);
         if (project) Passed &= projectInterrupted && projectApproachedMaterial && projectRejectedOverhead && projectTablePlacements == 1
-            && p.ComponentHealth.Health >= 0.99f;
+            && movedFirstWoodDrop && approachedFirstWoodDrop && p.ComponentHealth.Health >= 0.99f;
+        float preyMoved = movingFixtureBird is { } fixtureBird ? fixtureBird.Position.Z - fixtureBirdStartZ : 0f;
+        if (tracking) Passed &= trackedFixtureBird && preyMoved >= 1.4f;
         Done = true;
         Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, ranged, approach, project, projectInterrupted,
-            projectApproachedMaterial, projectRejectedOverhead, projectTablePlacements, moved, completed = productionIndex });
+            projectApproachedMaterial, projectRejectedOverhead, projectTablePlacements, moved, tracking, preyMoved,
+            trackedFixtureBird, movedFirstWoodDrop, approachedFirstWoodDrop, completed = productionIndex });
     }
 
     private void TrackProduction(object entry)
@@ -173,7 +199,26 @@ sealed partial class Runner
             case "play_station_placed" when record.GetProperty("stationBlock").GetInt32() == CraftingTableBlock.Index:
                 projectTablePlacements++;
                 break;
+            case "play_hunt_stalk" when movingFixtureBird is not null:
+                fixtureBirdMoveUntil = record.GetProperty("gameTime").GetDouble() + 1.15;
+                break;
+            case "play_scout_moving_target":
+                trackedFixtureBird = true;
+                break;
+            case "play_production_drop_approach" when movedFirstWoodDrop:
+                approachedFirstWoodDrop = true;
+                break;
         }
+    }
+
+    private void MoveFirstWoodDrop(Pickable drop)
+    {
+        if (movedFirstWoodDrop || !PlaySurvivalProduction.IsMaterial(drop.Value, PlaySurvivalProduction.Wood)) return;
+        // 模拟刚挖掉的木材弹到手够不到的干地。保留原生掉落物和它的来源。
+        drop.Position = p.ComponentBody.Position + new Vector3(2.55f, 0.2f, 0f);
+        drop.Velocity = Vector3.Zero;
+        movedFirstWoodDrop = true;
+        Gate.Log(new { kind = "production_fixture_drop_moved", target = drop.Position.ToString() });
     }
 
 }

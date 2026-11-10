@@ -859,15 +859,16 @@ internal sealed class PlayableActor
         if (blockedExit is not { } blocked || gameTime - blocked.SeenAt > 240) return false;
         var body = player.ComponentBody;
         var threat = new Vector2(blocked.Threat.X, blocked.Threat.Z);
-        var exit = PlayDryRoutes.Escape(ReadDryWindow(), threat, 6f, canAlign: false);
-        if (exit is null || !PermitSurvivalLeg(exit.End, gameTime)) return false;
+        var exit = PlayDryRoutes.Escape(ReadDryWindow(), threat, 6f, canAlign: false, end => PermitSurvivalLeg(end, gameTime));
+        if (exit is null) return false;
         var delta = (exit.End - body.Position).XZ;
         if (delta.LengthSquared() < 0.64f) return false;
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, delta));
+        const float minimumClearance = 18f;
         leavingShelterLane = true;
-        log(new { kind = "play_shelter_surface_departure", actor = Name, target = exit.End.ToString(), gameTime });
-        travel = new(player, owner, bearing, delta.Length(), "work", false, gameTime, ObserveSurvival, ReadDryWindow, log,
-            survivalMemory.VisitsTo, permitLandLeg: PermitSurvivalLeg);
+        log(new { kind = "play_shelter_surface_departure", actor = Name, firstTarget = exit.End.ToString(), minimumClearance, gameTime });
+        travel = new(player, owner, bearing, Math.Max(8f, delta.Length()), "survey", false, gameTime, ObserveSurvival, ReadDryWindow, log,
+            survivalMemory.VisitsTo, escapeFrom: () => threat, permitLandLeg: PermitSurvivalLeg, escapeClearance: minimumClearance);
         return true;
     }
 

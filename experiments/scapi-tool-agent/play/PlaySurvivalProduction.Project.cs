@@ -8,13 +8,15 @@ using Game.Westworld;
 internal sealed partial class PlaySurvivalProduction
 {
     private const float ProjectReach = 40f;
+    private const float ProjectBirdReach = 20f;
     private const int ProjectStageLimit = 24;
-    private sealed record ProjectStep(string Task, Vector3? Approach = null, Point3? Material = null);
+    private sealed record ProjectStep(string Task, Vector3? Approach = null, Point3? Material = null, int? Bird = null);
     private PlaySurvivalProduction? projectStep;
     private PlaySurvivalTravel? projectRoute;
     private Point3? approachingMaterial;
     private readonly HashSet<Point3> triedMaterialApproaches = new();
     private int projectStages;
+    private int? projectBird;
 
     public static bool IsProject(string task) => task is CookedFoodProject or SpearProject;
 
@@ -81,7 +83,8 @@ internal sealed partial class PlaySurvivalProduction
 
         // 每个阶段完成后读取实际库存、工作站和可见资源。中断后从这些事实重新选择前置步骤。
         bool Permitted(Vector3 end) => permitLandLeg?.Invoke(end, gameTime) != false;
-        var next = NextProjectStep(player, Task, owner.Queries.ReadPanorama(ProjectReach), stations, Permitted, triedMaterialApproaches);
+        var next = NextProjectStep(player, Task, owner.Queries.ReadPanorama(ProjectReach), stations, Permitted,
+            triedMaterialApproaches, projectBird);
         if (next is null)
         {
             Finish(false, "project_missing_visible_prerequisite");
@@ -89,8 +92,9 @@ internal sealed partial class PlaySurvivalProduction
         }
         projectStages++;
         CurrentStage = next.Task;
+        if (next.Bird is int bird) projectBird = bird;
         log(new { kind = "play_production_stage", actor = player.PlayerData.Name, project = Task, stage = next.Task,
-            number = projectStages, destination = next.Approach?.ToString(), material = next.Material?.ToString(), gameTime });
+            number = projectStages, destination = next.Approach?.ToString(), material = next.Material?.ToString(), next.Bird, gameTime });
         if (next.Approach is { } destination)
         {
             approachingMaterial = next.Material;
@@ -98,15 +102,18 @@ internal sealed partial class PlaySurvivalProduction
             var body = player.ComponentBody;
             var delta = (destination - body.Position).XZ;
             float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, delta));
-            projectRoute = new(player, owner, bearing, delta.Length(), "work", false, gameTime,
-                () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log, permitLandLeg: permitLandLeg);
+            projectRoute = new(player, owner, bearing, delta.Length(), next.Bird.HasValue ? "prey" : "work", false, gameTime,
+                () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log, permitLandLeg: permitLandLeg,
+                readMovingTarget: next.Bird is int target ? () => ReadFoodBirdPoint(target, ProjectBirdReach) : null,
+                movingTargetReach: HuntApproachReach - 1f);
             return;
         }
-        projectStep = new(player, owner, tools, next.Task, gameTime, log, stations, readDryWindow, permitLandLeg);
+        projectStep = new(player, owner, tools, next.Task, gameTime, log, stations, readDryWindow, permitLandLeg, next.Bird);
     }
 
     private static ProjectStep? NextProjectStep(ComponentPlayer player, string task, ActorPanorama? panorama,
-        Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted, IReadOnlySet<Point3>? triedMaterials = null)
+        Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted, IReadOnlySet<Point3>? triedMaterials = null,
+        int? selectedBird = null)
     {
         if (panorama is null) return null;
         if (task == SpearProject) return NextSpearStep(player, panorama, stations, permitted, triedMaterials);
@@ -114,7 +121,7 @@ internal sealed partial class PlaySurvivalProduction
         var body = player.ComponentBody.Position;
         var entities = player.Project.FindSubsystem<SubsystemBlockEntities>(true);
         var visibleOven = SeenStation(panorama, stations, FurnaceBlock.Index, ProjectReach);
-        var oven = visibleOven is { Distance: <= 4.5f }
+        var oven = visibleOven is { Distance: <= StationReach }
             ? entities.GetBlockEntity(visibleOven.Cell)?.Entity.FindComponent<ComponentFurnace>() : null;
         bool rawInOven = oven is not null && oven.GetSlotCount(0) > 0 && PlaySurvivalFood.IsRawMeat(oven.GetSlotValue(0));
         bool cookedInOven = oven is not null && oven.GetSlotCount(oven.ResultSlotIndex) > 0
@@ -122,15 +129,16 @@ internal sealed partial class PlaySurvivalProduction
         if (cookedInOven) return new(Cook);
         if (Stock(player, Hunt) == 0 && !rawInOven)
         {
-            var prey = FindFoodBird(player, panorama.Objects.Entities.Where(animal => permitted?.Invoke(animal.Position) != false),
-                ProjectReach);
+            var prey = FindFoodBird(player, panorama.Objects.Entities.Where(animal => (selectedBird is null || animal.EntityId == selectedBird)
+                && permitted?.Invoke(animal.Position) != false), ProjectBirdReach);
             if (prey is null)
                 return ApproachStation(visibleOven, body, "return_to_furnace", permitted);
             if (!CanReadyHuntWeapon(player))
                 return Stock(player, Spear) == 0 ? NextSpearStep(player, panorama, stations, permitted, triedMaterials) : null;
             var sight = panorama.Objects.Entities.First(animal => animal.EntityId == prey.Id);
-            return sight.Distance <= HuntApproachReach ? new(Hunt)
-                : Approach(body, sight.Position, HuntApproachReach - 1f, "approach_food_bird", permitted);
+            if (sight.Distance <= HuntApproachReach) return new(Hunt, Bird: prey.Id);
+            var approach = Approach(body, sight.Position, HuntApproachReach - 1f, "approach_food_bird", permitted);
+            return approach is not null ? approach with { Bird = prey.Id } : null;
         }
 
         if (oven is not null || Stock(player, Furnace) > 0)
@@ -142,7 +150,7 @@ internal sealed partial class PlaySurvivalProduction
         }
         if (ApproachStation(visibleOven, body, "return_to_furnace", permitted) is { } returnOven) return returnOven;
         var visibleTable = SeenStation(panorama, stations, CraftingTableBlock.Index, ProjectReach);
-        var table = visibleTable is { Distance: <= 4.5f }
+        var table = visibleTable is { Distance: <= StationReach }
             ? entities.GetBlockEntity(visibleTable.Cell)?.Entity.FindComponent<ComponentCraftingTable>() : null;
         int stagedStone = table is null ? 0 : Count(table, value => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
             table.ResultSlotIndex);
@@ -159,7 +167,7 @@ internal sealed partial class PlaySurvivalProduction
         var table = SeenStation(panorama, stations, CraftingTableBlock.Index, ProjectReach);
         int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
         int needed = HasIngredient(player, "stick", 2) ? 3 : 5;
-        if (table is { Distance: <= 4.5f } || Stock(player, Workbench) > 0)
+        if (table is { Distance: <= StationReach } || Stock(player, Workbench) > 0)
             return boards >= needed ? new(Spear) : CollectMaterial(player, panorama, Wood, permitted, triedMaterials);
         return ApproachStation(table, body, "return_to_workbench", permitted)
             ?? (HasBoardsForTable(player) ? new(Workbench) : CollectMaterial(player, panorama, Wood, permitted, triedMaterials));
@@ -201,7 +209,7 @@ internal sealed partial class PlaySurvivalProduction
     private static readonly int[] NeighborOffsets = [-1, 0, 1];
 
     private static ProjectStep? ApproachStation(PanoramicBlock? station, Vector3 origin, string task, Func<Vector3, bool>? permitted) =>
-        station is { Distance: > 4.5f } ? Approach(origin, Center(station.Cell), 2.5f, task, permitted) : null;
+        station is { Distance: > StationReach } ? Approach(origin, Center(station.Cell), 2.5f, task, permitted) : null;
 
     private static ProjectStep? Approach(Vector3 origin, Vector3 target, float reach, string task, Func<Vector3, bool>? permitted)
     {

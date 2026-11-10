@@ -245,7 +245,9 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-        bool verifyClearance = mode == "predator-clearance";
+        bool shelterClearance = mode == "predator-shelter-clearance";
+        bool verifyClearance = mode == "predator-clearance" || shelterClearance;
+        float requiredClearance = shelterClearance ? 18f : verifyClearance ? 10f : 0f;
         bool extendedOverhang = mode == "predator-edge-tip";
         bool overhang = mode == "predator-edge-return" || extendedOverhang;
         if (stage == 0)
@@ -303,15 +305,16 @@ sealed partial class Runner
                 throw new InvalidOperationException("夹具需要复现正向退路将停在崖边。");
             escapeStartDistance = initial.Distance;
             var lastSeen = initial;
-            pursuingBear!.Entity.FindComponent<ComponentChaseBehavior>(true).Attack(p, 24f, 20f, true);
-            travel = new(p, actions, 0, verifyClearance ? 4f : 9f, "survey", true, now,
+            if (!shelterClearance) pursuingBear!.Entity.FindComponent<ComponentChaseBehavior>(true).Attack(p, 24f, 20f, true);
+            travel = new(p, actions, 0, shelterClearance ? 8f : verifyClearance ? 4f : 9f, "survey", !shelterClearance, now,
                 () => (JsonSerializer.SerializeToElement(new { }), []),
                 () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
                 escapeFrom: () =>
                 {
-                    lastSeen = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(threat => threat.Predator && !threat.Aquatic) ?? lastSeen;
+                    if (!shelterClearance)
+                        lastSeen = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(threat => threat.Predator && !threat.Aquatic) ?? lastSeen;
                     return new(lastSeen.X, lastSeen.Z);
-                }, escapeClearance: verifyClearance ? 10f : 0f);
+                }, permitLandLeg: shelterClearance ? (end, _) => end.Z >= navigationOrigin.Z : null, escapeClearance: requiredClearance);
             Gate.Log(new { kind = "predator_cliff_started", overhang, extendedOverhang, distance = escapeStartDistance,
                 origin = body.Position.ToString(), priorStopX = towardLedge?.End.X, cliffX = cliff });
         }
@@ -321,7 +324,8 @@ sealed partial class Runner
         float sideDistance = MathF.Abs(body.Position.Z - travel.Origin.Z);
         float pursuitDistance = (pursuingBear!.Position - bearOrigin).XZ.Length();
         float clearance = (body.Position - pursuingBear.Position).XZ.Length();
-        bool achieved = verifyClearance ? clearance >= 10f && (body.Position - travel.Origin).XZ.Length() > 4.5f
+        bool achieved = verifyClearance ? clearance >= requiredClearance
+            && (body.Position - travel.Origin).XZ.Length() > (shelterClearance ? 8f : 4.5f)
             : sideDistance > 6f && pursuitDistance > 2f;
         Passed = travel.Status == "succeeded" && recoveredGround && achieved && stationaryLooks == 0
             && continuations > 0 && p.ComponentHealth.Health >= 0.99f && PlaySurvivalSenses.OnDryGround(body);
