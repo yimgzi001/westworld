@@ -9,6 +9,7 @@ using Westworld.Runtime.Core;
 
 internal sealed class PlaySurvivalTravel
 {
+    private enum SeatAim { None, Turning, Ready }
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
     private readonly string seek;
@@ -30,6 +31,7 @@ internal sealed class PlaySurvivalTravel
     private int scans, legs;
     private float traveled;
     private bool detourUsed, jumpUsed, dryLeg, aligned;
+    private SeatAim seatAim;
     private PlaySurvivalSenses.Shore? lastShore;
     private double shoreSeenAt;
     private string? status, reason;
@@ -110,6 +112,15 @@ internal sealed class PlaySurvivalTravel
             Finish("failed", "boat_remount_failed");
             return;
         }
+        if (seatAim == SeatAim.Turning && previous is not null)
+        {
+            if (previous.Result.Status != AtomicActionStatus.Succeeded)
+            {
+                Finish("failed", "boat_seat_aim_failed");
+                return;
+            }
+            seatAim = SeatAim.Ready;
+        }
 
         bool dry = PlaySurvivalSenses.OnDryGround(body);
         if (seek == "dry_land" && dry)
@@ -169,8 +180,13 @@ internal sealed class PlaySurvivalTravel
         dryLeg = false;
         if (seek == "dry_land" && PlaySurvivalSenses.VisibleShore(observation, body, boat ?? deck) is { } visible)
         {
-            lastShore = visible;
-            shoreSeenAt = gameTime;
+            var offset = new Vector2(visible.X - body.Position.X, visible.Z - body.Position.Z);
+            var aim = shoreTarget is { } plannedShore ? (plannedShore - body.Position).XZ : offset;
+            if (Vector2.Dot(offset, aim) > 0f)
+            {
+                lastShore = visible;
+                shoreSeenAt = gameTime;
+            }
         }
         var shore = gameTime - shoreSeenAt <= 4 ? lastShore : null;
         Vector3? landing = shore is { } point ? new Vector3(point.X, point.Y, point.Z) : null;
@@ -181,13 +197,31 @@ internal sealed class PlaySurvivalTravel
 
         if (boat is null && deck is not null)
         {
-            // 站在船壳上时仍处于水面。岸边近且已确认就直接靠过去，否则回到座位继续划。
-            if (landing is { } land && shoreDistance <= 3.1f && !blocked)
+            // 近岸可以使用同帧全向观察，即便它此时位于角色背后。
+            if (targetOnLand is { } land && (land - body.Position).XZ.LengthSquared() <= 3.4f * 3.4f && !blocked)
             {
+                seatAim = SeatAim.None;
                 legs++;
                 Start(new MoveTo(land, 0.32f, 4f), gameTime);
+                return;
             }
-            else Start(new Mount(deck.Entity), gameTime);
+            if (seatAim == SeatAim.Ready)
+            {
+                seatAim = SeatAim.None;
+                Start(new Mount(deck.Entity), gameTime);
+                return;
+            }
+            if (deck.Entity.FindComponent<ComponentMount>() is not { } seat)
+            {
+                Finish("failed", "boat_seat_unavailable");
+                return;
+            }
+            var seatPoint = deck.Position + Vector3.Transform(seat.MountOffset, deck.Rotation);
+            var eye = player.ComponentCreatureModel.EyePosition;
+            var toSeat = seatPoint - eye;
+            float pitch = MathUtils.RadToDeg(MathF.Atan2(toSeat.Y, toSeat.XZ.Length()));
+            seatAim = SeatAim.Turning;
+            Start(new FaceTowards(seatPoint, 2f, Math.Clamp(pitch, -80f, 80f)), gameTime);
             return;
         }
 

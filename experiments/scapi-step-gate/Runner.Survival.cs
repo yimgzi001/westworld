@@ -23,16 +23,17 @@ sealed partial class Runner
     private void RunCoast()
     {
         var body = p.ComponentBody;
+        bool reboard = mode == "coast-boat";
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         if (stage == 0)
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
             int water = Terrain.MakeBlockValue(WaterBlock.Index, 0, FluidBlock.SetIsTop(0, true));
-            for (int x = cell.X - 4; x <= cell.X + 5; x++)
+            for (int x = cell.X - 5; x <= cell.X + 6; x++)
             for (int z = cell.Z - 4; z <= cell.Z + 4; z++)
             {
-                bool pool = x < cell.X + 2 && x > cell.X - 4 && Math.Abs(z - cell.Z) < 4;
+                bool pool = x < cell.X + (reboard ? 5 : 2) && x > cell.X - 5 && Math.Abs(z - cell.Z) < 4;
                 terrain.ChangeCell(x, cell.Y - 3, z, DirtBlock.Index);
                 terrain.ChangeCell(x, cell.Y - 2, z, pool ? WaterBlock.Index : DirtBlock.Index);
                 terrain.ChangeCell(x, cell.Y - 1, z, pool ? water : GravelBlock.Index);
@@ -44,7 +45,7 @@ sealed partial class Runner
             hull.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
             p.Project.AddEntity(boat);
             body.Position = hull.Position + new Vector3(0, hull.BoxSize.Y + 0.2f, 0);
-            body.Rotation = hull.Rotation;
+            body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2);
             body.Velocity = Vector3.Zero;
             forageTools = new(Guid.NewGuid(), p, new ActorTools(actions, true));
             elapsed = 0;
@@ -53,21 +54,38 @@ sealed partial class Runner
         }
         if (stage == 1)
         {
+            if (elapsed < 0.65) return;
             if (PlaySurvivalSenses.BoatDeck(body) is null)
             {
                 if (elapsed > 4) throw new InvalidOperationException("角色没有在夹具里站上船壳。");
                 return;
             }
             if (PlaySurvivalSenses.OnDryGround(body)) throw new InvalidOperationException("船壳被误判为干地。");
-            travel = new(p, actions, 0, 8f, "dry_land", false, now, ReadForage,
-                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log);
+            var panorama = PlaySurvivalPanorama.Capture(p, actions.Queries, mapRange.Content, now);
+            if (panorama?.ShoreInDirection(body.Position, Vector2.UnitX) is not { } shore)
+            {
+                if (elapsed > 4) throw new InvalidOperationException("全向观察没有找到身后的岸。");
+                return;
+            }
+            float distance = (shore - body.Position).XZ.Length();
+            if (Vector2.Dot(body.Matrix.Forward.XZ, (shore - body.Position).XZ) >= 0 || (distance > 3.4f) != reboard)
+                throw new InvalidOperationException("靠岸夹具距离或朝向不符。");
+            travel = new(p, actions, 180f, 8f, "dry_land", false, now, ReadForage,
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log, shoreTarget: shore);
             stage = 2;
-            Gate.Log(new { kind = "coast_fixture_deck", position = body.Position.ToString(), onDryGround = false });
+            Gate.Log(new { kind = "coast_fixture_deck", position = body.Position.ToString(), onDryGround = false, distance, reboard });
         }
         travel!.Update(now);
+        if (reboard && p.Entity.FindComponent<ComponentRider>() is { Mount: not null, m_isAnimating: false })
+        {
+            travel.Stop();
+            Passed = Done = true;
+            Gate.Log(new { kind = "coast_reboard", Passed });
+            return;
+        }
         if (travel.Status is null) return;
         float displacement = (body.Position - travel.Origin).XZ.Length();
-        Passed = travel.Status == "succeeded" && travel.Reason == "dry_ground_reached"
+        Passed = !reboard && travel.Status == "succeeded" && travel.Reason == "dry_ground_reached"
             && PlaySurvivalSenses.OnDryGround(body) && displacement > 1.2f;
         Done = true;
         Gate.Log(new { kind = "coast_result", Passed, travel.Status, travel.Reason, displacement, onDryGround = PlaySurvivalSenses.OnDryGround(body) });
