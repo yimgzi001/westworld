@@ -4,7 +4,7 @@ using Engine;
 using Westworld.Scapi.Adapter;
 using Westworld.Decisions.Local;
 internal sealed partial class ToolAgentScenario {
- bool RequiresNativeDrain=>IsFoodFixture||IsDirectFixture;
+ bool RequiresNativeDrain=>IsFoodFixture||IsDirectFixture||IsNaturalMode;
  PrecedingExecutionTrack predecessor;PrecedingExecutionSample predecessorSample;
  Vector3 predecessorOrigin;JsonElement predecessorRaw;double nextPredecessorAudit;Guid settledLogged;string lastPredecessorAuditState;
  void BindPredecessor(ToolDecisionStep step,ToolReceipt receipt) {

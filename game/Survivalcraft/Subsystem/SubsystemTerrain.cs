@@ -453,7 +453,8 @@ namespace Game {
                             if (dropValue.Count > 0
                                 && Terrain.ExtractContents(dropValue.Value) != 0) {
                                 Vector3 position = new Vector3(x, y, z) + new Vector3(0.5f);
-                                m_subsystemPickables.AddPickable(dropValue.Value, dropValue.Count, position, null, null);
+                                Pickable createdDrop = m_subsystemPickables.AddPickable(dropValue.Value, dropValue.Count, position, null, null);
+                                Westworld.NaturalResourceOriginAudit.RecordBlock(createdDrop, this, x, y, z, cellValue);
                             }
                         }
                     }

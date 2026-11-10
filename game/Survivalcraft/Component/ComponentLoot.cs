@@ -70,7 +70,8 @@ namespace Game {
                 );
                 Vector3 position = (m_componentCreature.ComponentBody.BoundingBox.Min + m_componentCreature.ComponentBody.BoundingBox.Max) / 2f;
                 foreach (BlockDropValue blockDropValue in blockDropValues) {
-                    m_subsystemPickables.AddPickable(blockDropValue.Value, blockDropValue.Count, position, null, null, Entity);
+                    Pickable createdDrop = m_subsystemPickables.AddPickable(blockDropValue.Value, blockDropValue.Count, position, null, null, Entity);
+                    Westworld.NaturalResourceOriginAudit.RecordCreature(createdDrop, this);
                 }
             }
         }

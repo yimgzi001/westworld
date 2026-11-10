@@ -1,0 +1,49 @@
+test_eight_requests_only_and_replay_rejected (test_driver.DriverTests.test_eight_requests_only_and_replay_rejected) ... ok
+test_existing_response_preserved_and_error_recorded (test_driver.DriverTests.test_existing_response_preserved_and_error_recorded) ... ok
+test_host_exit_no_work (test_driver.DriverTests.test_host_exit_no_work) ... ok
+test_identity_mismatch_is_bounded_error (test_driver.DriverTests.test_identity_mismatch_is_bounded_error) ... ok
+test_request_deadline_and_cancellation_no_response (test_driver.DriverTests.test_request_deadline_and_cancellation_no_response) ... ok
+test_same_observation_cannot_replay_under_new_request (test_driver.DriverTests.test_same_observation_cannot_replay_under_new_request) ... ok
+test_symlink_request_rejected_with_error_result (test_driver.DriverTests.test_symlink_request_rejected_with_error_result) ... ok
+test_top_level_staged_dependency_uses_frozen_copy (test_driver.DriverTests.test_top_level_staged_dependency_uses_frozen_copy) ... ok
+test_wall_deadline (test_driver.DriverTests.test_wall_deadline) ... ok
+test_busy_native_state_no_action (test_driver.PolicyTests.test_busy_native_state_no_action) ... ok
+test_dirt_before_wood_but_wood_allowed (test_driver.PolicyTests.test_dirt_before_wood_but_wood_allowed) ... ok
+test_drop_too_far_or_vertical_not_followed (test_driver.PolicyTests.test_drop_too_far_or_vertical_not_followed) ... ok
+test_failed_ref_can_switch_to_other_safe_cell (test_driver.PolicyTests.test_failed_ref_can_switch_to_other_safe_cell) ... ok
+test_initial_inventory_not_new (test_driver.PolicyTests.test_initial_inventory_not_new) ... ok
+test_invalid_position_and_scope_rejected (test_driver.PolicyTests.test_invalid_position_and_scope_rejected) ... ok
+test_inventory_increase_is_observation_not_attribution (test_driver.PolicyTests.test_inventory_increase_is_observation_not_attribution) ... ok
+test_known_adjacent_liquid_rejected (test_driver.PolicyTests.test_known_adjacent_liquid_rejected) ... ok
+test_liquid_unknown_rock_and_sand_rejected (test_driver.PolicyTests.test_liquid_unknown_rock_and_sand_rejected) ... ok
+test_low_health_stops (test_driver.PolicyTests.test_low_health_stops) ... ok
+test_missing_terminal_does_not_assume_dig_success (test_driver.PolicyTests.test_missing_terminal_does_not_assume_dig_success) ... ok
+test_new_ref_same_failed_cell_never_redigs (test_driver.PolicyTests.test_new_ref_same_failed_cell_never_redigs) ... ok
+test_no_move_before_dig (test_driver.PolicyTests.test_no_move_before_dig) ... ok
+test_no_private_context_or_audit_fallback (test_driver.PolicyTests.test_no_private_context_or_audit_fallback) ... ok
+test_preexisting_drop_not_used_as_harvest (test_driver.PolicyTests.test_preexisting_drop_not_used_as_harvest) ... ok
+test_prefetch_no_invented_future_drop (test_driver.PolicyTests.test_prefetch_no_invented_future_drop) ... ok
+test_proximity_drop_not_visible (test_driver.PolicyTests.test_proximity_drop_not_visible) ... ok
+test_remote_below_surface_and_mismatched_cell_rejected (test_driver.PolicyTests.test_remote_below_surface_and_mismatched_cell_rejected) ... ok
+test_repeated_observation_does_not_replay (test_driver.PolicyTests.test_repeated_observation_does_not_replay) ... ok
+test_same_pickup_ref_not_blindly_retried (test_driver.PolicyTests.test_same_pickup_ref_not_blindly_retried) ... ok
+test_schema_timeout_boundary_and_missing_tool (test_driver.PolicyTests.test_schema_timeout_boundary_and_missing_tool) ... ok
+test_single_safe_dig_then_actual_visible_pickup (test_driver.PolicyTests.test_single_safe_dig_then_actual_visible_pickup) ... ok
+test_support_under_or_straddling_body_rejected (test_driver.PolicyTests.test_support_under_or_straddling_body_rejected) ... ok
+test_unknown_outcome_stops_all_future_replay (test_driver.PolicyTests.test_unknown_outcome_stops_all_future_replay) ... ok
+test_unoffered_drop_reference_not_acted_on (test_driver.PolicyTests.test_unoffered_drop_reference_not_acted_on) ... ok
+test_visible_far_drop_allows_bounded_native_move (test_driver.PolicyTests.test_visible_far_drop_allows_bounded_native_move) ... ok
+test_wrong_resource_drop_not_followed (test_driver.PolicyTests.test_wrong_resource_drop_not_followed) ... ok
+test_frozen_hooks_driver (test_stage.Tests.test_frozen_hooks_driver) ... ok
+test_hashes (test_stage.Tests.test_hashes) ... ok
+test_mode_and_no_launch (test_stage.Tests.test_mode_and_no_launch) ... ok
+test_no_overwrite (test_stage.Tests.test_no_overwrite) ... ok
+test_seed_validation (test_stage.Tests.test_seed_validation) ... ok
+test_corruptions (test_validate.Tests.test_corruptions) ... ok
+test_missing (test_validate.Tests.test_missing) ... ok
+test_synthetic_pass_not_native (test_validate.Tests.test_synthetic_pass_not_native) ... ok
+
+----------------------------------------------------------------------
+Ran 44 tests in 0.169s
+
+OK

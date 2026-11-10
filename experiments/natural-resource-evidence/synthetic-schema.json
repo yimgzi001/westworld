@@ -1,0 +1,137 @@
+{
+  "syntheticOnly": true,
+  "note": "Schema/example only, never native test evidence",
+  "example": {
+    "kind": "natural_resource_evidence",
+    "schema": 1,
+    "worldId": "51db2ba5-6ad6-4ecc-8efe-366e00c5789e",
+    "nativeActorId": "e871ec04-1ca5-4e92-a1bc-b5cda9efc874",
+    "gatewaySessionId": "a8a1d148-f2a6-4afb-8d9c-64054ae55963",
+    "gatewayActorId": "3fea8dad-aff4-42ab-b34c-20966a4da9aa",
+    "seed": "SYNTHETIC-NOT-RUN",
+    "fixture": {
+      "terrainEdited": false,
+      "positionEdited": false,
+      "inventoryInjected": false,
+      "foodInjected": false,
+      "healthEdited": false
+    },
+    "baselineInventory": {},
+    "actualInventory": {
+      "2": 1
+    },
+    "observations": [
+      {
+        "evidenceId": "27e7506b-cfa5-4af4-bce6-d58a1be97767",
+        "target": {
+          "WorldId": "51db2ba5-6ad6-4ecc-8efe-366e00c5789e",
+          "Kind": "block_drop",
+          "X": 1,
+          "Y": 64,
+          "Z": 2,
+          "OriginalBlockValue": 2,
+          "OriginEntityId": null
+        },
+        "observedAt": 100.0,
+        "reference": "synthetic-ref"
+      }
+    ],
+    "attempts": [
+      {
+        "BindingId": "97d6c919-5f46-48e2-b23e-38facd96fa35",
+        "RequestId": "926cc4e7-8fc9-4316-8b51-e84093858fe2",
+        "Tool": "act_Dig",
+        "EvidenceId": "27e7506b-cfa5-4af4-bce6-d58a1be97767",
+        "Target": {
+          "WorldId": "51db2ba5-6ad6-4ecc-8efe-366e00c5789e",
+          "Kind": "block_drop",
+          "X": 1,
+          "Y": 64,
+          "Z": 2,
+          "OriginalBlockValue": 2,
+          "OriginEntityId": null
+        },
+        "StartedAt": 101.0,
+        "ReceiptSequence": 20,
+        "RunId": "2b7f596e-27f3-4f7b-875d-97f7a04e05c9",
+        "TerminalStatus": "succeeded",
+        "TerminalAt": 102.5
+      }
+    ],
+    "origins": [
+      {
+        "bindingId": "97d6c919-5f46-48e2-b23e-38facd96fa35",
+        "fact": {
+          "EventId": "dd5ff921-46f1-4fa5-a1a9-a05ac0fe9ef0",
+          "SourceId": "57c5d7dc-3576-4008-bc71-ab68ffa518eb",
+          "WorldId": "51db2ba5-6ad6-4ecc-8efe-366e00c5789e",
+          "Kind": "block_drop",
+          "Value": 2,
+          "Count": 1,
+          "CellX": 1,
+          "CellY": 64,
+          "CellZ": 2,
+          "OriginalBlockValue": 2,
+          "OriginEntityId": null,
+          "OwnerEntityId": null,
+          "CreationGameTime": 2.0,
+          "GameTime": 2.0,
+          "MonotonicSeconds": 102.0
+        }
+      }
+    ],
+    "transfers": [
+      {
+        "eventId": "164f6ee3-2296-4bdd-bb26-7118f4629014",
+        "fact": {
+          "SourceId": "57c5d7dc-3576-4008-bc71-ab68ffa518eb",
+          "ActorId": "e871ec04-1ca5-4e92-a1bc-b5cda9efc874",
+          "Value": 2,
+          "SourceBefore": 1,
+          "SourceAfter": 0,
+          "InventoryBefore": 0,
+          "InventoryAfter": 1,
+          "Method": "automatic",
+          "MonotonicSeconds": 103.0,
+          "GameTime": 3.0
+        }
+      }
+    ],
+    "ledger": {
+      "Unknown": false,
+      "Reason": "partially_or_fully_acquired",
+      "Sources": [
+        {
+          "SourceId": "57c5d7dc-3576-4008-bc71-ab68ffa518eb",
+          "Value": 2,
+          "Produced": 1,
+          "Remaining": 0,
+          "Acquired": 1
+        }
+      ],
+      "ExpectedInventory": {
+        "2": 1
+      },
+      "Consumed": {}
+    },
+    "unknownReason": null,
+    "auditFailures": {
+      "originRecordBefore": 0,
+      "originRecordAfter": 0,
+      "originListenerBefore": 0,
+      "originListenerAfter": 0,
+      "transferListenerBefore": 0,
+      "transferListenerAfter": 0
+    },
+    "shutdown": {
+      "stopTime": 104.0,
+      "drainedTime": 104.01,
+      "idle": true,
+      "lateDispatches": 0
+    },
+    "animalAttributionSupported": false,
+    "note": "Block-origin acquisition only; source events do not by themselves prove harvesting actor. Actual Dig run must succeed. No resource coordinates from this host audit enter model prompts.",
+    "aiViewportCount": 0,
+    "actorGameWidgetNull": true
+  }
+}
