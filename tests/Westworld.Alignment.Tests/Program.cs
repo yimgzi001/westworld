@@ -36,6 +36,10 @@ var outside=Scene(new(.026,64,.233));
 outside=outside with{Cells=outside.Cells.Select(c=>c.X>=0&&c.Y==63?c with{Value=0}:c).ToArray()};
 ObservedAlignmentRoute? Recover(ActorObservation o)=>LocalNavigationAlignment.Project(Window(o),recoverToObservedSupport:true);
 Check(Inward(outside) is null&&Recover(outside)?.Destination==new Position(-.5,64,.5),"脚底仍搭在相邻格时回到已确认的支撑格");
+var farOutside=outside with{Position=new(.197,64,.113)};
+var inset=Recover(farOutside);
+Check(inset is not null&&Math.Abs(inset.Destination.X+.28)<1e-9&&Math.Abs(inset.Destination.Z-.28)<1e-9,
+ "斜向超出中心收步长度时仍可落到已确认格内的最近位置");
 Check(Recover(outside with{Position=new(.212,64,.5)}) is null,"脚底重叠不足时拒绝沿空中收步");
 Check(Recover(outside with{Cells=outside.Cells.Where(c=>c.X!=-1||c.Z!=0||c.Y!=65).ToArray()}) is null,"相邻支撑格头部净空未知时拒绝");
 var edgeMemory=new LocalObservationMemory(session,actor);edgeMemory.Observe(outside);

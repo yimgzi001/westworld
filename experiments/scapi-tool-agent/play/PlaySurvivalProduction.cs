@@ -72,20 +72,17 @@ internal sealed partial class PlaySurvivalProduction
             if ((woodNearby || hasBoards) && Stock(player, Workbench) == 0
                 && !stations.ContainsKey(CraftingTableBlock.Index)) available.Add(Workbench);
             if ((woodNearby || hasSticks) && Stock(player, Fire) == 0 && player.ComponentVitalStats.Temperature < 8f) available.Add(Fire);
-            if (panorama is { } sight && FindFoodBird(player, sight.Objects.Entities, 10f) is not null)
-            {
-                bool hasTable = Stock(player, Workbench) > 0 || SeenStation(sight, stations, CraftingTableBlock.Index) is not null;
-                int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
-                int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
-                if (Stock(player, Spear) == 0 && hasTable && boards >= boardsNeeded) available.Add(Spear);
-                if (HuntWeapon(player) >= 0 && Stock(player, Hunt) < 2
-                    && FindFoodBird(player, sight.Objects.Entities, HuntReach) is not null) available.Add(Hunt);
-            }
+            bool hasTable = Stock(player, Workbench) > 0 || SeenStation(panorama, stations, CraftingTableBlock.Index) is not null;
+            int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
+            int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
+            if (Stock(player, Spear) == 0 && hasTable && boards >= boardsNeeded) available.Add(Spear);
+            if (HuntWeapon(player) >= 0 && Stock(player, Hunt) < 2 && panorama is { } sight
+                && FindFoodBird(player, sight.Objects.Entities, HuntThrowReach) is not null) available.Add(Hunt);
         }
         AddStationOffers(player, panorama, stations, available);
         if (available.Count == 0) return null;
         return new(Tool, "Collect a reachable log or stone, craft survival gear, or cook carried raw meat at a furnace. "
-            + "Hunt only reachable nonaggressive birds that provide meat. The game checks actual materials and native reach.",
+            + "Hunt nonaggressive food birds with a spear, using one short throw or close melee. The game checks actual materials and reach.",
             JsonSerializer.SerializeToElement(new
             {
                 type = "object",

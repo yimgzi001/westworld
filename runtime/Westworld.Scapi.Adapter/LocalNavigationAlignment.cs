@@ -31,7 +31,11 @@ public static class LocalNavigationAlignment {
    .Select(c=>new Position(c.X+.5,p.Y,c.Z+.5))
    .Where(target=>Math.Abs(target.X-p.X)<.71&&Math.Abs(target.Z-p.Z)<.71)
    .OrderBy(target=>Math.Pow(target.X-p.X,2)+Math.Pow(target.Z-p.Z,2))
-   .Select(target=>Inspect(target,true)).OfType<ObservedAlignmentRoute>().FirstOrDefault();
+   .Select(target=>Inspect(target,true)??Inspect(NearestInset(target),true)).OfType<ObservedAlignmentRoute>().FirstOrDefault();
+
+  // 斜向收回中心过远时，先收进同一支撑格。脚底四周保留 0.03 格余量。
+  Position NearestInset(Position target)=>new(Math.Clamp(p.X,target.X-.22,target.X+.22),p.Y,
+   Math.Clamp(p.Z,target.Z-.22,target.Z+.22));
 
   ObservedAlignmentRoute? Inspect(Position target,bool allowOverhang) {
    double length=Math.Sqrt(Math.Pow(target.X-p.X,2)+Math.Pow(target.Z-p.Z,2));

@@ -167,7 +167,8 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-        bool overhang = mode == "predator-edge-return";
+        bool extendedOverhang = mode == "predator-edge-tip";
+        bool overhang = mode == "predator-edge-return" || extendedOverhang;
         if (stage == 0)
         {
             if (elapsed < 3) return;
@@ -183,7 +184,8 @@ sealed partial class Runner
                 for (int y = cell.Y - 8; y <= cell.Y + 4; y++)
                     terrain.ChangeCell(x, y, z, y <= floor ? DirtBlock.Index : 0);
             }
-            body.Position = overhang ? new(cell.X + 2.026f, cell.Y, cell.Z + 0.233f)
+            body.Position = extendedOverhang ? new(cell.X + 2.197f, cell.Y, cell.Z + 0.113f)
+                : overhang ? new(cell.X + 2.026f, cell.Y, cell.Z + 0.233f)
                 : new(cell.X + 0.474f, cell.Y, cell.Z + 0.451f);
             body.Velocity = Vector3.Zero;
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
@@ -199,7 +201,7 @@ sealed partial class Runner
         if (elapsed < 0.75) return;
         float cliff = navigationOrigin.X + 2;
         recoveredGround |= body.BoundingBox.Max.X <= cliff + 0.03f;
-        float allowedEdge = overhang && !recoveredGround ? cliff + 0.30f : cliff + 0.03f;
+        float allowedEdge = overhang && !recoveredGround ? cliff + (extendedOverhang ? 0.46f : 0.30f) : cliff + 0.03f;
         if (body.BoundingBox.Max.X > allowedEdge || body.Position.Y < navigationOrigin.Y - 0.05f)
             throw new InvalidOperationException("追击时跨进了断崖。");
         if (travel is null)
@@ -225,7 +227,7 @@ sealed partial class Runner
                     lastSeen = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(threat => threat.Predator && !threat.Aquatic) ?? lastSeen;
                     return new(lastSeen.X, lastSeen.Z);
                 });
-            Gate.Log(new { kind = "predator_cliff_started", overhang, distance = escapeStartDistance,
+            Gate.Log(new { kind = "predator_cliff_started", overhang, extendedOverhang, distance = escapeStartDistance,
                 origin = body.Position.ToString(), priorStopX = towardLedge?.End.X, cliffX = cliff });
         }
         travel.Update(now);
@@ -236,7 +238,7 @@ sealed partial class Runner
         Passed = travel.Status == "succeeded" && recoveredGround && sideDistance > 6f && pursuitDistance > 2f && stationaryLooks == 0
             && continuations > 0 && p.ComponentHealth.Health >= 0.99f && PlaySurvivalSenses.OnDryGround(body);
         Done = true;
-        Gate.Log(new { kind = "predator_cliff_result", Passed, overhang, recoveredGround, travel.Status, travel.Reason, escapeStartDistance,
+        Gate.Log(new { kind = "predator_cliff_result", Passed, overhang, extendedOverhang, recoveredGround, travel.Status, travel.Reason, escapeStartDistance,
             sideDistance, pursuitDistance, continuations, stationaryLooks, health = p.ComponentHealth.Health });
     }
 

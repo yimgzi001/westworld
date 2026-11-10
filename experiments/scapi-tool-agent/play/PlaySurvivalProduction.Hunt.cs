@@ -9,10 +9,12 @@ using GameEntitySystem;
 internal sealed partial class PlaySurvivalProduction
 {
     private const float HuntReach = 2.35f;
+    private const float HuntThrowReach = 4.75f;
     private readonly HashSet<Guid> preyDrops = new();
     private Entity? prey;
+    private ComponentHealth? preyHealth;
     private PlaySurvivalTravel? huntApproach;
-    private bool approachedPreyDrop;
+    private bool approachedPreyDrop, preparingThrow, thrown, lastHitByHunter;
     private Guid preyId, hunterId;
     private int strikes, meatPicked;
     private double nextStrike;
@@ -35,13 +37,15 @@ internal sealed partial class PlaySurvivalProduction
     {
         var carry = player.ComponentMiner.Inventory;
         int weapon = HuntWeapon(player);
-        var target = FindFoodBird(player, owner.Queries.FindVisibleObjectsAround(HuntReach).Entities, HuntReach);
+        var target = FindFoodBird(player, owner.Queries.FindVisibleObjectsAround(HuntThrowReach).Entities, HuntThrowReach);
         if (weapon < 0 || target is null)
         {
             Finish(false, "hunt_weapon_or_visible_prey_unavailable");
             return;
         }
         prey = target;
+        preyHealth = target.FindComponent<ComponentHealth>(true);
+        preyHealth.Injured += TrackPreyInjury;
         preyId = NativeAcquisitionAudit.IdentityFor(target);
         hunterId = NativeAcquisitionAudit.IdentityFor(player.Entity);
         NaturalResourceOriginAudit.Recorded += TrackPreyDrop;
@@ -66,19 +70,36 @@ internal sealed partial class PlaySurvivalProduction
             if (route.Status is null) return;
             huntApproach = null;
         }
-        var health = prey!.FindComponent<ComponentHealth>(true);
+        var health = preyHealth!;
         if (health.Health > 0f)
         {
             if (gameTime < nextStrike) return;
-            if (strikes >= 2 || !IsSpear(player.ComponentMiner.ActiveBlockValue)
-                || !owner.Queries.FindVisibleObjectsAround(HuntReach).Entities.Any(view => view.EntityId == prey.Id))
+            if (thrown)
+            {
+                Finish(false, "spear_throw_did_not_take_prey");
+                return;
+            }
+            var visible = owner.Queries.FindVisibleObjectsAround(HuntThrowReach).Entities
+                .FirstOrDefault(view => view.EntityId == prey!.Id);
+            if (strikes >= 2 || !IsSpear(player.ComponentMiner.ActiveBlockValue) || visible is null)
             {
                 Finish(false, "prey_left_native_reach");
+                return;
+            }
+            if (visible.Distance > HuntReach)
+            {
+                if (strikes == 0) PrepareSpearThrow(gameTime);
+                else Finish(false, "prey_left_native_reach");
                 return;
             }
             strikes++;
             nextStrike = gameTime + Math.Max(0.4, player.ComponentMiner.HitInterval + 0.05);
             action = owner.Start(new MeleeAttack(prey));
+            return;
+        }
+        if (!lastHitByHunter)
+        {
+            Finish(false, "prey_death_unattributed");
             return;
         }
 
@@ -87,6 +108,45 @@ internal sealed partial class PlaySurvivalProduction
         var drop = VisiblePreyDrop();
         if (drop is not null) action = owner.Start(drop.CreatePickup(1));
         else if (gameTime > nextStrike + health.CorpseDuration + 4) Finish(false, "native_prey_drop_unconfirmed");
+    }
+
+    private void PrepareSpearThrow(double gameTime)
+    {
+        var quarry = prey!.FindComponent<ComponentBody>(true);
+        var point = quarry.BoundingBox.Center();
+        if (!preparingThrow)
+        {
+            preparingThrow = true;
+            action = owner.Start(new FaceTowards(point, 2f));
+            return;
+        }
+        var body = player.ComponentBody;
+        var eye = player.ComponentCreatureModel.EyePosition;
+        var miner = player.ComponentMiner;
+        int value = miner.ActiveBlockValue;
+        var block = BlocksManager.Blocks[Terrain.ExtractContents(value)];
+        float speed = block.GetProjectileSpeed(value) * (0.5f * ((miner.ComponentFactors?.StrengthFactor ?? 1f) - 1f) + 1f);
+        if (!float.IsFinite(speed) || speed <= 0f || !PlaySurvivalSenses.OnDryGround(quarry))
+        {
+            Finish(false, "prey_throw_conditions_changed");
+            return;
+        }
+        // 预测只用仍在视野内的猎物和本人的动作。命中、伤害和掉落仍由原生系统结算。
+        var delta = point - eye - 0.4f * body.Matrix.Right;
+        const float hold = 0.15f;
+        float flight = Math.Max(0.05f, delta.XZ.Length() - 0.4f) / speed;
+        var aim = eye + delta + (flight + hold) * quarry.Velocity - flight * body.Velocity
+            + 5f * flight * flight * Vector3.UnitY;
+        thrown = true;
+        strikes++;
+        nextStrike = gameTime + 1.25;
+        action = owner.Start(new UseAimedItem(new OwnItemSlot(miner.Inventory.ActiveSlotIndex, value), new PointTarget(aim), hold));
+        log(new { kind = "play_hunt_throw_started", actor = player.PlayerData.Name, gameTime, distance = delta.Length() });
+    }
+
+    private void TrackPreyInjury(Injury injury)
+    {
+        if (preyHealth?.Health > 0f) lastHitByHunter = injury.Attacker?.Entity == player.Entity;
     }
 
     private NearbyPickableView? VisiblePreyDrop() => owner.Queries.FindVisibleObjectsAround(8f).Pickables
@@ -116,7 +176,8 @@ internal sealed partial class PlaySurvivalProduction
     // 只把这只猎物的原生掉落和当前角色实际收到的库存增量算作猎获。
     private void TrackPreyDrop(NaturalResourceOriginFact fact)
     {
-        if (fact.OriginEntityId == preyId && PlaySurvivalFood.IsRawMeat(fact.Value)) preyDrops.Add(fact.SourceId);
+        if (lastHitByHunter && fact.OriginEntityId == preyId && PlaySurvivalFood.IsRawMeat(fact.Value))
+            preyDrops.Add(fact.SourceId);
     }
 
     private void TrackPreyPickup(NativeAcquisitionFact fact)
@@ -133,6 +194,8 @@ internal sealed partial class PlaySurvivalProduction
         huntApproach = null;
         NaturalResourceOriginAudit.Recorded -= TrackPreyDrop;
         NativeAcquisitionAudit.Recorded -= TrackPreyPickup;
+        preyHealth!.Injured -= TrackPreyInjury;
+        preyHealth = null;
         prey = null;
     }
 }

@@ -20,14 +20,16 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-        bool hunt = mode == "production-hunt";
-        bool kitchen = hunt || mode == "production-kitchen";
+        bool ranged = mode == "production-hunt-ranged";
+        bool hunt = mode == "production-hunt" || ranged;
+        bool kitchen = mode is "production-hunt" or "production-kitchen";
         var order = hunt ? HuntOrder : kitchen ? KitchenOrder : KitOrder;
+        int taskCount = ranged ? Array.IndexOf(order, PlaySurvivalProduction.Hunt) + 1 : order.Length;
         if (stage == 0)
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
-            for (int x = cell.X - 3; x <= cell.X + 3; x++)
+            for (int x = cell.X - 3; x <= cell.X + (ranged ? 6 : 3); x++)
             for (int z = cell.Z - 3; z <= cell.Z + 3; z++)
             for (int y = cell.Y - 1; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
@@ -57,10 +59,11 @@ sealed partial class Runner
             }
             if (hunt)
             {
+                int wallX = cell.X + (ranged ? 5 : 2);
                 for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
-                for (int y = cell.Y; y <= cell.Y + 2; y++) terrain.ChangeCell(cell.X + 2, y, z, GraniteBlock.Index);
+                for (int y = cell.Y; y <= cell.Y + 2; y++) terrain.ChangeCell(wallX, y, z, GraniteBlock.Index);
                 var duck = DatabaseManager.CreateEntity(p.Project, "Duck", true);
-                duck.FindComponent<ComponentBody>(true).Position = body.Position + 1.1f * Vector3.UnitX;
+                duck.FindComponent<ComponentBody>(true).Position = body.Position + (ranged ? 3.65f : 1.1f) * Vector3.UnitX;
                 var legs = duck.FindComponent<ComponentLocomotion>(true);
                 legs.WalkSpeed = legs.FlySpeed = legs.JumpSpeed = 0f;
                 p.Project.AddEntity(duck);
@@ -82,11 +85,13 @@ sealed partial class Runner
             return;
         }
         production = null;
-        if (++productionIndex < order.Length) return;
+        if (++productionIndex < taskCount) return;
 
         bool materialConsumed = PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Wood) == 0;
         var inventory = p.ComponentMiner.Inventory;
-        Passed = materialConsumed && (kitchen
+        Passed = materialConsumed && (ranged
+            ? NativeAcquisitionAudit.InventoryCount(inventory, RawBirdBlock.Index) == 1 && p.ComponentHealth.Health >= 0.99f
+            : kitchen
             ? productionStations.ContainsKey(CraftingTableBlock.Index) && productionStations.ContainsKey(FurnaceBlock.Index)
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 0
                 && NativeAcquisitionAudit.InventoryCount(inventory, hunt ? CookedBirdBlock.Index : CookedMeatBlock.Index) == (hunt ? 1 : 2)
@@ -94,7 +99,7 @@ sealed partial class Runner
             : productionStations.ContainsKey(CampfireBlock.Index) && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 1
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Workbench) == 1);
         Done = true;
-        Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, completed = productionIndex });
+        Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, ranged, completed = productionIndex });
     }
 
 }
