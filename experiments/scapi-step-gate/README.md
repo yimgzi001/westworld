@@ -32,6 +32,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `shelter-middle-predator` 在第二跳约一格外放入原生棕熊，将角色刚看到的威胁交给出坑动作，验证当跳中断、回到坑底和重封。普通出坑夹具关闭随机动物生成，遇熊行为由独立夹具覆盖。
 
+`shelter-lower-predator` 将棕熊放在低一格的地面、距坑口约 18.6 格。验证第二跳仍由出坑动作控制，看到熊后回落和重封。
+
 `predator-coast-turn` 使用 `natural34-b` 的真实窄岸地形。原生下船后从卡点开始，约 20 格外放置固定移动能力的灰狼。验证直接退路受阻时，能沿可见干地绕到一格高的出口，并在近处出现威胁时拒绝开始向其靠近。
 
 `navigate-vegetation` 在长路线和台阶上铺设无碰撞的草和花。`shelter-shallow` 从背包无土的一格浅坑跳出。`shelter-camp` 在没有随机生成生物的夹具中验证过夜、出坑、走开、沿原生路线返回以及重建实体遮蔽。

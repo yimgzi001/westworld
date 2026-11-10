@@ -24,7 +24,7 @@ sealed partial class Runner
     private PlaySurvivalRest? fixtureDrying;
     private double dryingStarted;
     private bool refusedOpenCover;
-    private bool jumpPredatorPlaced, exitThreatDuringJump, exitThreatFromHost;
+    private bool jumpPredatorPlaced, exitThreatDuringJump, exitThreatFromHost, lowerPredatorObserved;
     private int exitThreatLevel;
     private Point3 threatOrigin;
     private Vector3 threatPosition;
@@ -221,17 +221,20 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         bool foraging = mode is "forage" or "forage-far";
+        bool lowerPredator = mode == "shelter-lower-predator";
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         if (stage == 0)
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
             if (foraging && !ForageCorridorReady(cell.X, cell.Z)) return;
-            int endX = cell.X + (foraging ? 39 : mode == "shelter-late-predator" ? 10 : 5);
+            if (lowerPredator && !(terrain.Terrain.GetChunkAtCell(cell.X + 22, cell.Z)?.State >= TerrainChunkState.InvalidVertices1))
+                return;
+            int endX = cell.X + (foraging ? 39 : lowerPredator ? 22 : mode == "shelter-late-predator" ? 10 : 5);
             for (int x = cell.X - 5; x <= endX; x++)
             for (int z = cell.Z - 5; z <= cell.Z + 5; z++)
             for (int y = cell.Y - 4; y <= cell.Y + 3; y++)
-                terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
+                terrain.ChangeCell(x, y, z, y < cell.Y - (lowerPredator && x >= cell.X + 9 ? 1 : 0) ? DirtBlock.Index : 0);
 
             if (mode == "shelter-illness")
                 for (int x = cell.X - 1; x <= cell.X + 1; x++)
@@ -377,7 +380,8 @@ sealed partial class Runner
         }
         var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         bool wetTest = mode == "shelter-wet";
-        bool middlePredator = mode == "shelter-middle-predator";
+        bool lowerPredator = mode == "shelter-lower-predator";
+        bool middlePredator = lowerPredator || mode == "shelter-middle-predator";
         bool jumpPredator = middlePredator || mode == "shelter-late-predator";
         if (stage == 1)
         {
@@ -420,6 +424,9 @@ sealed partial class Runner
                     {
                         exitThreatDuringJump = record.GetProperty("duringJump").GetBoolean();
                         exitThreatLevel = record.GetProperty("level").GetInt32();
+                        var threat = record.GetProperty("threat");
+                        lowerPredatorObserved = threat.GetProperty("Distance").GetSingle() is > 16f and <= 22f
+                            && MathF.Abs(threat.GetProperty("Y").GetSingle() - (testSite!.Surface - 1)) < 0.05f;
                     }
                 });
                 stage = 7;
@@ -458,11 +465,11 @@ sealed partial class Runner
             if (jumpPredator && !jumpPredatorPlaced && body.Position.Y >= jumpLevel + 0.55f
                 && body.Position.Y < jumpLevel + 1f && body.Velocity.Y > 0f)
             {
-                PlaceShelterThreat(middlePredator ? 1.22f : 7.2f);
+                PlaceShelterThreat(lowerPredator ? 18.6f : middlePredator ? 1.22f : 7.2f, lowerPredator ? 1 : 0);
                 jumpPredatorPlaced = true;
             }
             jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
-            if (middlePredator && jumpPredatorPlaced && !exitThreatFromHost)
+            if (middlePredator && jumpPredatorPlaced && !exitThreatFromHost && earthShelter!.OwnsExitMotion(body))
                 exitThreatFromHost = earthShelter!.TryRetreatFromPredators(PlaySurvivalSenses.Threats(p, actions.Queries), now);
             earthShelter!.Update(now);
             if (earthShelter.Status is null) return;
@@ -470,10 +477,11 @@ sealed partial class Runner
             Passed = earthShelter.Reason == "predator_at_exit_resealed" && covered
                 && (jumpPredator ? jumpPredatorPlaced && jumped && exitThreatDuringJump && exitThreatLevel == jumpLevel : !jumped)
                 && (!middlePredator || exitThreatFromHost)
+                && (!lowerPredator || lowerPredatorObserved)
                 && p.ComponentBody.Position.Y <= site.Surface - 2.95f && p.ComponentHealth.Health >= vitalBefore;
             Done = true;
             Gate.Log(new { kind = "shelter_predator_result", Passed, earthShelter.Reason, covered, jumped, exitThreatDuringJump,
-                exitThreatLevel, exitThreatFromHost,
+                exitThreatLevel, exitThreatFromHost, lowerPredator, lowerPredatorObserved,
                 health = p.ComponentHealth.Health, floor = p.ComponentBody.Position.Y });
             return;
         }
@@ -560,11 +568,11 @@ sealed partial class Runner
         else Done = true;
     }
 
-    private void PlaceShelterThreat(float offset)
+    private void PlaceShelterThreat(float offset, int belowSurface = 0)
     {
         // 夹具固定猎食者移动能力，保留原生实体和遮挡。
         var bear = DatabaseManager.CreateEntity(p.Project, offset > 1f ? "Bear_Brown" : "Bear_Black", true);
-        bear.FindComponent<ComponentBody>(true).Position = testSite!.Center(testSite.Surface) + offset * Vector3.UnitX;
+        bear.FindComponent<ComponentBody>(true).Position = testSite!.Center(testSite.Surface - belowSurface) + offset * Vector3.UnitX;
         var locomotion = bear.FindComponent<ComponentLocomotion>(true);
         locomotion.WalkSpeed = 0f;
         locomotion.JumpSpeed = 0f;

@@ -15,7 +15,6 @@ internal sealed class PlayEarthShelter
     }
 
     private enum Phase { Center, SurveyFloor, DigFloor, Settle, SurveyWall, Seal, Resealed, SurveyRoof, Open, Peek, SurveyExitFloor, Jump, Raise }
-    private const float ExitPredatorRange = 16f;
     private static readonly Point3[] Walls = [new(1, 0, 0), new(0, 0, 1), new(-1, 0, 0), new(0, 0, -1)];
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
@@ -44,6 +43,8 @@ internal sealed class PlayEarthShelter
     public string? Status { get; private set; }
     public string? Reason { get; private set; }
     public bool Leaving => leaving;
+    public bool OwnsExitMotion(ComponentBody body) => leaving && site.SameColumn(body)
+        && (body.Position.Y < site.Surface - 0.05f || !PlaySurvivalSenses.OnDryGround(body));
 
     public static Site? At(ComponentBody body)
     {
@@ -260,16 +261,15 @@ internal sealed class PlayEarthShelter
     private bool CheckExitThreat(double gameTime)
     {
         nextPeek = gameTime + 0.12;
-        return TryRetreatFromPredators(PlaySurvivalSenses.Threats(player, owner.Queries, ExitPredatorRange), gameTime);
+        return TryRetreatFromPredators(PlaySurvivalSenses.Threats(player, owner.Queries), gameTime);
     }
 
     public bool TryRetreatFromPredators(IReadOnlyList<PlaySurvivalSenses.Threat> observed, double gameTime)
     {
         var body = player.ComponentBody;
-        if (!leaving || !opened || retreating || !site.SameColumn(body)
-            || body.Position.Y >= site.Surface - 0.05f && PlaySurvivalSenses.OnDryGround(body)) return false;
-        var threat = observed.FirstOrDefault(animal => !animal.Aquatic && animal.Y >= site.Surface - 1
-            && animal.Distance <= (animal.Predator ? ExitPredatorRange : 4f));
+        if (!opened || retreating || !OwnsExitMotion(body)) return false;
+        var threat = observed.FirstOrDefault(animal => animal.Y >= site.Surface - 1.05f
+            && PlaySurvivalSenses.NeedsAvoidance(animal, inWater: false));
         if (threat is null) return false;
         bool duringJump = phase == Phase.Raise;
         Stop();

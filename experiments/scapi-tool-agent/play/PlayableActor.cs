@@ -719,6 +719,8 @@ internal sealed class PlayableActor
             : preferShelter && gameTime >= nextShelter);
         bool canLeaveShelter = inEarthShelter && gameTime >= nextExit
             && (!coverUsable || restedInEarth && !restWindow || foodLevel < (recovering || severeCold ? 0.06f : 0.18f));
+        bool warmingNeeded = inEarthShelter && (temperature < (player.ComponentFlu.HasFlu ? 8f : 6f) || needsDrying);
+        bool readyToForage = canLeaveShelter && coverUsable && !nearNight && !restWindow && !warmingNeeded && RestThreatClear;
         bool forageInWater = !exposedToWater || player.ComponentVitalStats.Food < 0.16f;
         var nativeOffers = NativeToolOffers.Build(supported.Where(tool =>
             (Actions.Contains(tool.Name) || (survival && (tool.Name == "act_Jump" || tool.Name == "act_Sleep" && canSleep)))
@@ -728,7 +730,7 @@ internal sealed class PlayableActor
             && (canDismount || tool.Name != "act_Dismount")
             && (forageInWater || tool.Name is not ("act_Dig" or "act_PickUp"))).ToArray(),
             observation, inventory, Array.Empty<JsonElement>(), visibleEatInventory: eatInventory,
-            waitSeconds: survival ? 60 : 10, pickupInReachOnly: survival);
+            waitSeconds: readyToForage ? 8 : survival ? 60 : 10, pickupInReachOnly: survival);
         Guid id = Guid.NewGuid();
         var messages = allowSocial ? CaptureInbox(gameTime) : null;
         var scope = new SocialCaptureId(worldId, Session, Id, id);
@@ -773,7 +775,7 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向，绕开刚看到猎食者的位置。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏或生病低血量时找封闭庇护。持续低温时先躲进庇护回暖，太湿在顶下晾干。最多四步，每步核对实际条件。"
+                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向，绕开刚看到猎食者的位置。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏、持续低温或生病低血量时找封闭庇护。warmingNeeded 表示还需回暖或晾干，readyToForage 时可出坑补粮。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             rows = survival && includePanorama
                 ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物还在行尾带致病概率和营养。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]，pastPredators[名称,x,z,距今秒]。"
@@ -794,6 +796,8 @@ internal sealed class PlayableActor
             nearNight = survival ? nearNight : (bool?)null,
             restWindow = survival ? restWindow : (bool?)null,
             inEarthShelter = survival ? inEarthShelter : (bool?)null,
+            warmingNeeded = inEarthShelter ? warmingNeeded : (bool?)null,
+            readyToForage = inEarthShelter ? readyToForage : (bool?)null,
             canBuildHere = survival ? (inEarthShelter ? !coverUsable && RepairableShelter() is not null : buildSite is not null) : (bool?)null,
             canRestHere = survival ? canSleep : (bool?)null,
             needsDrying = survival ? needsDrying : (bool?)null,
@@ -991,8 +995,10 @@ internal sealed class PlayableActor
             reportedPredators = names;
             log(new { kind = "play_predator_sight", actor = Name, predators, gameTime });
         }
-        if (shelter?.TryRetreatFromPredators(predators, gameTime) == true) return true;
         var body = player.ComponentBody;
+        // 坑里悬空时由出坑动作决定回落和封顶，站稳后才交给地面撤离。
+        if (shelter is { } exit && exit.OwnsExitMotion(body))
+            return exit.TryRetreatFromPredators(predators, gameTime);
         bool inWater = IsOnWater(body);
         var threat = ThreatInRange(body, inWater);
         if (threat is null || gameTime < nextEvade || travel?.Evading == true
@@ -1026,8 +1032,7 @@ internal sealed class PlayableActor
     private PlaySurvivalSenses.Threat? ThreatInRange(ComponentBody body, bool inWater) =>
         predators.FirstOrDefault(animal => PlaySurvivalSenses.NeedsAvoidance(animal, inWater)
             && !(earthSite is { } site && site.SameColumn(body) && animal.Y >= site.Surface - 0.2f
-                && (body.Position.Y <= site.Surface - 2 || shelter?.Leaving == true
-                    && (body.Position.Y < site.Surface - 0.05f || !PlaySurvivalSenses.OnDryGround(body)))));
+                && body.Position.Y <= site.Surface - 2));
 
     private static Vector3 Position(JsonElement point) =>
         new(point.GetProperty("x").GetSingle(), point.GetProperty("y").GetSingle(), point.GetProperty("z").GetSingle());
