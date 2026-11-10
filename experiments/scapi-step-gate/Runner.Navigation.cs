@@ -10,6 +10,9 @@ sealed partial class Runner
     private float slowestContinuation = float.PositiveInfinity;
     private float biggestContinuousTurn;
     private bool insetAtStart;
+    private ComponentBody? pursuingBear;
+    private Vector3 bearOrigin;
+    private float escapeStartDistance;
 
     private void RunRollingNavigation()
     {
@@ -95,6 +98,74 @@ sealed partial class Runner
         Done = true;
         Gate.Log(new { kind = "short_alignment_result", Passed, distance, range,
             status = run.Result.Status.ToString(), failure = run.Result.Failure.ToString() });
+    }
+
+    private void RunPredatorCliff()
+    {
+        var body = p.ComponentBody;
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        if (stage == 0)
+        {
+            if (elapsed < 3) return;
+            var cell = Terrain.ToCell(body.Position);
+            for (int x = (cell.X - 17) & ~15; x <= cell.X + 7; x += 16)
+            for (int z = (cell.Z - 5) & ~15; z <= cell.Z + 17; z += 16)
+                if (!(terrain.Terrain.GetChunkAtCell(x, z)?.State >= TerrainChunkState.InvalidVertices1)) return;
+            navigationOrigin = cell;
+            for (int x = cell.X - 17; x <= cell.X + 7; x++)
+            for (int z = cell.Z - 5; z <= cell.Z + 17; z++)
+            {
+                int floor = x < cell.X + 2 ? cell.Y - 1 : cell.Y - 8;
+                for (int y = cell.Y - 8; y <= cell.Y + 4; y++)
+                    terrain.ChangeCell(x, y, z, y <= floor ? DirtBlock.Index : 0);
+            }
+            body.Position = new(cell.X + 0.474f, cell.Y, cell.Z + 0.451f);
+            body.Velocity = Vector3.Zero;
+            body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
+            var bear = DatabaseManager.CreateEntity(p.Project, "Bear_Brown", true);
+            pursuingBear = bear.FindComponent<ComponentBody>(true);
+            bearOrigin = body.Position - 15f * Vector3.UnitX;
+            pursuingBear.Position = bearOrigin;
+            p.Project.AddEntity(bear);
+            elapsed = 0;
+            stage = 1;
+            return;
+        }
+        if (elapsed < 0.75) return;
+        if (body.BoundingBox.Max.X > navigationOrigin.X + 2.03f || body.Position.Y < navigationOrigin.Y - 0.05f)
+            throw new InvalidOperationException("追击时跨进了断崖。");
+        if (travel is null)
+        {
+            var initial = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(threat => threat.Predator && !threat.Aquatic);
+            if (initial is null || !PlaySurvivalSenses.OnDryGround(body)) return;
+            var window = memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true));
+            var towardLedge = PlayDryRoutes.Next(window, Vector2.UnitX, 12f, false);
+            if (towardLedge is null || towardLedge.End.X < navigationOrigin.X + 1f)
+                throw new InvalidOperationException("夹具需要复现正向退路将停在崖边。");
+            escapeStartDistance = initial.Distance;
+            var lastSeen = initial;
+            pursuingBear!.Entity.FindComponent<ComponentChaseBehavior>(true).Attack(p, 24f, 20f, true);
+            travel = new(p, actions, 0, 9, "survey", true, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []),
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
+                escapeFrom: () =>
+                {
+                    lastSeen = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(threat => threat.Predator && !threat.Aquatic) ?? lastSeen;
+                    return new(lastSeen.X, lastSeen.Z);
+                });
+            Gate.Log(new { kind = "predator_cliff_started", distance = escapeStartDistance, priorStopX = towardLedge.End.X,
+                cliffX = navigationOrigin.X + 2 });
+        }
+        travel.Update(now);
+        if (travel.Status is null) return;
+
+        float sideDistance = MathF.Abs(body.Position.Z - travel.Origin.Z);
+        float pursuitDistance = (pursuingBear!.Position - bearOrigin).XZ.Length();
+        Passed = travel.Status == "succeeded" && sideDistance > 6f && pursuitDistance > 2f && stationaryLooks == 0
+            && continuations > 0 && p.ComponentHealth.Health >= 0.99f && PlaySurvivalSenses.OnDryGround(body);
+        Done = true;
+        Gate.Log(new { kind = "predator_cliff_result", Passed, travel.Status, travel.Reason, escapeStartDistance,
+            sideDistance, pursuitDistance, continuations, stationaryLooks, health = p.ComponentHealth.Health });
     }
 
     private void TrackNavigation(object value)

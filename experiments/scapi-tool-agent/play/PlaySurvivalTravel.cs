@@ -25,6 +25,7 @@ internal sealed class PlaySurvivalTravel
     private readonly Vector3? shelterTarget;
     private readonly Vector3? shoreTarget;
     private readonly Vector3 surveyTarget;
+    private readonly Func<Vector2>? escapeFrom;
     private readonly Action<object> log;
     private Vector2 direction;
     private Vector3 legOrigin;
@@ -42,7 +43,8 @@ internal sealed class PlaySurvivalTravel
     public PlaySurvivalTravel(ComponentPlayer player, AtomicActions owner, float bearing, float distance,
         string seek, bool evading, double gameTime, Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe,
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
-        PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null)
+        PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null,
+        Func<Vector2>? escapeFrom = null)
     {
         this.player = player;
         this.owner = owner;
@@ -56,6 +58,7 @@ internal sealed class PlaySurvivalTravel
             initialFoodStock = NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value);
         this.shelterTarget = shelterTarget;
         this.shoreTarget = shoreTarget;
+        this.escapeFrom = escapeFrom;
         this.log = log;
         Evading = evading;
         Origin = player.ComponentBody.Position;
@@ -65,7 +68,8 @@ internal sealed class PlaySurvivalTravel
         var offset = distance * new Vector3(direction.X, 0, direction.Y);
         surveyTarget = Origin + offset;
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
-        landDistanceLimit = seek == "survey" ? MathF.Abs(offset.X) + MathF.Abs(offset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
+        landDistanceLimit = escapeFrom is not null ? distance + 6f
+            : seek == "survey" ? MathF.Abs(offset.X) + MathF.Abs(offset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
     }
 
     public bool Evading { get; }
@@ -316,11 +320,7 @@ internal sealed class PlaySurvivalTravel
         dryLeg = true;
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
-        var route = PlayDryRoutes.Next(window, direction, remaining, !aligned && !Evading, visits);
-        if (route is null && Evading)
-            route = PlayDryRoutes.Next(window, Rotate(direction, 45), remaining, false, visits)
-                ?? PlayDryRoutes.Next(window, Rotate(direction, -45), remaining, false, visits)
-                ?? (!aligned ? PlayDryRoutes.Next(window, direction, remaining, true, visits) : null);
+        var route = DryRoute(window, remaining, !aligned);
         if (route is not null)
         {
             aligned = route.Action is MoveTo;
@@ -330,7 +330,7 @@ internal sealed class PlaySurvivalTravel
             {
                 var body = player.ComponentBody;
                 var goalOffset = (surveyTarget - body.Position).XZ;
-                if (seek == "survey" && goalOffset.LengthSquared() < 1 && flat.Points.Count == 1)
+                if (seek == "survey" && !Evading && goalOffset.LengthSquared() < 1 && flat.Points.Count == 1)
                 {
                     // 最后一小段沿已验证的走廊收短，避免为一格内的目标再走过头。
                     var corridor = flat.Points[0] - body.Position;
@@ -348,6 +348,10 @@ internal sealed class PlaySurvivalTravel
         Finish("failed", "no_observed_dry_route");
     }
 
+    private PlayDryRoutes.Leg? DryRoute(LocalObservationWindow window, float remaining, bool canAlign) =>
+        escapeFrom is { } readThreat ? PlayDryRoutes.Escape(window, readThreat(), remaining, canAlign)
+            : PlayDryRoutes.Next(window, direction, remaining, canAlign, visits);
+
     private (MoveAlongObservedRoute Route, Action Accepted)? ContinueFlat(double gameTime)
     {
         var body = player.ComponentBody;
@@ -360,7 +364,7 @@ internal sealed class PlaySurvivalTravel
         float progress = (body.Position - legOrigin).XZ.Length();
         float remaining = RemainingOnLand(body, approach, traveled + progress);
         if (remaining < 1.1f) return null;
-        var route = PlayDryRoutes.Next(readDryWindow(), direction, remaining, false, visits);
+        var route = DryRoute(readDryWindow(), remaining, false);
         if (route?.Action is not MoveAlongObservedRoute next || !route.Contains(body, 0)) return null;
 
         return (next, () =>
@@ -381,7 +385,12 @@ internal sealed class PlaySurvivalTravel
     private (string? Reached, Vector3? Approach) ReadLandGoal(ComponentBody body)
     {
         Vector3? approach = null;
-        if (seek == "survey")
+        if (escapeFrom is not null)
+        {
+            if ((body.Position - Origin).XZ.Length() >= distance - 0.45f)
+                return ("escaped_along_supported_ground", null);
+        }
+        else if (seek == "survey")
         {
             if ((surveyTarget - body.Position).XZ.LengthSquared() <= 0.45f * 0.45f)
                 return ("navigation_goal_reached", null);

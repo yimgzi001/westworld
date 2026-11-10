@@ -6,13 +6,15 @@ using GameEntitySystem;
 
 internal sealed class PlaySurvivalTrial
 {
-    private const int RequiredDays = 2;
+    private const int RequiredDays = 10;
+    private const int CheckpointDays = 2;
     private readonly SubsystemTimeOfDay calendar;
     private readonly double startDay;
     private readonly double startTime;
     private readonly Actor[] actors;
     private readonly Action<object> log;
     private double nextSample;
+    private bool checkpointLogged;
 
     private sealed class Actor(ComponentPlayer player)
     {
@@ -76,10 +78,6 @@ internal sealed class PlaySurvivalTrial
     public int DeathCount => actors.Count(actor => actor.DiedAt.HasValue);
     public bool AllDied => DeathCount == actors.Length;
 
-    private bool MilestoneReached => calendar.Day - startDay >= RequiredDays && actors.All(actor =>
-        actor.MinHealth > 0f && actor.MinFood > 0f && actor.Meals >= 2 && actor.PickedFoodMeals >= 2 && actor.Sleeps > 0
-        && actor.Player.ComponentVitalStats is { Food: >= 0.25f, Sleep: >= 0.25f });
-
     public void Sample(double gameTime, bool voluntaryRest)
     {
         foreach (var actor in actors)
@@ -112,7 +110,14 @@ internal sealed class PlaySurvivalTrial
                     wetness = player.ComponentVitalStats.Wetness, actor.Meals, actor.PickedFoodMeals, actor.Sleeps });
             }
         }
-        if (!Passed && voluntaryRest && MilestoneReached)
+        double days = calendar.Day - startDay;
+        if (!checkpointLogged && days >= CheckpointDays)
+        {
+            checkpointLogged = true;
+            LogState("play_survival_checkpoint", gameTime);
+        }
+        if (!Passed && days >= RequiredDays && DeathCount == 0 && voluntaryRest
+            && actors.All(actor => actor.PickedFoodMeals >= 2 && actor.Sleeps > 0))
         {
             Passed = true;
             LogState("play_survival_milestone", gameTime);

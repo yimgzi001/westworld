@@ -233,7 +233,8 @@ def safe_usage(value):
     if value is None:
         return None
     allowed = {"input_tokens", "output_tokens", "total_tokens",
-               "input_tokens_details", "output_tokens_details", "cached_tokens", "reasoning_tokens"}
+               "input_tokens_details", "output_tokens_details", "cached_tokens", "reasoning_tokens",
+               "cache_write_tokens", "cache_write_tokens_details", "ttl_30m_tokens", "ttl_12h_tokens"}
     def walk(v):
         if isinstance(v, dict):
             return {k: walk(x) for k, x in v.items() if k in allowed}

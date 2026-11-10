@@ -14,46 +14,35 @@ internal static class PlaySurvivalPanorama
 
     internal sealed record Sweep(Vector3 Origin, double CompletedAt, ActorPanorama Panorama, Sector[] Sectors, SubsystemTerrain NativeTerrain)
     {
-        public object Snapshot(Vector3 at, Vector2 facing, double gameTime) => new
+        public object Snapshot(Vector3 at, Vector2 facing, double gameTime, bool onDryGround) => new
         {
-            mode = "panorama",
             radius = Panorama.Radius,
             secondsAgo = Math.Round(gameTime - CompletedAt, 1),
             Panorama.UnloadedColumns,
-            visibleBlocks = Panorama.Blocks.Count,
-            visibleAnimals = Panorama.Objects.Entities.Count,
-            visibleItems = Panorama.Objects.Pickables.Count,
             sectors = Sectors.Select(sector => new
             {
                 bearing = Bearing(facing, sector.Direction),
                 terrain = sector.Blocks.GroupBy(block => Terrain.ExtractContents(block.Value))
-                    .OrderByDescending(group => group.Count()).Take(4).Select(group =>
-                    {
-                        var nearest = group.MinBy(block => block.Distance)!;
-                        return new { name = BlocksManager.Blocks[group.Key].GetDisplayName(NativeTerrain, nearest.Value),
-                            count = group.Count(), distance = Math.Round(nearest.Distance, 1) };
-                    }).ToArray(),
-                dryGround = sector.Blocks.Where(block => block.BareTop && IsDryGround(block.Value) && block.Cell.Y >= at.Y - 2)
-                    .OrderBy(block => block.Distance).Take(1).Select(block => Describe("dry_ground", block.Point, at, facing)).FirstOrDefault(),
+                    .OrderByDescending(group => group.Count()).Take(2).Select(group =>
+                        BlocksManager.Blocks[group.Key].GetDisplayName(NativeTerrain, group.First().Value)).ToArray(),
+                dryGround = !onDryGround && sector.Blocks.Where(block => block.BareTop && IsDryGround(block.Value) && block.Cell.Y >= at.Y - 2)
+                    .MinBy(block => block.Distance) is { } land ? DescribeSpot(land.Point, at, facing) : null,
                 softEarth = sector.Blocks.Where(IsSoftEarth).MinBy(block => (block.Point - at).LengthSquared()) is { } earth
-                    ? Describe("soft_earth", earth.Point, at, facing) : null,
+                    ? DescribeSpot(earth.Point, at, facing) : null,
                 wood = sector.Blocks.Where(block => PlaySurvivalProduction.IsMaterial(block.Value, PlaySurvivalProduction.Wood))
-                    .MinBy(block => block.Distance) is { } wood ? Describe("wood", wood.Point, at, facing) : null,
+                    .MinBy(block => block.Distance) is { } wood ? DescribeSpot(wood.Point, at, facing) : null,
                 stone = sector.Blocks.Where(block => PlaySurvivalProduction.IsMaterial(block.Value, PlaySurvivalProduction.Stone))
-                    .MinBy(block => block.Distance) is { } stone ? Describe("granite", stone.Point, at, facing) : null,
-                food = sector.Food.OrderBy(food => food.SicknessRisk).ThenBy(food => food.Distance).Take(4)
+                    .MinBy(block => block.Distance) is { } stone ? DescribeSpot(stone.Point, at, facing) : null,
+                food = sector.Food.OrderBy(food => food.SicknessRisk).ThenBy(food => food.Distance)
+                    .DistinctBy(food => (food.Value, food.Source)).Take(4)
                     .Select(food => DescribeFood(food, at, facing)).ToArray(),
-                animals = sector.Animals.Where(animal => !string.IsNullOrWhiteSpace(animal.Name)).Take(4)
+                animals = sector.Animals.Where(animal => !string.IsNullOrWhiteSpace(animal.Name))
+                    .DistinctBy(animal => animal.Name).Take(4)
                     .Select(animal => Describe(animal.Name, animal.Position, at, facing)).ToArray(),
-                itemTypes = sector.Items.GroupBy(item => item.Value).Take(2).Select(group =>
-                {
-                    var nearest = group.First();
-                    return Describe(BlocksManager.Blocks[Terrain.ExtractContents(nearest.Value)].GetDisplayName(NativeTerrain, nearest.Value),
-                        nearest.Position, at, facing);
-                }).ToArray(),
-                foodCount = sector.Food.Length,
-                animalCount = sector.Animals.Length,
-                itemCount = sector.Items.Length
+                itemTypes = sector.Items.Where(item => BlocksManager.Blocks[Terrain.ExtractContents(item.Value)]
+                    .GetNutritionalValue(item.Value) <= 0f).DistinctBy(item => item.Value).Take(2)
+                    .Select(item => Describe(BlocksManager.Blocks[Terrain.ExtractContents(item.Value)]
+                        .GetDisplayName(NativeTerrain, item.Value), item.Position, at, facing)).ToArray()
             }).ToArray()
         };
 
@@ -86,19 +75,20 @@ internal static class PlaySurvivalPanorama
             return ground is null ? null : new Vector3(ground.Cell.X + 0.5f, ground.Cell.Y + 1f, ground.Cell.Z + 0.5f);
         }
 
-        private static object Describe(string name, Vector3 point, Vector3 at, Vector2 facing)
+        private sealed record Spot(double bearing, double distance, double height);
+
+        private static Spot DescribeSpot(Vector3 point, Vector3 at, Vector2 facing)
         {
             var delta = point - at;
-            return new { name, bearing = Bearing(facing, delta.XZ), distance = Math.Round(delta.Length(), 1),
-                x = Math.Round(point.X, 1), y = Math.Round(point.Y, 1), z = Math.Round(point.Z, 1) };
+            return new(Bearing(facing, delta.XZ), Math.Round(delta.XZ.Length(), 1), Math.Round(delta.Y, 1));
         }
+
+        private static object Describe(string name, Vector3 point, Vector3 at, Vector2 facing) =>
+            new { name, spot = DescribeSpot(point, at, facing) };
 
         private static object DescribeFood(PlaySurvivalFood.Food food, Vector3 at, Vector2 facing)
         {
-            var point = food.Point;
-            var delta = point - at;
-            return new { name = food.Name, bearing = Bearing(facing, delta.XZ), distance = Math.Round(delta.Length(), 1),
-                x = Math.Round(point.X, 1), y = Math.Round(point.Y, 1), z = Math.Round(point.Z, 1),
+            return new { name = food.Name, spot = DescribeSpot(food.Point, at, facing),
                 sicknessRisk = food.SicknessRisk, nutrition = food.Nutrition };
         }
 

@@ -10,6 +10,14 @@ internal static class PlayDryRoutes
 {
     internal sealed record Leg(AtomicAction Action, IReadOnlyList<LocalObservedCell> Evidence, ObservedStepRoute? Step = null)
     {
+        public Vector3 End => Action switch
+        {
+            MoveAlongObservedRoute flat => flat.Points[^1],
+            MoveTo align => align.Destination,
+            StepTo step => step.Destination,
+            _ => throw new InvalidOperationException("无落脚点的路线动作。")
+        };
+
         public bool Contains(ComponentBody body, double elapsed)
         {
             if (Evidence.Max(cell => cell.Age) + elapsed > 3) return false;
@@ -27,38 +35,86 @@ internal static class PlayDryRoutes
         Func<Position, int>? visits = null)
     {
         var origin = window.Position;
-        Vector3 PositionOf(Position value) => new((float)value.X, (float)value.Y, (float)value.Z);
-        Leg StepLeg(ObservedStepRoute step) => new(new StepTo(PositionOf(step.Destination)), step.Evidence, step);
         double Score(Position target) => (target.X - origin.X) * direction.X + (target.Z - origin.Z) * direction.Y
             - Math.Min(0.35, 0.07 * (visits?.Invoke(target) ?? 0));
-        var steps = ObservedStepRoutes.Project(window, allowObservedSandAndGravel: true)
-            .Where(step => step.MaximumAge <= 1.25).ToArray();
+        var steps = ReadSteps(window);
         var forwardStep = steps.Where(step => step.Kind == StepKind.Up
                 && Vector2.Dot(Vector2.Normalize((PositionOf(step.Destination) - PositionOf(origin)).XZ), direction) >= 0.9f)
             .MaxBy(step => Score(step.Destination));
         // 目标前方已经证实有一格台阶时，直接跳过去，避免绕去侧面的平地。
         if (forwardStep is not null) return StepLeg(forwardStep);
-        int maxLength = Math.Min(4, (int)MathF.Floor(remaining + 0.4f));
-        if (maxLength >= 2)
-        {
-            var route = Cardinal.Where(axis => Vector2.Dot(axis, direction) > 0.3f)
-                .SelectMany(axis => Enumerable.Range(2, maxLength - 1).Reverse().Select(length => ObservedFlatRoutes.Inspect(window,
-                    new(origin.X + length * axis.X, origin.Y, origin.Z + length * axis.Y), maximumEvidenceAge: 1.75,
-                    groundPolicy: RouteGroundPolicy.ObservedFullCube).Route).OfType<ObservedFlatRoute>().Take(1))
-                .MaxBy(candidate => Score(candidate.Destination));
-            if (route is not null)
-                return new(new MoveAlongObservedRoute(route.Points.Select(PositionOf).ToArray(), LevelGaze: true), route.Evidence);
-        }
-        var flat = LocalRouteCandidates.Project(window, 1, RouteGroundPolicy.ObservedFullCube);
-        var options = flat.Candidates.Where(candidate => flat.Provenance[candidate.EvidenceId].All(cell => cell.Age <= 1.75))
-            .Select(candidate => (Score: Score(candidate.Destination), Route: new Leg(new MoveAlongObservedRoute(
-                [PositionOf(candidate.Destination)], 0.24f, 3f, LevelGaze: true), flat.Provenance[candidate.EvidenceId])))
-            .Concat(steps.Select(step => (Score: Score(step.Destination) - 0.04, Route: StepLeg(step))))
-            .Where(option => option.Score > 0.12).OrderByDescending(option => option.Score).ToArray();
-        if (options.Length > 0) return options[0].Route;
+        var longRoute = LongRoutes(window, remaining, Cardinal.Where(axis => Vector2.Dot(axis, direction) > 0.3f))
+            .MaxBy(candidate => Score(candidate.Destination));
+        if (longRoute is not null) return FlatLeg(longRoute);
+        return ShortRoutes(window).Concat(steps.Select(StepLeg))
+            .Select(leg => (Leg: leg, Score: Score(new Position(leg.End.X, leg.End.Y, leg.End.Z)) - (leg.Step is null ? 0 : 0.04)))
+            .Where(option => option.Score > 0.12).OrderByDescending(option => option.Score).FirstOrDefault().Leg
+            ?? (canAlign ? Alignment(window) : null);
+    }
 
-        var alignment = canAlign ? LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true,
-            allowLeavingSmallOverhang: true) : null;
+    public static Leg? Escape(LocalObservationWindow window, Vector2 threat, float remaining, bool canAlign)
+    {
+        var origin = PositionOf(window.Position);
+        var separation = origin.XZ - threat;
+        float distance = separation.Length();
+        if (distance <= 0.05f) return null;
+        var away = separation / distance;
+        var recent = window.Cells.Where(cell => cell.Age <= 1.75).ToDictionary(cell => (cell.X, cell.Y, cell.Z));
+        var best = LongRoutes(window, remaining, Cardinal).Select(FlatLeg)
+            .Concat(ShortRoutes(window)).Concat(ReadSteps(window).Select(StepLeg))
+            .Select(leg => (Leg: leg, Score: Score(leg)))
+            .Where(option => float.IsFinite(option.Score)).OrderByDescending(option => option.Score).FirstOrDefault().Leg;
+        return best ?? (canAlign ? Alignment(window) : null);
+
+        float Score(Leg leg)
+        {
+            var point = leg.End;
+            var delta = point.XZ - origin.XZ;
+            float gain = (point.XZ - threat).Length() - distance;
+            // 允许沿崖横移。退路的整段地面和净空已确认，路线还得拉开与威胁的距离。
+            if (Vector2.Dot(delta, away) < -0.08f || gain <= 0.02f) return float.NegativeInfinity;
+            int x = Terrain.ToCell(point.X), y = (int)MathF.Round(point.Y), z = Terrain.ToCell(point.Z);
+            int ledges = 0;
+            foreach (var side in Cardinal)
+            {
+                int sx = x + (int)side.X, sz = z + (int)side.Y;
+                if (IsAir(sx, y - 1, sz)) ledges += IsAir(sx, y - 2, sz) ? 2 : 1;
+            }
+            return 2f * gain + 0.45f * delta.Length() - 1.6f * ledges - (leg.Step?.Kind == StepKind.Down ? 0.5f : 0f);
+        }
+
+        bool IsAir(int x, int y, int z) => recent.TryGetValue((x, y, z), out var cell) && Terrain.ExtractContents(cell.Value) == 0;
+    }
+
+    private static Vector3 PositionOf(Position value) => new((float)value.X, (float)value.Y, (float)value.Z);
+    private static Leg StepLeg(ObservedStepRoute step) => new(new StepTo(PositionOf(step.Destination)), step.Evidence, step);
+    private static Leg FlatLeg(ObservedFlatRoute flat) =>
+        new(new MoveAlongObservedRoute(flat.Points.Select(PositionOf).ToArray(), LevelGaze: true), flat.Evidence);
+
+    private static ObservedStepRoute[] ReadSteps(LocalObservationWindow window) => ObservedStepRoutes.Project(window,
+        allowObservedSandAndGravel: true).Where(step => step.MaximumAge <= 1.25).ToArray();
+
+    private static IEnumerable<ObservedFlatRoute> LongRoutes(LocalObservationWindow window, float remaining, IEnumerable<Vector2> headings)
+    {
+        int maxLength = Math.Min(4, (int)MathF.Floor(remaining + 0.4f));
+        if (maxLength < 2) return [];
+        var origin = window.Position;
+        return headings.SelectMany(axis => Enumerable.Range(2, maxLength - 1).Reverse().Select(length => ObservedFlatRoutes.Inspect(window,
+            new(origin.X + length * axis.X, origin.Y, origin.Z + length * axis.Y), maximumEvidenceAge: 1.75,
+            groundPolicy: RouteGroundPolicy.ObservedFullCube).Route).OfType<ObservedFlatRoute>().Take(1));
+    }
+
+    private static IEnumerable<Leg> ShortRoutes(LocalObservationWindow window)
+    {
+        var flat = LocalRouteCandidates.Project(window, 1, RouteGroundPolicy.ObservedFullCube);
+        return flat.Candidates.Where(candidate => flat.Provenance[candidate.EvidenceId].All(cell => cell.Age <= 1.75))
+            .Select(candidate => new Leg(new MoveAlongObservedRoute([PositionOf(candidate.Destination)], 0.24f, 3f, LevelGaze: true),
+                flat.Provenance[candidate.EvidenceId]));
+    }
+
+    private static Leg? Alignment(LocalObservationWindow window)
+    {
+        var alignment = LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true, allowLeavingSmallOverhang: true);
         return alignment is { MaximumAge: <= 1.5 }
             ? new(new MoveTo(PositionOf(alignment.Destination), 0.04f, 3f), alignment.Evidence) : null;
     }

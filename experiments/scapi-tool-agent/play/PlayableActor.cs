@@ -1,7 +1,10 @@
 #nullable enable
 
 using System.Diagnostics;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Capability39;
 using Capability39.SocialTasks;
 using Engine;
@@ -16,6 +19,11 @@ internal sealed class PlayableActor
     private static readonly string[] Actions =
         ["act_MoveTo", "act_FaceTowards", "act_Dig", "act_SelectItem", "act_PickUp", "act_Eat", "act_Dismount", "act_Wait"];
     private const string SmokeSpeech = "一起找食物";
+    private static readonly JsonSerializerOptions SurvivalContextJson = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     private readonly ComponentPlayer player;
     private readonly NativeToolSession tools;
@@ -455,6 +463,8 @@ internal sealed class PlayableActor
             || (bridge is null && SmokeReady)) return false;
         if (gameTime < nextExit && earthSite?.Contains(player.ComponentBody) == true
             && player.ComponentVitalStats.Food >= 0.18f && PlaySurvivalRest.HasSecureCover(player)) return false;
+        // 已确认的危险由游戏线程处置。避险重试间隔内发出的请求很快会被下一次避险取消。
+        if (survival && ThreatInRange(player.ComponentBody, IsOnWater(player.ComponentBody)) is not null) return false;
 
         (Guid Observation, ToolDecisionPrompt Prompt, JsonElement Context, IReadOnlyList<ToolOffer> Offers,
             PlaySurvivalFood.Food[]? Foods) snapshot;
@@ -479,15 +489,17 @@ internal sealed class PlayableActor
         }
         var session = Session;
         var actor = Id;
+        var requestId = Guid.NewGuid();
         var window = TimeSpan.FromSeconds(bridge is null ? 7 : 45);
         int round = requests + 1;
         if (!queue.TryStart(session, actor, snapshot.Observation, window, token => bridge is null
             ? SmokeDecision(snapshot.Prompt, snapshot.Context, delayFirst && round == 1, smokeSpeaker && round == 2, round, token)
             : bridge.DecideAsync(snapshot.Prompt, session, actor, snapshot.Observation, snapshot.Context,
-                snapshot.Offers, gameTime, token, remainingBudget: window))) return false;
+                snapshot.Offers, gameTime, token, requestId, remainingBudget: window))) return false;
 
         requests = round;
-        log(new { kind = "play_request", actor = Name, actorId = Id, round, gameTime });
+        log(new { kind = "play_request", actor = Name, actorId = Id, round, gameTime, requestId,
+            observationId = snapshot.Observation, promptBytes = Encoding.UTF8.GetByteCount(snapshot.Prompt.Prompt) });
         return true;
     }
 
@@ -629,12 +641,12 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。surroundings 是同一时刻的全向观察摘要，bearing 是相对方向。水上用 scout_local 找 dry_land。陆地用 scout_local 连续导航，最多选择 24 格内的目标。优先找无致病风险的成熟南瓜和熟食，见到附近生蛋先收作储备，最多备两枚。饱食不高于 24% 才吃生蛋。安全时可用 prepare_survival_supplies 取木、制作工作台、取圆石、造熔炉，准备好燃料后用 cook_meat 烤熟生肉。recovering 表示生病且血量低，白天也优先找庇护。降温或黄昏同样先找庇护。睡觉需要实体顶和墙，build_earth_shelter 会自己取得封顶用土，之后接 rest_when_safe。封闭处太湿就先晾干再睡。最多四步，游戏逐步核对实际条件。"
+                ? "先保命。全向摘要的 bearing 相对当前朝向，height 相对脚下。水上先用 dry_land 上岸。优先成熟南瓜和熟食，附近生蛋可先储备两枚，饱食不高于 24% 才吃。生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             actor = Name,
             previousGoal = goal,
             previousOutcome = outcome,
-            observation,
+            observation = survival ? ModelSurvivalObservation(observation) : (object)observation,
             inventory = visibleInventory,
             visibleFood,
             visibleShore = shore,
@@ -654,12 +666,21 @@ internal sealed class PlayableActor
             onDryGround = survival ? onDryGround : (bool?)null,
             localMemory = survival ? survivalMemory.Snapshot(gameTime) : null,
             surroundings = includePanorama && surroundings is { } surveyed
-                ? surveyed.Snapshot(body.Position, body.Matrix.Forward.XZ, gameTime) : null,
+                ? surveyed.Snapshot(body.Position, body.Matrix.Forward.XZ, gameTime, onDryGround) : null,
             sleepBlocker = string.IsNullOrEmpty(sleepBlocker) ? null : sleepBlocker,
             receivedSocial = messages
-        });
+        }, survival ? SurvivalContextJson : null);
         return (id, new ToolDecisionPrompt(Session, Id, id, context, offers, maxSteps: survival ? 4 : 1), context, offers, visibleFood);
     }
+
+    private static object ModelSurvivalObservation(JsonElement observation) => new
+    {
+        gameTime = Math.Round(observation.GetProperty("gameTime").GetDouble(), 1),
+        self = observation.GetProperty("self"),
+        // 可直接拾取的对象保留原生引用。地形和远处对象由同帧全向摘要提供。
+        pickables = observation.GetProperty("pickables").EnumerateArray()
+            .Where(item => item.TryGetProperty("inReach", out var reach) && reach.ValueKind == JsonValueKind.True).ToArray()
+    };
 
     private JsonElement? CaptureInbox(double gameTime)
     {
@@ -816,11 +837,8 @@ internal sealed class PlayableActor
             log(new { kind = "play_predator_sight", actor = Name, predators, gameTime });
         }
         var body = player.ComponentBody;
-        bool inWater = body.ImmersionDepth > 0.12f || player.Entity.FindComponent<ComponentRider>()?.Mount is not null
-            || PlaySurvivalSenses.BoatDeck(body) is not null;
-        var threat = predators.FirstOrDefault(animal => PlaySurvivalSenses.NeedsAvoidance(animal, inWater)
-            && !(earthSite is { } site && site.Contains(body) && animal.Y >= site.Surface - 0.2f
-                && (shelter?.Leaving == true || body.Position.Y <= site.Surface - 2)));
+        bool inWater = IsOnWater(body);
+        var threat = ThreatInRange(body, inWater);
         if (threat is null || gameTime < nextEvade || travel?.Evading == true
             || (inWater && travel?.HeadingForLand == true)) return false;
 
@@ -834,11 +852,24 @@ internal sealed class PlayableActor
         }
         nextEvade = gameTime + 12;
         float bearing = Vector2.Angle(body.Matrix.Forward.XZ, away) * (180f / MathF.PI);
+        var lastSeen = threat;
         travel = new(player, owner, bearing, inWater ? 9 : 12, inWater ? "dry_land" : "survey", true, gameTime,
-            ObserveSurvival, ReadDryWindow, log);
+            ObserveSurvival, ReadDryWindow, log, escapeFrom: inWater ? null : () =>
+            {
+                lastSeen = ThreatInRange(body, false) ?? lastSeen;
+                return new(lastSeen.X, lastSeen.Z);
+            });
         log(new { kind = "play_predator_evade", actor = Name, threat, gameTime, bearing });
         return true;
     }
+
+    private bool IsOnWater(ComponentBody body) => body.ImmersionDepth > 0.12f
+        || player.Entity.FindComponent<ComponentRider>()?.Mount is not null || PlaySurvivalSenses.BoatDeck(body) is not null;
+
+    private PlaySurvivalSenses.Threat? ThreatInRange(ComponentBody body, bool inWater) =>
+        predators.FirstOrDefault(animal => PlaySurvivalSenses.NeedsAvoidance(animal, inWater)
+            && !(earthSite is { } site && site.Contains(body) && animal.Y >= site.Surface - 0.2f
+                && (shelter?.Leaving == true || body.Position.Y <= site.Surface - 2)));
 
     private static Vector3 Position(JsonElement point) =>
         new(point.GetProperty("x").GetSingle(), point.GetProperty("y").GetSingle(), point.GetProperty("z").GetSingle());
