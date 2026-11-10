@@ -10,12 +10,14 @@ using Westworld.Runtime.Core;
 internal sealed class PlaySurvivalTravel
 {
     private const int LandLegLimit = 48;
+    private const float EscapeTurnClearanceSquared = 14f * 14f;
     private enum SeatAim { None, Turning, Ready }
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
     private readonly string seek;
     private readonly float distance, landDistanceLimit;
     private readonly float escapeClearance;
+    private readonly bool allowEscapeTurn;
     private readonly float initialHealth;
     private readonly double deadline;
     private readonly Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe;
@@ -33,10 +35,12 @@ internal sealed class PlaySurvivalTravel
     private Vector3 legOrigin;
     private AtomicActionRun? leg;
     private PlayDryRoutes.Leg? dryProof;
+    private Vector3? escapeOutlet;
     private long proofStarted;
     private int scans, legs;
     private float traveled;
     private bool detourUsed, jumpUsed, dryLeg, aligned, detouring;
+    private bool approachingEscapeTurn;
     private SeatAim seatAim;
     private PlaySurvivalSenses.Shore? lastShore;
     private double shoreSeenAt;
@@ -47,7 +51,7 @@ internal sealed class PlaySurvivalTravel
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
         PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null,
         Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null,
-        float escapeClearance = 0f)
+        float escapeClearance = 0f, bool allowEscapeTurn = false)
     {
         this.player = player;
         this.owner = owner;
@@ -63,6 +67,7 @@ internal sealed class PlaySurvivalTravel
         this.shoreTarget = shoreTarget;
         this.escapeFrom = escapeFrom;
         this.escapeClearance = escapeClearance;
+        this.allowEscapeTurn = allowEscapeTurn;
         this.permitLandLeg = permitLandLeg;
         this.log = log;
         Evading = evading;
@@ -78,6 +83,7 @@ internal sealed class PlaySurvivalTravel
     }
 
     public bool Evading { get; }
+    public bool UsedEscapeTurn { get; private set; }
     public bool HeadingForLand => seek == "dry_land";
     public Vector3 Origin { get; }
     public string? Status => status;
@@ -103,15 +109,20 @@ internal sealed class PlaySurvivalTravel
         }
         if (leg?.Result.Status == AtomicActionStatus.Running)
         {
-            if (dryProof is null || dryProof.Contains(body, Stopwatch.GetElapsedTime(proofStarted).TotalSeconds)) return;
+            bool threatClosing = approachingEscapeTurn && escapeFrom is { } readThreat
+                && (body.Position.XZ - readThreat()).LengthSquared() < EscapeTurnClearanceSquared;
+            if (!threatClosing && (dryProof is null || dryProof.Contains(body, Stopwatch.GetElapsedTime(proofStarted).TotalSeconds)))
+                return;
             owner.Cancel(leg);
-            log(new { kind = "play_scout_evidence_expired", actor = player.PlayerData.Name, gameTime,
+            log(new { kind = threatClosing ? "play_predator_escape_turn_interrupted" : "play_scout_evidence_expired",
+                actor = player.PlayerData.Name, gameTime,
                 action = leg.Action.GetType().Name });
         }
 
         var previous = leg;
         leg = null;
         dryProof = null;
+        approachingEscapeTurn = false;
         bool blocked = false;
         if (previous is not null)
             log(new { kind = "play_scout_leg", actor = player.PlayerData.Name, seek, gameTime,
@@ -337,6 +348,15 @@ internal sealed class PlaySurvivalTravel
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
         var route = DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
+        if (route is null && allowEscapeTurn && !UsedEscapeTurn && remaining >= 4f && escapeFrom is { } readThreat
+            && PlayDryRoutes.EscapeTurn(window, readThreat()) is { } turn)
+        {
+            route = turn.Approach;
+            escapeOutlet = turn.Exit;
+            UsedEscapeTurn = approachingEscapeTurn = true;
+            log(new { kind = "play_predator_escape_turn", actor = player.PlayerData.Name, gameTime,
+                corner = route.End.ToString(), outlet = turn.Exit.ToString() });
+        }
         bool exploring = seek == "survey" || seek == "food" && foodTarget is null || seek == "shelter" && shelterTarget is null;
         if (route is null && exploring && !Evading && remaining >= 1f)
         {
@@ -354,7 +374,7 @@ internal sealed class PlaySurvivalTravel
             aligned = route.Action is MoveTo;
             legs++;
             AtomicAction action = route.Action;
-            if (!detouring && action is MoveAlongObservedRoute flat)
+            if (!detouring && !approachingEscapeTurn && action is MoveAlongObservedRoute flat)
             {
                 var body = player.ComponentBody;
                 var goalOffset = ((seek == "camp" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
@@ -377,10 +397,26 @@ internal sealed class PlaySurvivalTravel
     }
 
     private PlayDryRoutes.Leg? DryRoute(LocalObservationWindow window, float remaining, bool canAlign, bool towardLowerDrop,
-        double gameTime) =>
-        escapeFrom is { } readThreat ? PlayDryRoutes.Escape(window, readThreat(), remaining, canAlign)
-            : PlayDryRoutes.Next(window, direction, remaining, canAlign, visits, towardLowerDrop,
+        double gameTime)
+    {
+        if (escapeFrom is not { } readThreat)
+            return PlayDryRoutes.Next(window, direction, remaining, canAlign, visits, towardLowerDrop,
                 end => CanUseLandLeg(end, gameTime));
+
+        var threat = readThreat();
+        var origin = player.ComponentBody.Position;
+        if (escapeOutlet is { } exit)
+        {
+            var offset = (exit - origin).XZ;
+            if ((origin.XZ - threat).LengthSquared() >= EscapeTurnClearanceSquared && offset.LengthSquared() > 0.4f * 0.4f
+                && PlayDryRoutes.Next(window, Vector2.Normalize(offset), Math.Min(remaining, offset.Length() + 0.2f),
+                    canAlign, permitted: end => (end.XZ - threat).LengthSquared() >= EscapeTurnClearanceSquared
+                        && (end - exit).XZ.LengthSquared() < offset.LengthSquared()) is { } side)
+                return side;
+            escapeOutlet = null;
+        }
+        return PlayDryRoutes.Escape(window, threat, remaining, canAlign);
+    }
 
     private bool CanUseLandLeg(Vector3 end, double gameTime) => permitLandLeg?.Invoke(end, gameTime) != false;
 

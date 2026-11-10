@@ -11,8 +11,10 @@ public sealed record FlatRouteInspection(ObservedFlatRoute? Route,string Reason,
 public static class ObservedFlatRoutes {
  public static ObservedFlatRoute? Project(LocalObservationWindow window,Position destination)=>Inspect(window,destination).Route;
  public static FlatRouteInspection Inspect(LocalObservationWindow window,Position destination,double maximumEvidenceAge=3,
-  RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable,Func<int,bool>? openCell=null) {
-  ArgumentNullException.ThrowIfNull(window);var origin=window.Position;
+  RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable,Func<int,bool>? openCell=null,Position? plannedOrigin=null) {
+  ArgumentNullException.ThrowIfNull(window);
+  // 可用现有证据预看下一段，执行仍需从真实身体位置重新验证。
+  var origin=plannedOrigin??window.Position;
   FlatRouteInspection No(string reason)=>new(null,reason,0,Array.Empty<FlatRouteCellIssue>());
   if(!double.IsFinite(maximumEvidenceAge)||maximumEvidenceAge<0||maximumEvidenceAge>3)return No("invalid_evidence_age_limit");
   if(!Enum.IsDefined(groundPolicy))return No("invalid_ground_policy");

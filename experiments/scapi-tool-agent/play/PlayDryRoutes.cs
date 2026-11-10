@@ -89,6 +89,37 @@ internal static class PlayDryRoutes
         bool IsAir(int x, int y, int z) => recent.TryGetValue((x, y, z), out var cell) && OpenCell(cell.Value);
     }
 
+    public static (Leg Approach, Vector3 Exit)? EscapeTurn(LocalObservationWindow window, Vector2 threat)
+    {
+        var origin = PositionOf(window.Position);
+        var away = origin.XZ - threat;
+        if (away.LengthSquared() < 16f * 16f) return null;
+        away = Vector2.Normalize(away);
+        // 岸边只剩向威胁方向的路时，先确认两格内有侧向出口，再允许短暂靠近。
+        foreach (int length in new[] { 1, 2 })
+        foreach (var approach in Cardinal.Where(axis => Vector2.Dot(axis, away) < -0.08f))
+        {
+            var first = FlatRoute(window, approach, length);
+            if (first is null) continue;
+            var corner = first.Destination;
+            foreach (var side in Cardinal.Where(axis => Vector2.Dot(axis, approach) == 0f
+                && MathF.Abs(Vector2.Dot(axis, away)) <= 0.35f))
+            {
+                var exit = UpStep(corner, side) ?? FlatRoute(window, side, 2, corner)?.Destination;
+                if (exit is null && FlatRoute(window, side, 1, corner) is { } approachToStep)
+                    exit = UpStep(approachToStep.Destination, side);
+                if (exit is { } point)
+                    return (new(new MoveAlongObservedRoute(first.Points.Select(PositionOf).ToArray(),
+                        FinalRange: 0.1f, LevelGaze: true), first.Evidence), PositionOf(point));
+            }
+        }
+        return null;
+
+        Position? UpStep(Position from, Vector2 side) => ReadSteps(window, from)
+            .FirstOrDefault(step => step.Kind == StepKind.Up
+                && Vector2.Dot((PositionOf(step.Destination) - PositionOf(from)).XZ, side) >= 0.65f)?.Destination;
+    }
+
     public static Leg? Detour(LocalObservationWindow window, Vector2 direction, float remaining, Func<Position, int>? visits,
         Func<Vector3, bool>? permitted = null)
     {
@@ -118,8 +149,9 @@ internal static class PlayDryRoutes
     private static Leg FlatLeg(ObservedFlatRoute flat) =>
         new(new MoveAlongObservedRoute(flat.Points.Select(PositionOf).ToArray(), LevelGaze: true), flat.Evidence);
 
-    private static ObservedStepRoute[] ReadSteps(LocalObservationWindow window) => ObservedStepRoutes.Project(window,
-        allowObservedSandAndGravel: true, openCell: OpenCell).Where(step => step.MaximumAge <= 1.25).ToArray();
+    private static ObservedStepRoute[] ReadSteps(LocalObservationWindow window, Position? plannedOrigin = null) =>
+        ObservedStepRoutes.Project(window, allowObservedSandAndGravel: true, openCell: OpenCell, plannedOrigin: plannedOrigin)
+            .Where(step => step.MaximumAge <= 1.25).ToArray();
 
     public static Vector3? ShallowExit(LocalObservationWindow window, int surface) => ReadSteps(window)
         .FirstOrDefault(step => step.Kind == StepKind.Up && step.Destination.Y == surface) is { } exit
@@ -130,11 +162,17 @@ internal static class PlayDryRoutes
     {
         int maxLength = Math.Min(4, (int)MathF.Floor(remaining + 0.4f));
         if (maxLength < 2) return [];
-        var origin = window.Position;
-        return headings.SelectMany(axis => Enumerable.Range(2, maxLength - 1).Reverse().Select(length => ObservedFlatRoutes.Inspect(window,
-            new(origin.X + length * axis.X, origin.Y, origin.Z + length * axis.Y), maximumEvidenceAge: 1.75,
-            groundPolicy: RouteGroundPolicy.ObservedFullCube, openCell: OpenCell).Route).OfType<ObservedFlatRoute>()
+        return headings.SelectMany(axis => Enumerable.Range(2, maxLength - 1).Reverse()
+            .Select(length => FlatRoute(window, axis, length)).OfType<ObservedFlatRoute>()
             .Where(route => permitted?.Invoke(PositionOf(route.Destination)) != false).Take(1));
+    }
+
+    private static ObservedFlatRoute? FlatRoute(LocalObservationWindow window, Vector2 axis, int length, Position? plannedOrigin = null)
+    {
+        var origin = plannedOrigin ?? window.Position;
+        return ObservedFlatRoutes.Inspect(window, new(origin.X + length * axis.X, origin.Y, origin.Z + length * axis.Y),
+            maximumEvidenceAge: 1.75, groundPolicy: RouteGroundPolicy.ObservedFullCube, openCell: OpenCell,
+            plannedOrigin: plannedOrigin).Route;
     }
 
     private static IEnumerable<Leg> ShortRoutes(LocalObservationWindow window)

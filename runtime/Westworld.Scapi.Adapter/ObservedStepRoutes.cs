@@ -11,9 +11,10 @@ public sealed record ObservedStepRoute(Guid Id,Guid SessionId,Guid ActorId,Guid 
 /// Missing/occluded launch or landing cells refuse the route. No terrain access.</summary>
 public static class ObservedStepRoutes {
     public static IReadOnlyList<ObservedStepRoute> Project(LocalObservationWindow window,bool allowObservedSandAndGravel=false,
-        Func<int,bool>? openCell=null) {
+        Func<int,bool>? openCell=null,Position? plannedOrigin=null) {
         ArgumentNullException.ThrowIfNull(window);
-        var p=window.Position;
+        // 计划起点只影响几何推演，格子证据仍来自原观察。
+        var p=plannedOrigin??window.Position;
         if(window.SessionId==Guid.Empty||window.ActorId==Guid.Empty||window.ObservationId==Guid.Empty
           ||!double.IsFinite(window.Time)||window.Time<0||!float.IsFinite(window.Health)||window.Health<=0
           ||!double.IsFinite(p.X)||!double.IsFinite(p.Y)||!double.IsFinite(p.Z)

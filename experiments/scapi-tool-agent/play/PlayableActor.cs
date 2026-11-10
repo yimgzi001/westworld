@@ -53,7 +53,7 @@ internal sealed class PlayableActor
     private LocalObservationMemory? travelMemory;
     private PlaySurvivalSenses.Threat[] predators = [];
     private string[] reportedPredators = [];
-    private double nextDecision, nextPoll, nextDangerScan, nextEvade, nextShelter, nextExit, nextProduction;
+    private double nextDecision, nextPoll, nextDangerScan, nextEvade, nextEscapeTurn, nextShelter, nextExit, nextProduction;
     private bool retired, restedInEarth, shallowExit;
     private int requests;
     private string? goal;
@@ -189,6 +189,7 @@ internal sealed class PlayableActor
                 travel = null;
                 if (route.Evading)
                 {
+                    if (route.UsedEscapeTurn) nextEscapeTurn = gameTime + 12;
                     var body = player.ComponentBody;
                     bool closeThreat = ThreatInRange(body, IsOnWater(body)) is { Distance: <= 8f, Predator: true };
                     bool moved = (body.Position - route.Origin).XZ.LengthSquared() >= 0.25f;
@@ -1000,7 +1001,8 @@ internal sealed class PlayableActor
             {
                 lastSeen = ThreatInRange(body, false) ?? lastSeen;
                 return new(lastSeen.X, lastSeen.Z);
-            }, escapeClearance: !inWater && threat.Predator ? 10f : 0f);
+            }, escapeClearance: !inWater && threat.Predator ? 10f : 0f,
+            allowEscapeTurn: !inWater && threat.Predator && gameTime >= nextEscapeTurn);
         log(new { kind = "play_predator_evade", actor = Name, threat, gameTime, bearing });
         return true;
     }

@@ -252,6 +252,82 @@ sealed partial class Runner
             sideDistance, pursuitDistance, clearance, verifyClearance, continuations, stationaryLooks, health = p.ComponentHealth.Health });
     }
 
+    private void RunPredatorCoastTurn()
+    {
+        const int terrainKey = 33002;
+        var body = p.ComponentBody;
+        var shore = new Vector3(-100.5172f, 65f, 195.5003f);
+        var cell = Terrain.ToCell(shore);
+        if (stage == 0)
+        {
+            terrain.TerrainUpdater.SetUpdateLocation(terrainKey, shore.XZ, 24, 48);
+            stage = 1;
+            return;
+        }
+        if (stage == 1)
+        {
+            if (body.ParentBody is not null)
+            {
+                if (elapsed < 1) return;
+                run ??= actions.Start(new Dismount());
+                if (run.Result.Status == AtomicActionStatus.Failed)
+                    throw new InvalidOperationException("夹具角色无法离开开局木船。");
+                return;
+            }
+            for (int x = cell.X - 6; x <= cell.X + 24; x += 6)
+            for (int z = cell.Z - 8; z <= cell.Z + 8; z += 8)
+                if (!(terrain.Terrain.GetChunkAtCell(x, z)?.State >= TerrainChunkState.InvalidVertices1)) return;
+            body.Position = shore;
+            body.Velocity = Vector3.Zero;
+            var wolf = DatabaseManager.CreateEntity(p.Project, "Wolf_Gray", true);
+            pursuingBear = wolf.FindComponent<ComponentBody>(true);
+            pursuingBear.Position = new(-80.31f, 66f, 194.095f);
+            var locomotion = wolf.FindComponent<ComponentLocomotion>(true);
+            locomotion.WalkSpeed = 0f;
+            locomotion.JumpSpeed = 0f;
+            p.Project.AddEntity(wolf);
+            elapsed = 0;
+            stage = 2;
+            return;
+        }
+        if (elapsed < 1) return;
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        var threat = pursuingBear!.Position.XZ;
+        if (travel is null)
+        {
+            var seen = PlaySurvivalSenses.Threats(p, actions.Queries).FirstOrDefault(animal => animal.EntityId == pursuingBear.Entity.Id);
+            var window = memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true));
+            bool direct = PlayDryRoutes.Escape(window, threat, 12, false) is not null;
+            var turn = PlayDryRoutes.EscapeTurn(window, threat);
+            bool rejectsClose = PlayDryRoutes.EscapeTurn(window, body.Position.XZ + 12f * Vector2.UnitX) is null;
+            Gate.Log(new { kind = "predator_coast_geometry", direct, seen = seen?.Distance, rejectsClose, window.Position,
+                corner = turn?.Approach.End.ToString(), exit = turn?.Exit.ToString() });
+            if (direct || seen is null || !rejectsClose || turn is null)
+                throw new InvalidOperationException("同种子岸边应有可见远处灰狼和经过转弯的干地出口。");
+            escapeStartDistance = seen.Distance;
+            travel = new(p, actions, 0, 6f, "survey", true, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []),
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
+                escapeFrom: () => PlaySurvivalSenses.Threats(p, actions.Queries)
+                    .FirstOrDefault(animal => animal.EntityId == pursuingBear.Entity.Id) is { } visible
+                    ? new(visible.X, visible.Z) : threat,
+                escapeClearance: 10f, allowEscapeTurn: true);
+        }
+        jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
+        if (body.ImmersionDepth > 0.08f || body.Position.Y < shore.Y - 0.05f)
+            throw new InvalidOperationException("撤离路线进入了水中或落差。");
+        travel.Update(now);
+        if (travel.Status is null) return;
+        terrain.TerrainUpdater.RemoveUpdateLocation(terrainKey);
+        float moved = (body.Position - travel.Origin).XZ.Length();
+        float clearance = (body.Position.XZ - threat).Length();
+        Passed = travel.UsedEscapeTurn && travel.Status == "succeeded" && jumped && body.Position.Y >= shore.Y + 0.95f
+            && moved >= 5f && clearance >= 14f && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
+        Done = true;
+        Gate.Log(new { kind = "predator_coast_turn_result", Passed, escapeStartDistance, travel.Status, travel.Reason,
+            moved, clearance, jumped, stationaryLooks, end = body.Position.ToString(), health = p.ComponentHealth.Health });
+    }
+
     private void TrackNavigation(object value)
     {
         Gate.Log(value);
