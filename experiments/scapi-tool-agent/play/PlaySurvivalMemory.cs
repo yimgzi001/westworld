@@ -39,14 +39,13 @@ internal sealed class PlaySurvivalMemory
 
     public object Snapshot(double gameTime) => new
     {
-        visited = visits.Values.OrderByDescending(visit => visit.LastSeen).Take(8).Select(visit => new
+        visited = visits.Values.OrderByDescending(visit => visit.LastSeen).Take(8).Select(visit => new object[]
         {
-            centerX = visit.X * 4 + 2, centerZ = visit.Z * 4 + 2,
-            visit.Visits, visit.Dry, secondsAgo = Math.Round(gameTime - visit.LastSeen)
+            visit.X * 4 + 2, visit.Z * 4 + 2, visit.Visits, visit.Dry, Math.Round(gameTime - visit.LastSeen)
         }).ToArray(),
-        pastFoodSightings = food.Where(item => gameTime - item.LastSeen <= 180).Reverse().Select(item => new
+        pastFoodSightings = food.Where(item => gameTime - item.LastSeen <= 180).Reverse().Select(item => new object[]
         {
-            item.Name, item.X, item.Y, item.Z, secondsAgo = Math.Round(gameTime - item.LastSeen)
+            item.Name, Math.Round(item.X, 1), Math.Round(item.Y, 1), Math.Round(item.Z, 1), Math.Round(gameTime - item.LastSeen)
         }).ToArray()
     };
 

@@ -141,7 +141,7 @@ internal static class PlayDryRoutes
     private static Leg? Alignment(LocalObservationWindow window)
     {
         var alignment = LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true, allowLeavingSmallOverhang: true,
-            openCell: OpenCell);
+            openCell: OpenCell, recoverToObservedSupport: true);
         return alignment is { MaximumAge: <= 1.5 }
             ? new(new MoveTo(PositionOf(alignment.Destination), 0.04f, 3f), alignment.Evidence) : null;
     }

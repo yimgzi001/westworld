@@ -693,6 +693,9 @@ internal sealed class PlayableActor
             objective = survival
                 ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向。水上先用 dry_land 上岸。优先成熟南瓜和熟食，附近生蛋可先储备两枚，饱食不高于 24% 才吃。可用木矛捕近处食用鸟，生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
+            rows = survival && includePanorama
+                ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物还在行尾带致病概率和营养。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]。"
+                : null,
             actor = Name,
             previousGoal = goal,
             previousOutcome = outcome,

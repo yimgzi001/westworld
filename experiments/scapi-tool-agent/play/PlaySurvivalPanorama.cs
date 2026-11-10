@@ -75,22 +75,17 @@ internal static class PlaySurvivalPanorama
             return ground is null ? null : new Vector3(ground.Cell.X + 0.5f, ground.Cell.Y + 1f, ground.Cell.Z + 0.5f);
         }
 
-        private sealed record Spot(double bearing, double distance, double height);
-
-        private static Spot DescribeSpot(Vector3 point, Vector3 at, Vector2 facing)
+        private static double[] DescribeSpot(Vector3 point, Vector3 at, Vector2 facing)
         {
             var delta = point - at;
-            return new(Bearing(facing, delta.XZ), Math.Round(delta.XZ.Length(), 1), Math.Round(delta.Y, 1));
+            return [Bearing(facing, delta.XZ), Math.Round(delta.XZ.Length(), 1), Math.Round(delta.Y, 1)];
         }
 
-        private static object Describe(string name, Vector3 point, Vector3 at, Vector2 facing) =>
-            new { name, spot = DescribeSpot(point, at, facing) };
+        private static object[] Describe(string name, Vector3 point, Vector3 at, Vector2 facing) =>
+            [name, .. DescribeSpot(point, at, facing).Cast<object>()];
 
-        private static object DescribeFood(PlaySurvivalFood.Food food, Vector3 at, Vector2 facing)
-        {
-            return new { name = food.Name, spot = DescribeSpot(food.Point, at, facing),
-                sicknessRisk = food.SicknessRisk, nutrition = food.Nutrition };
-        }
+        private static object[] DescribeFood(PlaySurvivalFood.Food food, Vector3 at, Vector2 facing) =>
+            [.. Describe(food.Name, food.Point, at, facing), food.SicknessRisk, food.Nutrition];
 
         private static bool IsDryGround(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)]
             is GrassBlock or DirtBlock or SandBlock or GravelBlock or GraniteBlock or SandstoneBlock or BasaltBlock;

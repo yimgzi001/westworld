@@ -330,7 +330,8 @@ internal sealed class PlaySurvivalTravel
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
         var route = DryRoute(window, remaining, !aligned);
-        if (route is null && seek == "survey" && !Evading && remaining >= 1f)
+        bool exploring = seek == "survey" || seek == "food" && foodTarget is null || seek == "shelter" && shelterTarget is null;
+        if (route is null && exploring && !Evading && remaining >= 1f)
         {
             // 原方向封住时走完一段已确认的旁路，再交给模型评估新位置。
             route = PlayDryRoutes.Detour(window, direction, remaining, visits);
