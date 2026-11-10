@@ -1,0 +1,256 @@
+{
+  "summary": {
+    "hostResult": {
+      "kind": "result",
+      "passed": true,
+      "reason": "new_world_food_and_native_eating_verified",
+      "seconds": 8.090572,
+      "updateFailures": 0
+    },
+    "hostExit": 0,
+    "eventCounts": {
+      "start": 1,
+      "goal_accepted": 1,
+      "path_origin_after_fixture": 1,
+      "tool_receipt": 830,
+      "food_fixture_dismount": 1,
+      "food_fixture": 1,
+      "food_source_ledger": 3,
+      "food_other_sources_diagnostic": 1,
+      "food_fixture_ready": 1,
+      "model_prompt": 2,
+      "decision_request_started": 2,
+      "controller_request_published": 3,
+      "controller_response_received": 3,
+      "model_response": 2,
+      "tool_step_queued": 2,
+      "native_call_started": 2,
+      "bounded_navigation_segment": 1,
+      "predecessor_bound": 1,
+      "native_call_returned": 2,
+      "navigation_sample": 756,
+      "predecessor_physical_sample": 28,
+      "local_navigation_settled": 3,
+      "observed_flat_route_not_selected": 1,
+      "target_corridor_look": 1,
+      "local_navigation_start": 1,
+      "observed_flat_route_started": 1,
+      "prefetch_requested": 1,
+      "prefetch_response": 1,
+      "native_food_transfer_audit": 1,
+      "bounded_navigation_terminal": 1,
+      "predecessor_settled": 1,
+      "native_terminal_observed": 1,
+      "prefetch_preceding_terminal": 1,
+      "prefetch_handoff_taken": 1,
+      "food_event": 1,
+      "native_eating_verified": 1,
+      "stop_drained": 1,
+      "model_shutdown_audit": 1,
+      "final_audit": 1,
+      "food_chain_evidence": 1,
+      "result": 1
+    },
+    "foodEvidence": {
+      "kind": "food_chain_evidence",
+      "schema": 1,
+      "sessionId": "e8ece220-d6f6-4cca-a33b-4bcf7dcf3c46",
+      "actorId": "716cbe06-bbd9-4617-ae59-7287d34d5662",
+      "sourceId": "16815da4-8781-4849-8825-559af28b9e1c",
+      "value": 89,
+      "initialFishValue": 162,
+      "baselineCount": 0,
+      "sourceCount": 1,
+      "uniqueSourceThroughout": true,
+      "sourceProof": "Native target-source to actor transfer conservation; unrelated world same-value items are not ownership evidence.",
+      "sourceLedger": {
+        "Unknown": false,
+        "Reason": "target_consumption_conserved",
+        "Acquired": true,
+        "AcquiredCount": 1,
+        "ConsumedCount": 1,
+        "ExpectedInventory": 0,
+        "SourceRemaining": 0,
+        "ConsumptionPending": false,
+        "AcquisitionMethod": "automatic",
+        "AcquisitionTime": 85767.600715082
+      },
+      "inventoryInjection": false,
+      "acquisition": {
+        "sourceId": "16815da4-8781-4849-8825-559af28b9e1c",
+        "nativeActorId": "7856a620-0a8b-4502-b0bd-5d876f8354d6",
+        "value": 89,
+        "inventoryBefore": 0,
+        "inventoryAfter": 1,
+        "worldBefore": 1,
+        "worldAfter": 0,
+        "pickupReceipt": null,
+        "originalRemaining": 0,
+        "method": "native_automatic_collection",
+        "time": 85767.600715082,
+        "nativeEventBound": true
+      },
+      "eat": {
+        "requestId": "5bde2085-a1a5-4e84-bded-38f5df67f959",
+        "sequence": 820,
+        "value": 89,
+        "inventoryBefore": 1,
+        "inventoryAfter": 0,
+        "foodBefore": 0.5487882,
+        "foodAfter": 1,
+        "statsBefore": 0,
+        "statsAfter": 1,
+        "eventValue": 89,
+        "nativeStatus": "succeeded",
+        "time": 85768.915270159
+      },
+      "shutdown": {
+        "stopTime": 85768.92271999,
+        "drainedTime": 85768.928236764,
+        "budgetSeconds": 7,
+        "runBudgetSeconds": 180,
+        "idle": true,
+        "lateDispatches": 0
+      },
+      "dispatches": [
+        {
+          "requestId": "a526abd7-1919-4d23-8ba6-3d62feeccefd",
+          "sequence": 20,
+          "tool": "host_navigate_local",
+          "time": 85766.105275103
+        },
+        {
+          "requestId": "5bde2085-a1a5-4e84-bded-38f5df67f959",
+          "sequence": 820,
+          "tool": "act_Eat",
+          "time": 85768.901819763
+        }
+      ],
+      "note": "Host fixture audit, not cryptographic proof or natural-resource provenance. Missing stages remain null."
+    },
+    "prefetchTaken": 1,
+    "pathMeters": 2.6966705322265625,
+    "modelInFlightAtEnd": false,
+    "classification": "deterministic_native_food_pass",
+    "modelQualityVerdict": "not_applicable",
+    "apiOutcome": "not_a_model_run",
+    "finding": "人工来源、确定性控制；原生自动拾取后食用，不是模型主动PickUp。"
+  },
+  "logs": {
+    "tool-agent.jsonl": {
+      "bundle": "evidence-file-113a52c3fa05d184286a",
+      "originalSHA256": "a3beb275b71ea006ae469d6e4be903d8c06f65e79a01d0d524e26fdb962d1398",
+      "archivedTextSHA256": "fa22aa34f94ea4c47a77bd115ddd29664e745555c5bbafd88b1085ef19f6ff81",
+      "pathRedactions": 6
+    },
+    "console.log": {
+      "bundle": "evidence-file-8f8c983ed085c1a6de23",
+      "originalSHA256": "d06db1e7507fd38c20e171902c44e2496b89d27ecb47159761c63ce78e9f2304",
+      "archivedTextSHA256": "47632957bf800b87c83702db141413625643dbc66588e06b4318e81be9b49400",
+      "pathRedactions": 6
+    },
+    "exit.txt": {
+      "bundle": "evidence-file-06b169cbfe65ea576349",
+      "originalSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "archivedTextSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "pathRedactions": 0
+    },
+    "run.sh": {
+      "bundle": "evidence-file-18601c3bc269835b9e4a",
+      "originalSHA256": "7f4ea78af864119c7e0a05ba2de1c42da36f9cb79cec49e28a4f12bc308548b4",
+      "archivedTextSHA256": "980dcd8faf0411e1904594cb4d0d004a74d5cdeeb1ccfc2ae658187c0078a452",
+      "pathRedactions": 2
+    },
+    "init.js": {
+      "bundle": "evidence-file-40bf11bf1369f73b9807",
+      "originalSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "archivedTextSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "pathRedactions": 0
+    },
+    "stage.json": {
+      "bundle": "evidence-file-7e88d5aec2bc4760b3a5",
+      "originalSHA256": "faf62c7b6be15113f87252f582698d5b9ef2fabf1e163be543f712e1c5fc5183",
+      "archivedTextSHA256": "24c819beeb11a3cd1b87bfd031ecaed3275c0c5c64881127e678e07a3d56f7dd",
+      "pathRedactions": 1
+    },
+    "source-hashes.json": {
+      "bundle": "evidence-file-66cca45b2be7834bb8e7",
+      "originalSHA256": "d26697258dbe3b759d21679744af62c6bb114ac4652c9418fb273b9da7b54c77",
+      "archivedTextSHA256": "d26697258dbe3b759d21679744af62c6bb114ac4652c9418fb273b9da7b54c77",
+      "pathRedactions": 0
+    },
+    "installed-hashes.json": {
+      "bundle": "evidence-file-e33ed36a2ad315d83c1e",
+      "originalSHA256": "7fc9a5f9a1c96b731ed3e3ac1cd7f240d75f9342d6dc9fdbc3ae6d22b17beb30",
+      "archivedTextSHA256": "7fc9a5f9a1c96b731ed3e3ac1cd7f240d75f9342d6dc9fdbc3ae6d22b17beb30",
+      "pathRedactions": 0
+    },
+    "analysis.json": {
+      "bundle": "evidence-file-bd180295b5958850dabf",
+      "originalSHA256": "0ca6a7c3855fea50702f771379756a55ee86e6dce1b8e585d9c53df8e6c2e67b",
+      "archivedTextSHA256": "0ca6a7c3855fea50702f771379756a55ee86e6dce1b8e585d9c53df8e6c2e67b",
+      "pathRedactions": 0
+    },
+    "deterministic_driver.py": {
+      "bundle": "evidence-file-5fd9334005189efbe275",
+      "originalSHA256": "8969bce6c96e44db9a4967df292fb573f8eac0e4bc2a995218ee407d3439977f",
+      "archivedTextSHA256": "8969bce6c96e44db9a4967df292fb573f8eac0e4bc2a995218ee407d3439977f",
+      "pathRedactions": 0
+    },
+    "food-driver-started.json": {
+      "bundle": "evidence-file-31fd3d413d9a9f81719c",
+      "originalSHA256": "64a675ae7c76680fc2f9d3ab93c3003433b85818d8628a634528e39e372fa1c3",
+      "archivedTextSHA256": "64a675ae7c76680fc2f9d3ab93c3003433b85818d8628a634528e39e372fa1c3",
+      "pathRedactions": 0
+    },
+    "food-driver-result.json": {
+      "bundle": "evidence-file-d7434c082a27616f3b46",
+      "originalSHA256": "6d09117b4a889738a7776e2710905c63fdd79f5ce13f167269e5c6bffc85d5a0",
+      "archivedTextSHA256": "6d09117b4a889738a7776e2710905c63fdd79f5ce13f167269e5c6bffc85d5a0",
+      "pathRedactions": 0
+    }
+  },
+  "sourceSnapshot": "source-inventory-204dacee47204804fc60",
+  "checkpoint": {
+    "bundle": "evidence-file-f106380f2c080d374eb8",
+    "originalSHA256": "4b1ac6c0b8abd6328e1ee3a933ea335055523a61e5391284459a1316669728fc",
+    "archivedTextSHA256": "4b1ac6c0b8abd6328e1ee3a933ea335055523a61e5391284459a1316669728fc",
+    "pathRedactions": 0
+  },
+  "verifiedCheckpointHashPaths": [
+    "work/food30-deterministic/installed-hashes.json",
+    "work/food30-deterministic/source-hashes.json",
+    "work/food30-deterministic/exit.txt",
+    "work/food30-deterministic/food-driver-result.json",
+    "work/food30-deterministic/tool-agent.jsonl"
+  ],
+  "buildCorrespondence": {
+    "buildLabel": "build05",
+    "buildResult": "work/direct30-model-build-logs/result.json",
+    "verifiedInstalledBinaryHashes": {
+      "ToolAgentGate.dll": "7ea3a2489f08b43b91f331faef6e109900e4d7f5c8f645260e57fc95725c7fbe",
+      "Survivalcraft.dll": "e6d241c68f42da1c38b958ab1a54cce8655dc17d0fc3fc5bb2523aa5a5efac17",
+      "Westworld.Runtime.Core.dll": "50711195e98b31511eb034c51bbf4ca31d1c5a4be29465020f50e26597f13427",
+      "Westworld.Scapi.Adapter.dll": "90043deaa31b7c71a256616664715ba681f81bb21210d578f5ea1dec62427f14",
+      "Westworld.Decisions.Local.dll": "8d8aeb10ce81460b1fae5c3e29991ec4b9418869e980993a47b3c7c24b83df54"
+    },
+    "matchedFrozenChangedSourcePaths": [
+      "experiments/scapi-tool-agent/Program.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.DirectHandoffFixture.cs",
+      "experiments/scapi-tool-agent/DirectModelEndpoint.cs",
+      "experiments/food-acquisition-evidence/stage.py",
+      "experiments/food-acquisition-evidence/test_stage.py"
+    ],
+    "unmatchedChangeInventoryPaths": [
+      "experiments/scapi-tool-agent/run-contract-tests.sh",
+      "tests/Westworld.DirectModelEndpoint.Tests/Program.cs",
+      "tests/Westworld.DirectModelEndpoint.Tests/DirectModelEndpoint.Tests.csproj",
+      "experiments/direct-move-prefetch-evidence/README.md"
+    ],
+    "limit": "5份已冻结变更源码及宿主DLL对应；不声称整个游戏或全部测试源码从归档完整重建。"
+  },
+  "missingEvidence": [
+    "driver-exit.txt",
+    "api-driver-exit.txt"
+  ]
+}

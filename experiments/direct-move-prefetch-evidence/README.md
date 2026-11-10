@@ -100,3 +100,28 @@ runner串行启动固定file driver与既有run.sh，每场driver自身65秒，�
 v3三项负控的人工注入都在预取后约0.1秒，而身体采样约0.1秒一次，因此合法决策区间内各仅一条同run moving样本。host内部累计运动不能替代独立的两点位移证据；验证器保留unknown，不补点、不跨run/区间插值、不降低位移门槛或放宽采样间隔。
 
 v4将人工墙/取消/替换注入从预取后至少0.1秒改为至少0.4秒，让相同真实原生行动仍在运行时有机会积累两条以上合法身体样本。这是**测试夹具时机变更**，不是生产行为等待、扩大MoveTo范围/timeout或修改验收标准；是否得到充分样本仍必须由新日志验证，不能预先宣称unknown已解决。early/late驱动延迟、MoveTo参数、身份校验、一次派发与fresh观察要求不变。v4另修已消费候选后失败的夹具收尾，并补同run失败终态处理；新构建与新目录单独冻结，不追溯覆盖v3结论。v4准备必须等协调者提供最终DLL hash，准备脚本本身不启动GUI。
+
+## direct_model: bounded model endpoint fixture (not yet native/API verified)
+
+`handoff file direct_model` reuses direct fixture dismount and artificial safe terrain,
+without injected obstacles, cancellation, replacement, food or inventory. The goal is
+an endpoint approximately 4 metres along absolute +X from the prepared start, not a
+prescribed tool or segment sequence. All existing tool offers remain available.
+Endpoint acceptance is independent of prefetch: X displacement 3.2–4.8m, lateral and
+vertical error at most 0.5m, speed below 0.1m/s, health at least 0.25, no running
+movement/action, quarantine or actor view. Completion cancels pending inference and
+retires queued plans via the existing stop/drain path. Thus reaching the endpoint may
+legitimately yield overlap without a subsequent handoff.
+
+Limits are 4 model requests, 180 host seconds, at most 45 seconds/request, and 7
+seconds drain; the older 60-second handoff-fixture ceiling does not apply to this
+case. Stage with `--controller model --handoff-case direct_model`. Staging does not
+launch a driver, game or API. Model/effort remain explicit official-controller CLI
+parameters, not host defaults. Every run requires a fresh directory and world.
+
+Report endpoint completion separately from chosen tool, NativeMoveTo async coverage,
+actual in-flight movement, validated handoff and shutdown. Host cumulative overlap
+fields are diagnostic; independent identity-bound physical samples and actual API
+request/response evidence are required. A host-navigation choice or nonempty model
+queue is not a NativeMoveTo regression. This artificial fixture is not natural
+foraging or long-term autonomous survival.

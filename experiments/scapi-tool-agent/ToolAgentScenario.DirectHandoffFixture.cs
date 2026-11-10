@@ -7,6 +7,7 @@ using Westworld.Runtime.Core;
 // Explicit artificial lifecycle tests, never a survival policy or model instruction.
 internal sealed partial class ToolAgentScenario {
  bool IsDirectFixture=>ToolAgentGate.Mode=="handoff"&&ToolAgentGate.HandoffCase?.StartsWith("direct_",StringComparison.Ordinal)==true;
+ bool IsDirectModelFixture=>IsDirectFixture&&ToolAgentGate.HandoffCase=="direct_model";
  AtomicActionRun directDismount;int directPreparation;double directPreparedAt;Pickable directFixtureDrop;
  readonly Dictionary<Point3,int> directOriginalCells=[];
  void SetupDirectHandoffFixture(){directPreparedAt=MonotonicSeconds;}
@@ -22,7 +23,7 @@ internal sealed partial class ToolAgentScenario {
    p.ComponentBody.Position=new(x+.5f,y,z+.5f);p.ComponentBody.Velocity=Vector3.Zero;p.ComponentBody.Rotation=Quaternion.CreateFromAxisAngle(Vector3.UnitY,-MathF.PI/2);
    origin=previous=p.ComponentBody.Position;path=0;
    if(ToolAgentGate.HandoffCase=="direct_stale_reference")directFixtureDrop=p.Project.FindSubsystem<SubsystemPickables>(true).AddPickable(CookedMeatBlock.Index,1,origin+new Vector3(3.6f,.2f,0),Vector3.Zero,null);
-   directPreparation=2;ToolAgentGate.Log(new{kind="direct_fixture_prepared",scenario=ToolAgentGate.HandoffCase,position=NativeLogCoordinates.Position(origin),artificial=true,model=false,inventoryInjection=false,dropFixture=directFixtureDrop is not null});return false;
+   directPreparation=2;ToolAgentGate.Log(new{kind="direct_fixture_prepared",scenario=ToolAgentGate.HandoffCase,position=NativeLogCoordinates.Position(origin),artificial=true,model=IsDirectModelFixture,inventoryInjection=false,dropFixture=directFixtureDrop is not null});return false;
   }
   var terrain=p.Project.FindSubsystem<SubsystemTerrain>(true);int bx=Terrain.ToCell(origin.X),bz=Terrain.ToCell(origin.Z);
   for(int x=bx-5;x<=bx+5;x++)for(int z=bz-5;z<=bz+5;z++)if(terrain.Terrain.GetChunkAtCell(x,z)?.State!=TerrainChunkState.Valid)return false;
@@ -44,6 +45,19 @@ internal sealed partial class ToolAgentScenario {
   }
  }
  bool EndDirectHandoffFixture(){
+  if(IsDirectModelFixture){
+   var delta=p.ComponentBody.Position-origin;
+   bool endpoint=DirectModelEndpoint.Reached(delta.X,delta.Y,delta.Z,p.ComponentBody.Velocity.Length(),p.ComponentHealth.Health,
+    directPreparation==3,waiting is not null||actions.IsActionRunning||navigation.Busy,navigation.OwnerQuarantined,p.GameWidget is not null);
+   if(!endpoint)return false;
+   // Goal completion does not require a particular tool, queue shape, response or prefetch.
+   // RequestStop retires any pending candidate/model request and drains native execution.
+   Passed=true;
+   ToolAgentGate.Log(new{kind="direct_model_endpoint_result",endpointReached=true,delta=NativeLogCoordinates.Position(delta),prefetchTaken,overlapSeconds,overlapPath,
+    precedingKind,actualPrefetchRequiresIndependentValidation=true,artificial=true,naturalSurvival=false,
+    note="Endpoint success is independent of model tool choice and async coverage. Independent audit must classify NativeMoveTo/host navigation and actual in-flight motion."});
+   RequestStop("model_endpoint_verified");return true;
+  }
   if(directPreparation!=3||prefetchLease is null||inference is not null||waiting is not null||steps.Count>0||actions.IsActionRunning)return false;
   bool positive=ToolAgentGate.HandoffCase is "direct_early" or "direct_late";
   if(positive&&prefetchTaken<1)return false;if(!positive&&handoff.Occupied)return false;

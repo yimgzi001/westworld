@@ -1,0 +1,179 @@
+{
+  "summary": {
+    "hostResult": {
+      "kind": "result",
+      "passed": false,
+      "reason": "wall_budget_exhausted",
+      "seconds": 180.0440092,
+      "updateFailures": 0
+    },
+    "hostExit": 1,
+    "eventCounts": {
+      "start": 1,
+      "goal_accepted": 1,
+      "path_origin_after_fixture": 1,
+      "tool_receipt": 45,
+      "food_fixture_dismount": 1,
+      "food_fixture": 1,
+      "food_source_ledger": 2,
+      "food_other_sources_diagnostic": 1,
+      "food_fixture_ready": 1,
+      "model_prompt": 4,
+      "decision_request_started": 4,
+      "controller_request_published": 4,
+      "controller_request_canceled": 4,
+      "model_failure": 3,
+      "stop_drained": 1,
+      "model_shutdown_audit": 1,
+      "final_audit": 1,
+      "food_chain_evidence": 1,
+      "result": 1
+    },
+    "foodEvidence": {
+      "kind": "food_chain_evidence",
+      "schema": 1,
+      "sessionId": "d1efb05f-42ad-44ca-9a01-91c8d8f1aad2",
+      "actorId": "f199797e-5b64-48f4-b97a-806dfb079cc4",
+      "sourceId": "6bed29e6-c0f5-43c4-9ee5-def95bc1493f",
+      "value": 89,
+      "initialFishValue": 162,
+      "baselineCount": 0,
+      "sourceCount": 1,
+      "uniqueSourceThroughout": false,
+      "sourceProof": "Native target-source to actor transfer conservation; unrelated world same-value items are not ownership evidence.",
+      "sourceLedger": {
+        "Unknown": true,
+        "Reason": "target_value_changed",
+        "Acquired": false,
+        "AcquiredCount": 0,
+        "ConsumedCount": 0,
+        "ExpectedInventory": 0,
+        "SourceRemaining": 1,
+        "ConsumptionPending": false,
+        "AcquisitionMethod": null,
+        "AcquisitionTime": null
+      },
+      "inventoryInjection": false,
+      "acquisition": null,
+      "eat": null,
+      "shutdown": {
+        "stopTime": 85590.221096416,
+        "drainedTime": 85590.231579815,
+        "budgetSeconds": 7,
+        "runBudgetSeconds": 180,
+        "idle": true,
+        "lateDispatches": 0
+      },
+      "dispatches": [],
+      "note": "Host fixture audit, not cryptographic proof or natural-resource provenance. Missing stages remain null."
+    },
+    "prefetchTaken": 0,
+    "pathMeters": 0,
+    "modelInFlightAtEnd": false,
+    "classification": "infrastructure_interrupted_model_outcome_unknown",
+    "modelQualityVerdict": "not_evaluated",
+    "apiOutcome": "unknown",
+    "usageAndBilling": "unknown",
+    "auditBytes": 0,
+    "finding": "驱动会话已丢失，宿主有界超时；0字节audit不是零API请求或零计费的证明。"
+  },
+  "logs": {
+    "tool-agent.jsonl": {
+      "bundle": "evidence-file-d9c827d16ba547fdd850",
+      "originalSHA256": "c657a0e4e155a1fd8c26ece177c0a63ace340be93b0d2f37ada5b49a76c0c116",
+      "archivedTextSHA256": "959cc70b66a08ac7afe718d54318291277ab64aa99f12c2b43a1003c737c172a",
+      "pathRedactions": 4
+    },
+    "console.log": {
+      "bundle": "evidence-file-23179cc59f056c0e0fdd",
+      "originalSHA256": "004ac360dbe21a2b2e35239287b9a1237829fb31ca47205661f015d09d5e63c5",
+      "archivedTextSHA256": "30c3d487c86cae7f99fbafd0dc79a8672b6582f203a6a8ea4c74ce025a906858",
+      "pathRedactions": 4
+    },
+    "exit.txt": {
+      "bundle": "evidence-file-b927b496cc6b8581e9ed",
+      "originalSHA256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "archivedTextSHA256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "pathRedactions": 0
+    },
+    "run.sh": {
+      "bundle": "evidence-file-3f1a3c49370dbf32622f",
+      "originalSHA256": "22747a6fd4bcab5501286643f4ecd8516351e281f9fecf553f6cf1fcedfeeda8",
+      "archivedTextSHA256": "731ebafdacf2135ea05e3aa71a871d04f3d09faf2b04a445a4e0be5b5a6f606a",
+      "pathRedactions": 2
+    },
+    "init.js": {
+      "bundle": "evidence-file-40bf11bf1369f73b9807",
+      "originalSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "archivedTextSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "pathRedactions": 0
+    },
+    "stage.json": {
+      "bundle": "evidence-file-2c05180980248cb40e9b",
+      "originalSHA256": "2873c3afbeb2b6697a2b6e548690327ede843394e1fe8c80e33d4ba7798bd8e3",
+      "archivedTextSHA256": "e8edcc9d3ed6a275be6d3e135e6cb9dff8bb0efd223ae38802acc1cf308b4a73",
+      "pathRedactions": 1
+    },
+    "source-hashes.json": {
+      "bundle": "evidence-file-d97bf20b02492257796a",
+      "originalSHA256": "5ddc3e941e74a2ab0d0656dd3f2ea926c1ffddbc012bb577f15255cac9316cac",
+      "archivedTextSHA256": "5ddc3e941e74a2ab0d0656dd3f2ea926c1ffddbc012bb577f15255cac9316cac",
+      "pathRedactions": 0
+    },
+    "installed-hashes.json": {
+      "bundle": "evidence-file-11a21c002313c57dbb4f",
+      "originalSHA256": "b26a4a74c9e9ced9eb611158a9612cb05c54168bf0cd3601c8d6b3407f948476",
+      "archivedTextSHA256": "b26a4a74c9e9ced9eb611158a9612cb05c54168bf0cd3601c8d6b3407f948476",
+      "pathRedactions": 0
+    },
+    "analysis.json": {
+      "bundle": "evidence-file-2643ccdc2a73adc93280",
+      "originalSHA256": "d90960537163d35d085a63178087a245f4d53012a2523016c60f44e70b5f0179",
+      "archivedTextSHA256": "d90960537163d35d085a63178087a245f4d53012a2523016c60f44e70b5f0179",
+      "pathRedactions": 0
+    },
+    "deterministic_driver.py": {
+      "bundle": "evidence-file-5fd9334005189efbe275",
+      "originalSHA256": "8969bce6c96e44db9a4967df292fb573f8eac0e4bc2a995218ee407d3439977f",
+      "archivedTextSHA256": "8969bce6c96e44db9a4967df292fb573f8eac0e4bc2a995218ee407d3439977f",
+      "pathRedactions": 0
+    },
+    "openai-audit.jsonl": {
+      "bundle": "evidence-file-12ae32cb1ec02d01eda3",
+      "originalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedTextSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pathRedactions": 0
+    }
+  },
+  "sourceSnapshot": "source-inventory-39b58bb246b35b214838",
+  "checkpoint": {
+    "bundle": "evidence-file-bbb903625e86ce30fa58",
+    "originalSHA256": "13895e55d9c938742633a42a5f551f0adfa706ccb1f36c739c721f642f42cc85",
+    "archivedTextSHA256": "13895e55d9c938742633a42a5f551f0adfa706ccb1f36c739c721f642f42cc85",
+    "pathRedactions": 0
+  },
+  "verifiedCheckpointHashPaths": [
+    "work/food30-terra/installed-hashes.json",
+    "work/food30-terra/source-hashes.json",
+    "work/food30-terra/exit.txt",
+    "work/food30-terra/openai-audit.jsonl",
+    "work/food30-terra/tool-agent.jsonl"
+  ],
+  "buildCorrespondence": {
+    "basis": "stage.json明确使用阶段29已冻结build04；不把本场归入新build05。",
+    "verifiedInstalledBinaryHashes": {
+      "ToolAgentGate.dll": "4b7dfbdf31fc1df5736aa1f2ad3006c92c6c503efa021d647c2027a1dc739cfd",
+      "Survivalcraft.dll": "1635fb73b8f7a53fbf284e394db646670c5c36a5d896becec95a1cdac053acbb",
+      "Westworld.Runtime.Core.dll": "a8dd50fa4b793b0e0e0c72f893accc9d2f8e23aeb19592d346d2b002e4618e80",
+      "Westworld.Scapi.Adapter.dll": "16be28aa8202b121651e016ff0b84437475c45ad6e5ed05c55cba1bfe2ced48e",
+      "Westworld.Decisions.Local.dll": "78d97963eb70a037c525f10c2dc6d72074e1bd29341ba32d87182cc9b9076f6e"
+    },
+    "buildLabel": "build04"
+  },
+  "missingEvidence": [
+    "food-driver-started.json",
+    "food-driver-result.json",
+    "driver-exit.txt",
+    "api-driver-exit.txt"
+  ]
+}

@@ -348,5 +348,122 @@ class InFlightCancellationTests(unittest.TestCase):
             spawn.assert_not_called()
         self.assertEqual(a["error"],"host_canceled");self.assertIsNone(a["usage"])
 
+class LifecycleAuditTests(unittest.TestCase):
+    def setup_request(self, d):
+        root=pathlib.Path(d)/"control";root.mkdir();req=root/"001";req.mkdir()
+        request={"protocol":"westworld-tool-file-v1","prompt":"PRIVATE-PROMPT-NOT-IN-EVENTS","responseSchema":SCHEMA,**{k:str(uuid.uuid4()) for k in c.IDS}}
+        (req/"request.json").write_text(json.dumps(request))
+        return root,req,pathlib.Path(d)/"audit.jsonl"
+    def events(self, audit):
+        return [json.loads(line) for line in pathlib.Path(str(audit)+".events.jsonl").read_text().splitlines()]
+    def test_durable_attempt_before_fake_transport_and_legacy_usage(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,req,audit=self.setup_request(d);real_infer=c.infer;calls=[]
+            def transport(payload,key,timeout,**kwargs):
+                events=self.events(audit);self.assertEqual(events[-1]["event"],"request_attempt")
+                self.assertEqual(events[-1]["state"],"attempt_not_proof_of_delivery_or_billing")
+                self.assertIsNone(events[-1]["usage"]);calls.append(1);return body()
+            with patch.object(c,"infer",side_effect=lambda *a,**kw:real_infer(*a,**kw,transport=transport)):
+                c.file_mode(root,"FAKE-SECRET",audit,**OPTIONS,max_requests=1,total_seconds=1)
+            self.assertEqual(calls,[1]);self.assertEqual(json.loads(audit.read_text())["usage"]["total_tokens"],17)
+            events=self.events(audit)
+            self.assertEqual([e["event"] for e in events],["startup","ready","host_control_ready","request_attempt","request_result","response_published","ended"])
+            self.assertEqual([e["sequence"] for e in events],list(range(1,len(events)+1)))
+            self.assertNotIn("PRIVATE-PROMPT-NOT-IN-EVENTS",json.dumps(events));self.assertNotIn("FAKE-SECRET",json.dumps(events))
+            self.assertNotIn("rawDecision",json.dumps(events));self.assertNotIn('"steps"',json.dumps(events))
+    def test_attempt_fsync_failure_prevents_call_and_claim_blocks_retry(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,req,audit=self.setup_request(d);real_emit=c.LifecycleAudit.emit
+            def emit(obj,event,**fields):
+                if event=="request_attempt":
+                    with patch.object(c.os,"fsync",side_effect=OSError("synthetic")):
+                        return real_emit(obj,event,**fields)
+                return real_emit(obj,event,**fields)
+            with patch.object(c.LifecycleAudit,"emit",new=emit),patch.object(c,"infer") as call:
+                with self.assertRaises(OSError):c.file_mode(root,"FAKE",audit,**OPTIONS,max_requests=1,total_seconds=1)
+                call.assert_not_called()
+            with patch.object(c,"infer") as call:
+                c.file_mode(root,"FAKE",pathlib.Path(d)/"retry-audit",**OPTIONS,max_requests=1,total_seconds=1)
+                call.assert_not_called()
+            self.assertFalse((req/"response.json").exists())
+    def test_startup_fsync_failure_prevents_key_read(self):
+        with tempfile.TemporaryDirectory() as d:
+            audit=pathlib.Path(d)/"audit"
+            argv=["controller.py","file","--control",str(pathlib.Path(d)/"control"),"--audit",str(audit),"--model",OPTIONS["model"],"--reasoning-effort","none"]
+            with patch.object(c.sys,"argv",argv),patch.object(c.os,"fsync",side_effect=OSError("synthetic")),patch.object(c,"secure_key") as key,patch.object(c,"infer") as infer:
+                with self.assertRaises(OSError):c.main()
+                key.assert_not_called();infer.assert_not_called()
+    def test_key_interrupt_persists_start_and_end_without_secret(self):
+        with tempfile.TemporaryDirectory() as d:
+            audit=pathlib.Path(d)/"audit"
+            argv=["controller.py","file","--control",str(pathlib.Path(d)/"control"),"--audit",str(audit),"--model",OPTIONS["model"],"--reasoning-effort","none"]
+            with patch.object(c.sys,"argv",argv),patch.object(c,"secure_key",side_effect=KeyboardInterrupt("DO-NOT-LOG")):
+                with self.assertRaises(KeyboardInterrupt):c.main()
+            events=self.events(audit);self.assertEqual([e["event"] for e in events],["startup","ended"])
+            self.assertEqual(events[-1]["status"],"interrupted_or_failed");self.assertNotIn("DO-NOT-LOG",json.dumps(events))
+    def test_wait_timeout_persists_ready_no_attempt(self):
+        with tempfile.TemporaryDirectory() as d:
+            audit=pathlib.Path(d)/"audit";clock=[0]
+            with patch.object(c.time,"monotonic",side_effect=lambda:clock[0]),patch.object(c.time,"sleep",side_effect=lambda s:clock.__setitem__(0,clock[0]+s)),patch.object(c,"infer") as call:
+                with self.assertRaises(c.ControllerError):c.file_mode(pathlib.Path(d)/"control","FAKE",audit,**OPTIONS,total_seconds=1)
+                call.assert_not_called()
+            self.assertEqual([e["event"] for e in self.events(audit)],["startup","ready","ended"])
+    def test_result_journal_failure_preserves_legacy_usage_no_publish(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,req,audit=self.setup_request(d);real_emit=c.LifecycleAudit.emit
+            def emit(obj,event,**fields):
+                if event=="request_result":raise OSError("synthetic")
+                return real_emit(obj,event,**fields)
+            with patch.object(c.LifecycleAudit,"emit",new=emit),patch.object(c,"infer",return_value=(DECISION,{"usage":{"total_tokens":17}})) as call:
+                with self.assertRaises(OSError):c.file_mode(root,"FAKE",audit,**OPTIONS,max_requests=1,total_seconds=1)
+                self.assertEqual(call.call_count,1)
+            self.assertEqual(json.loads(audit.read_text())["usage"]["total_tokens"],17)
+            self.assertFalse((req/"response.json").exists())
+    def test_replay_result_sidecar_failure_preserves_output_usage(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);prompt=root/"prompt";schema=root/"schema";output=root/"result.json"
+            prompt.write_text("PRIVATE-PROMPT");schema.write_text(json.dumps(SCHEMA))
+            argv=["controller.py","replay","--prompt",str(prompt),"--schema",str(schema),"--output",str(output),"--model",OPTIONS["model"],"--reasoning-effort","none"]
+            real_emit=c.LifecycleAudit.emit;real_infer=c.infer;calls=[]
+            def emit(obj,event,**fields):
+                if event=="request_result":raise OSError("synthetic sidecar failure")
+                return real_emit(obj,event,**fields)
+            def transport(*args,**kwargs):
+                calls.append(1);return body()
+            with patch.object(c.sys,"argv",argv),patch.object(c,"secure_key",return_value="FAKE-KEY"),patch.object(c.LifecycleAudit,"emit",new=emit),patch.object(c,"infer",side_effect=lambda *a,**kw:real_infer(*a,**kw,transport=transport)):
+                with self.assertRaises(OSError):c.main()
+            self.assertEqual(calls,[1])
+            self.assertEqual(json.loads(output.read_text())["usage"]["total_tokens"],17)
+            events=self.events(output)
+            self.assertEqual(events[-1]["event"],"ended")
+            self.assertEqual(events[-1]["status"],"interrupted_or_failed")
+            self.assertNotIn("FAKE-KEY",output.read_text()+json.dumps(events))
+    def test_interrupted_attempt_is_unknown_not_zero_usage(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,req,audit=self.setup_request(d)
+            with patch.object(c,"infer",side_effect=KeyboardInterrupt("PRIVATE-ERROR")) as call:
+                with self.assertRaises(KeyboardInterrupt):c.file_mode(root,"FAKE",audit,**OPTIONS,max_requests=1,total_seconds=1)
+                self.assertEqual(call.call_count,1)
+            events=self.events(audit);names=[e["event"] for e in events]
+            self.assertIn("request_attempt",names);self.assertNotIn("request_result",names)
+            self.assertIsNone(next(e for e in events if e["event"]=="request_attempt")["usage"])
+            self.assertNotIn("PRIVATE-ERROR",json.dumps(events));self.assertFalse((req/"response.json").exists())
+    def test_ready_write_failure_never_waits_or_calls(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,req,audit=self.setup_request(d);real_emit=c.LifecycleAudit.emit
+            def emit(obj,event,**fields):
+                if event=="ready":raise OSError("synthetic")
+                return real_emit(obj,event,**fields)
+            with patch.object(c.LifecycleAudit,"emit",new=emit),patch.object(c,"wait_for_control") as wait,patch.object(c,"infer") as call:
+                with self.assertRaises(OSError):c.file_mode(root,"FAKE",audit,**OPTIONS,max_requests=1,total_seconds=1)
+                wait.assert_not_called();call.assert_not_called()
+    def test_existing_journal_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,req,audit=self.setup_request(d);p=pathlib.Path(str(audit)+".events.jsonl");p.write_text("old")
+            with patch.object(c,"infer") as call:
+                with self.assertRaises(FileExistsError):c.file_mode(root,"FAKE",audit,**OPTIONS,max_requests=1,total_seconds=1)
+                call.assert_not_called()
+            self.assertEqual(p.read_text(),"old")
+
 if __name__=="__main__":unittest.main()
 

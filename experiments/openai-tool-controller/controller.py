@@ -369,7 +369,65 @@ def host_remaining(request, directory):
     # UTC is only an advisory transport bound; game host owns monotonic expiry.
     return max(0.0, min(120.0, left))
 
-def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12, total_seconds=650, wait_seconds=60):
+class LifecycleAudit:
+    """Separate fsynced journal: never changes legacy per-request usage records."""
+    def __init__(self, audit_path, *, mode, model, reasoning_effort):
+        if mode not in ("file", "replay") or model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
+            raise ControllerError("unverified_model_or_effort")
+        self.path = checked_control_path(str(audit_path) + ".events.jsonl")
+        self.metadata = dict(mode=mode, requestedModel=model, effort=reasoning_effort,
+                             driverSourceSha256=DRIVER_SOURCE_SHA256)
+        self.output = None
+        self.sequence = 0
+    def __enter__(self):
+        self.output = self.path.open("x", encoding="utf-8")
+        try:
+            self.emit("startup")
+            fd = os.open(self.path.parent, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        except BaseException:
+            self.output.close()
+            raise
+        return self
+    def emit(self, event, **fields):
+        self.sequence += 1
+        self.output.write(compact(dict(schema="westworld-controller-lifecycle-v1",
+            event=event, sequence=self.sequence, utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            monotonicSeconds=time.monotonic(), **self.metadata, **fields)) + "\n")
+        self.output.flush()
+        os.fsync(self.output.fileno())
+    def attempt(self, prompt, schema, envelope=None):
+        self.emit("request_attempt", **(envelope or {}),
+            promptSha256=hashlib.sha256(prompt.encode()).hexdigest(),
+            schemaSha256=hashlib.sha256(compact(schema).encode()).hexdigest(),
+            state="attempt_not_proof_of_delivery_or_billing", usage=None)
+    def result(self, record, envelope=None):
+        self.emit("request_result", **(envelope or {}), usage=safe_usage(record.get("usage")),
+            outcome="received" if record.get("outcome")=="received" else "failed_or_unknown",
+            error=safe_error(record["error"]) if "error" in record else None)
+    def __exit__(self, kind, value, traceback):
+        try:
+            self.emit("ended", status="completed" if kind is None else "interrupted_or_failed")
+        finally:
+            self.output.close()
+        return False
+
+def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12, total_seconds=650, wait_seconds=60, lifecycle=None):
+    if not 1 <= max_requests <= 12 or not 0 < total_seconds <= 650:
+        raise ControllerError("run_bound")
+    if not 0 < wait_seconds <= 60:
+        raise ControllerError("wait_bound")
+    if lifecycle is None:
+        with LifecycleAudit(audit_file, mode="file", model=model, reasoning_effort=reasoning_effort) as events:
+            return file_mode(root, key, audit_file, model=model, reasoning_effort=reasoning_effort,
+                             max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds, lifecycle=events)
+    return _file_mode(root, key, audit_file, model=model, reasoning_effort=reasoning_effort,
+                      max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds, lifecycle=lifecycle)
+
+def _file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12, total_seconds=650, wait_seconds=60, lifecycle):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
     if not 1 <= max_requests <= 12 or not 0 < total_seconds <= 650:
@@ -377,10 +435,12 @@ def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12
     if not 0 < wait_seconds <= 60:
         raise ControllerError("wait_bound")
     started = time.monotonic()
+    lifecycle.emit("ready", phase="waiting_for_host")
     print("Controller ready; waiting for host control directory (no directory creation).", flush=True)
     root = wait_for_control(root, started + min(wait_seconds, total_seconds))
     if root is None:
         return
+    lifecycle.emit("host_control_ready")
     seen = set()
     with audit_file.open("x", encoding="utf-8") as audit:
         while len(seen) < max_requests and time.monotonic() - started < total_seconds:
@@ -403,17 +463,20 @@ def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12
                 seen.add(identity)  # Including failures: never retry a request automatically.
                 if not claim_request(root, envelope, request["prompt"], request["responseSchema"], model, reasoning_effort):
                     audit.write(compact(dict(envelope, error="prior_request_requires_reconciliation", usage=None)) + "\n")
-                    audit.flush()
+                    audit.flush(); os.fsync(audit.fileno())
+                    lifecycle.emit("request_skipped", **envelope, reason="prior_request_requires_reconciliation")
                     if len(seen) >= max_requests:
                         return
                     continue
                 remaining = min(remaining, host_remaining(request, path.parent))
                 if remaining <= 0:
                     audit.write(compact(dict(envelope, error="host_request_expired_or_canceled", usage=None)) + "\n")
-                    audit.flush()
+                    audit.flush(); os.fsync(audit.fileno())
+                    lifecycle.emit("request_skipped", **envelope, reason="host_request_expired_or_canceled")
                     if len(seen) >= max_requests:
                         return
                     continue
+                lifecycle.attempt(request["prompt"], request["responseSchema"], envelope)
                 decision, record = infer(request["prompt"], request["responseSchema"], key, model=model, reasoning_effort=reasoning_effort, timeout=min(45, remaining),
                                          canceled=lambda: (root.parent / "exit.txt").exists()
                                          or time.monotonic() - started >= total_seconds
@@ -421,9 +484,11 @@ def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12
                 record.update(envelope)
                 publish = decision is not None and not (root.parent / "exit.txt").exists() and host_remaining(request, path.parent) > 0
                 record["delivery"] = "ready_to_publish" if publish else "withheld_or_no_decision"
-                audit.write(compact(record) + "\n"); audit.flush()
+                audit.write(compact(record) + "\n"); audit.flush(); os.fsync(audit.fileno())
+                lifecycle.result(record, envelope)
                 if publish:
                     atomic_json(path.parent / "response.json", dict(envelope, decision=decision))
+                    lifecycle.emit("response_published", **envelope)
                 if len(seen) >= max_requests:
                     return
             time.sleep(min(.25, max(0, total_seconds - (time.monotonic() - started))))
@@ -447,19 +512,26 @@ def main():
     args = parser.parse_args()
     if args.reasoning_effort not in VERIFIED_MODELS[args.model]:
         raise ControllerError("unverified_model_or_effort")
-    key = secure_key()
-    try:
-        if args.mode == "replay":
-            if args.output.exists() or args.prompt.stat().st_size > MAX_BYTES:
-                raise ControllerError("replay_file_bound")
-            prompt = args.prompt.read_text()
-            schema = read_json(args.schema)
-            _, audit = infer(prompt, schema, key, model=args.model, reasoning_effort=args.reasoning_effort)
-            atomic_json(args.output, audit)
-        else:
-            file_mode(args.control, key, args.audit, model=args.model, reasoning_effort=args.reasoning_effort, max_requests=args.max_requests, total_seconds=args.total_seconds, wait_seconds=args.wait_seconds)
-    finally:
+    audit_path = args.output if args.mode == "replay" else args.audit
+    with LifecycleAudit(audit_path, mode=args.mode, model=args.model, reasoning_effort=args.reasoning_effort) as events:
         key = None
+        try:
+            key = secure_key()
+            if args.mode == "replay":
+                if args.output.exists() or args.prompt.stat().st_size > MAX_BYTES:
+                    raise ControllerError("replay_file_bound")
+                prompt = args.prompt.read_text()
+                schema = read_json(args.schema)
+                validate_input(prompt, schema)
+                events.emit("ready", phase="replay_input_validated")
+                events.attempt(prompt, schema)
+                _, audit = infer(prompt, schema, key, model=args.model, reasoning_effort=args.reasoning_effort)
+                atomic_json(args.output, audit)
+                events.result(audit)
+            else:
+                file_mode(args.control, key, args.audit, model=args.model, reasoning_effort=args.reasoning_effort, max_requests=args.max_requests, total_seconds=args.total_seconds, wait_seconds=args.wait_seconds, lifecycle=events)
+        finally:
+            key = None
     print("Finished; inspect local audit. No game actions executed by this driver.")
 
 if __name__ == "__main__":

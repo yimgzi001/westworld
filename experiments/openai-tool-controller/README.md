@@ -67,3 +67,36 @@ File mode now supplies a read-only cancellation predicate to the existing isolat
 The key remains in the anonymous stdin pipe, not command-line arguments/environment/files. Destination and response bounds are unchanged. No model calls were used to test this change. `python3 experiments/openai-tool-controller/test_controller.py` passed 43 tests, including a real local slow fixture process cancelled/reaped, local deadline, pre-cancel without spawning, completed usage, and existing cancellation-after-response/no-delivery coverage. This does not itself implement the host's new four-call/180-second policy; those limits must be supplied consistently by the host and CLI.
 
 Cancellation cleanup explicitly closes any stdin left open after a partial communicate, after killing/reaping the worker, and joins the bounded stdout reader. A no-stdin-read fixture with a 200KB input verifies backpressure cancellation, closed stdin/stdout, reaped child and no live reader thread. Persistent offline results: `work/openai-controller-cancel24/{test.log,exit.txt,source-sha256.txt}`.
+
+## Durable lifecycle sidecar (offline verified only)
+
+The CLI now exclusively creates `<audit>.events.jsonl` for file mode, or
+`<output>.events.jsonl` for replay, before requesting the hidden key. Existing
+sidecars are never overwritten. The original audit/output keeps its prior
+per-request schema so existing usage readers do not encounter extra lifecycle
+rows. Do not sum both files: result usage in the sidecar is a duplicate diagnostic
+copy, not a second request.
+
+Events include startup, ready (before the ready console message), host-control
+availability, request_attempt, request_result, optional response_published,
+request_skipped, and ended. Each event is flushed and fsynced; creation also
+fsyncs the containing directory. Before infer/transport can run, the request claim
+and request_attempt event must both have persisted successfully. Any journal or
+audit write failure stops the run without further requests. A failure after an API
+request cannot undo it. Legacy result usage is persisted before the result-sidecar
+write and before publishing the response. No automatic retry is added.
+
+The sidecar contains source/model identity, UTC/monotonic timestamps, sequence,
+validated request IDs, prompt/schema hashes, safe outcome categories and filtered
+usage only. It does not contain prompt text, model decision/raw response, key,
+HTTP details or exception messages. `request_attempt` explicitly means
+`attempt_not_proof_of_delivery_or_billing`, with usage null. An interruption after
+that event may have occurred before transport, during transmission or after the
+provider accepted the request. Claims remain blocking across restart.
+
+An orderly return or caught interruption records ended; SIGKILL, power loss or a
+storage failure may prevent it. Missing ended/result is unknown, not proof of no
+request or no charge. Even a present ended event only describes the local driver,
+not provider-side cancellation. Startup can exist without ready if key entry was
+interrupted. Callers of file_mode that already hold an in-memory key record startup
+at file_mode entry; the normal CLI records it before key entry.

@@ -47,6 +47,17 @@ class StageTests(unittest.TestCase):
    self.assertEqual(json.loads((dest/'stage.json').read_text())['mode'],'handoff file direct_early')
    self.assertIn('ToolAgentGate.dll handoff file direct_early >console.log',(dest/'run.sh').read_text())
    self.assertNotIn('food_drop file',(dest/'run.sh').read_text())
+ def test_direct_model_exact_mode_and_explicit_controller(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root,out,content=self.setup(tmp)
+   with self.assertRaises(ValueError):stage.stage(root,'model30',out,content,handoff_case='direct_model')
+   self.assertFalse((root/'work/model30').exists())
+   dest=stage.stage(root,'model30',out,content,'model','direct_model')
+   m=json.loads((dest/'stage.json').read_text())
+   self.assertEqual(m['mode'],'handoff file direct_model')
+   self.assertEqual(m['maximumDriverRequests'],4);self.assertEqual(m['maximumDriverSeconds'],180)
+   self.assertIn('ToolAgentGate.dll handoff file direct_model >console.log',(dest/'run.sh').read_text())
+   self.assertNotIn('controller.py',(dest/'run.sh').read_text())
  def test_unknown_case_no_stage(self):
   with tempfile.TemporaryDirectory() as tmp:
    root,out,content=self.setup(tmp)
