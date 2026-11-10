@@ -221,3 +221,12 @@ foreach(var bad in new[]{directSample with{RunId=Guid.NewGuid()},directSample wi
 bool competing=false;try{NativeToolOffers.Build(tools,obs,inventory,[],navBusy,OfferPurpose.AfterPrecedingSuccess,directBinding,directSample);}catch(ArgumentException){competing=true;}Check(competing,"native deferred rejects competing navigation owner");
 Check(NativeToolOffers.Build(tools,obs,inventory,[],navBusy).All(x=>!x.Name.StartsWith("act_")),"immediate protections unchanged");
 Console.WriteLine("NATIVE DEFERRED TOTAL "+checks);
+
+var dismountTools=new[]{Tool("act_Dismount","","")};
+foreach(var body in new[]{"{}","{\"self\":null}","{\"self\":{}}","{\"self\":{\"isMounted\":false}}","{\"self\":{\"isMounted\":null}}","{\"self\":{\"isMounted\":\"true\"}}"})
+ Check(NativeToolOffers.Build(dismountTools,J(body),inventory,[]).Count==0,"unknown/unmounted never offers dismount");
+var mountedOffers=NativeToolOffers.Build(dismountTools,J("{\"self\":{\"isMounted\":true,\"hasParentBody\":true}}"),inventory,[]);
+Check(mountedOffers.Count==1&&mountedOffers[0].Name=="act_Dismount","actual mounted offers native dismount");
+Check(!mountedOffers[0].Parameters.GetProperty("properties").EnumerateObject().Any(),"dismount never gets block or entity target");
+Check(NativeToolOffers.Build(dismountTools,J("{\"self\":{\"isMounted\":true}}"),inventory,[],navBusy).Count==0,"busy navigation still excludes dismount");
+Console.WriteLine("BODY OFFERS TOTAL "+checks);

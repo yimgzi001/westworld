@@ -3,7 +3,14 @@ using GameEntitySystem;
 
 namespace Game.Westworld {
     public sealed record SelfView(Vector3 Position, Vector3 Facing, float Health, float? Food, float? Stamina,
-        float? Sleep, float? Temperature, float? Wetness, float? Level, bool IsSleeping);
+        float? Sleep, float? Temperature, float? Wetness, float? Level, bool IsSleeping) {
+        // Nullable for older producers/unavailable components; unknown is never false.
+        public bool? IsMounted { get; init; }
+        public bool? HasParentBody { get; init; }
+        // Native support contact only, not a promise of safe terrain or navigation.
+        public bool? Grounded { get; init; }
+        public float? Immersion { get; init; }
+    }
 
     public sealed record InventorySlotView(int Slot, int Value, int Count);
     public sealed record InventoryView(IReadOnlyList<InventorySlotView> Slots, int? SelectedSlot);
@@ -74,7 +81,12 @@ namespace Game.Westworld {
                 ComponentPlayer player = m_port.m_actor.FindComponent<ComponentPlayer>();
                 return new SelfView(body.Position, body.Matrix.Forward, m_port.m_health.Health,
                     stats?.Food ?? m_port.ActorNutrition?.Food, stats?.Stamina, stats?.Sleep, stats?.Temperature, stats?.Wetness,
-                    player?.PlayerData.Level, m_port.m_sleep?.IsSleeping == true);
+                    player?.PlayerData.Level, m_port.m_sleep?.IsSleeping == true) {
+                    IsMounted = m_port.m_rider is null ? null : m_port.m_rider.Mount != null,
+                    HasParentBody = body.ParentBody != null,
+                    Grounded = body.StandingOnValue.HasValue,
+                    Immersion = float.IsFinite(body.ImmersionFactor) ? body.ImmersionFactor : null
+                };
             }
 
             public InventoryView ReadInventory() => m_port.IsActorAvailable && m_port.CarryInventory is IInventory inventory

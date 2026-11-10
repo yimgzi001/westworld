@@ -61,3 +61,10 @@ Check(atomic.TryGetProperty("inventory",out _),"raw observation audit is not mut
 bool missingInventory=false;try{ToolResultProjection.SplitObservation(J(new{visibleBlocks=new object[0]}));}catch(ArgumentException){missingInventory=true;}
 Check(missingInventory,"missing atomic inventory fails rather than doing later read");
 Console.WriteLine("HOST FINAL TOTAL "+count);
+var selfFacts=J(new{self=new{isMounted=(bool?)false,hasParentBody=(bool?)true,grounded=(bool?)false,immersion=(float?).4f},inventory=new{slots=Array.Empty<object>(),selectedSlot=(int?)null}});
+var bodySplit=ToolResultProjection.SplitObservation(selfFacts).Observation.GetProperty("self");
+Check(!bodySplit.GetProperty("isMounted").GetBoolean()&&bodySplit.GetProperty("hasParentBody").GetBoolean(),"split preserves independent mounted and parent facts");
+Check(!bodySplit.GetProperty("grounded").GetBoolean()&&bodySplit.GetProperty("immersion").GetSingle()==.4f,"split preserves own support immersion");
+var nullSelf=J(new{self=new{isMounted=(bool?)null,hasParentBody=(bool?)null,grounded=(bool?)null,immersion=(float?)null},inventory=new{slots=Array.Empty<object>(),selectedSlot=(int?)null}});
+Check(ToolResultProjection.SplitObservation(nullSelf).Observation.GetProperty("self").GetProperty("isMounted").ValueKind==JsonValueKind.Null,"split never guesses unknown mounted false");
+Console.WriteLine("BODY PROJECTION TOTAL "+count);

@@ -27,6 +27,8 @@ shared = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(shared)
 IDS = shared.IDS
 MAX_REQUESTS, MAX_SECONDS = 8, 180
+MAX_SCAN_TURNS = 3
+SCAN_HEADING_TOLERANCE = 10
 # Public base-game content indexes, not inventory/source assumptions.
 HARVESTABLE = {2: 'dirt', 8: 'grass', 9: 'oak', 10: 'birch', 11: 'spruce'}
 LIQUIDS = {18, 92}
@@ -92,6 +94,24 @@ def footprint_clear(position, target):
     return math.hypot(dx, dz) >= .65
 
 
+def horizontal_heading(facing):
+    p = point(facing)
+    if p is None or p[0] * p[0] + p[2] * p[2] < .0001:
+        return None
+    # Diagnostic world heading: +Z=0, +X=90. This is NOT the native argument.
+    return math.degrees(math.atan2(p[0], p[2])) % 360
+
+
+def heading_distance(a, b):
+    return abs((a - b + 180) % 360 - 180)
+
+
+def native_turn_heading(current, relative_bearing):
+    # ActorTools.RelativePoint rotates around +Y by -bearing. Therefore native
+    # +90 maps +Z to -X, unlike host_navigate_local's absolute +90=+X.
+    return (current - relative_bearing) % 360
+
+
 class Policy:
     def __init__(self):
         self.scope = None
@@ -103,6 +123,9 @@ class Policy:
         self.no_drop_observations = 0
         self.last_observation = None
         self.unsafe_outcome = False
+        self.scan_attempts = 0
+        self.scan_blocked = None
+        self.scan_headings = []
 
     def decide(self, request):
         scope = request['sessionId'], request['actorId']
@@ -173,6 +196,14 @@ class Policy:
                     self.no_drop_observations = 0
                 else:
                     self.harvest = None
+            elif old['tool'] == 'act_FaceTowards':
+                current_heading = horizontal_heading(own.get('facing'))
+                if status != 'succeeded':
+                    self.scan_blocked = 'Previous scan turn ended ' + status + '; no blind turn retry'
+                elif current_heading is None or heading_distance(current_heading, old['target']['heading']) > SCAN_HEADING_TOLERANCE:
+                    self.scan_blocked = 'Successful turn has no matching fresh self.facing; no blind turn retry'
+                else:
+                    self.scan_headings.append(current_heading)
         if self.dug_cells and any(contents(value) in RESOURCE_VALUES and count > self.baseline.get(value, 0)
                                  for value, count in inventory.items()):
             return empty('Current inventory increased; native evidence must independently prove natural acquisition')
@@ -240,7 +271,30 @@ class Policy:
             if decision:
                 self.dug_cells.add(c)
                 return decision
-        return empty('No new nearby legal non-support dirt, grass or wood target; require fresh observation')
+        # Bounded active observation only. Missing/null/coerced facts are not false.
+        # Native FaceTowards cannot run while parented; never infer riding from drift,
+        # wetness, nearby boats, or an offer alone, and never automatically dismount.
+        if own.get('isMounted') is not False or own.get('hasParentBody') is not False:
+            return empty('No nearby legal target; scan blocked: explicit self.isMounted=false and '
+                         'self.hasParentBody=false required; no inferred riding state or automatic dismount')
+        if self.scan_blocked:
+            return empty('No nearby legal target; scan blocked: ' + self.scan_blocked)
+        if self.scan_attempts >= MAX_SCAN_TURNS:
+            return empty('No nearby legal target; three bounded scan turns exhausted; no blind exploration move')
+        current_heading = horizontal_heading(own.get('facing'))
+        if current_heading is None:
+            return empty('No nearby legal target; scan blocked: finite nonvertical self.facing required')
+        if not any(heading_distance(current_heading, old) <= SCAN_HEADING_TOLERANCE for old in self.scan_headings):
+            self.scan_headings.append(current_heading)
+        target_heading = native_turn_heading(current_heading, 90)
+        if any(heading_distance(target_heading, old) <= SCAN_HEADING_TOLERANCE for old in self.scan_headings):
+            return empty('No nearby legal target; scan blocked: next relative turn would repeat an observed direction')
+        decision = plan('No nearby legal target; turn 90 degrees once, then await actual terminal and fresh observation',
+                        'act_FaceTowards', {'bearing': 90, 'timeout': 4}, {'heading': target_heading})
+        if decision:
+            self.scan_attempts += 1
+            return decision
+        return empty('No nearby legal target; scan blocked: current act_FaceTowards offer does not permit a bounded 90 degree turn')
 
 
 def run(directory, clock=time.monotonic, sleep=time.sleep, utcnow=None):
@@ -250,6 +304,7 @@ def run(directory, clock=time.monotonic, sleep=time.sleep, utcnow=None):
         raise ValueError('existing_root_required')
     with (root / 'natural-driver-started.json').open('x') as f:
         json.dump({'kind': 'deterministic_natural_resource_test_not_model',
+                   'policyVersion': 'bounded_turn_scan_v2', 'maximumScanTurns': MAX_SCAN_TURNS,
                    'maximumRequests': MAX_REQUESTS, 'maximumSeconds': MAX_SECONDS}, f)
     start, policy = clock(), Policy()
     seen, request_ids, observation_ids, events = set(), set(), set(), []
@@ -312,6 +367,8 @@ def run(directory, clock=time.monotonic, sleep=time.sleep, utcnow=None):
     except Exception as exc:
         error = type(exc).__name__ + ': ' + str(exc)
     result = {'schema': 'natural-resource-driver-v1', 'kind': 'deterministic_natural_resource_test_not_model',
+              'policyVersion': 'bounded_turn_scan_v2', 'scanAttempts': policy.scan_attempts,
+              'scanHeadings': policy.scan_headings, 'scanBlocked': policy.scan_blocked,
               'receivedRequests': len(seen), 'responses': sum(e['delivered'] for e in events),
               'elapsedSeconds': clock() - start, 'events': events, 'error': error,
               'reason': 'driver_error' if error else 'host_exit' if (root / 'exit.txt').exists() else

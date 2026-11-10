@@ -11,7 +11,7 @@ public static class NativeToolOffers {
  static readonly HashSet<string> Profile=new(StringComparer.Ordinal){
   "observe","read_self","read_environment","read_inventory","read_storage","read_item",
   "host_navigate_local","host_navigation_status","host_cancel_navigation","read_map","find_items","find_creatures","find_recipes","action_status","cancel_action","task_status","cancel_task","plan_craft",
-  "act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
+  "act_Dismount","act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
   "act_Dig","act_Place","act_MeleeAttack","act_Craft","act_Jump","act_Sleep","act_WakeUp"
  };
  public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null){
@@ -87,6 +87,10 @@ public static class NativeToolOffers {
    throw new ArgumentException("Deferred offers require actual running native movement or navigation evidence",nameof(navigationStatus));
   var result=new List<ToolOffer>();
   foreach(var tool in native.Where(t=>Profile.Contains(t.Name))){
+   // Dismount has no target argument. Never reinterpret block refs as mounts.
+   if(tool.Name=="act_Dismount"&&!(observation.ValueKind==JsonValueKind.Object
+    &&observation.TryGetProperty("self",out var self)&&self.ValueKind==JsonValueKind.Object
+    &&self.TryGetProperty("isMounted",out var mounted)&&mounted.ValueKind==JsonValueKind.True))continue;
    if(deferred&&tool.Name is ("cancel_action" or "cancel_task" or "host_cancel_navigation"))continue;
    if(!deferred&&navBusy&&(tool.Name.StartsWith("act_",StringComparison.Ordinal)||tool.Name is "plan_craft" or "cancel_action" or "cancel_task"))continue;
    if(tool.Name is "host_navigate_local" or "host_navigation_status" or "host_cancel_navigation"){

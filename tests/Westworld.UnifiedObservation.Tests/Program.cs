@@ -32,3 +32,14 @@ using(var parsed=System.Text.Json.JsonDocument.Parse(nativeLogJson)){
 bool nonfiniteRejected=false;try{NativeLogCoordinates.Position(new Vector3(float.NaN,0,0));}catch(ArgumentException){nonfiniteRejected=true;}
 Check(nonfiniteRejected,"invalid coordinate logging fails explicitly not IgnoreCycles");
 Console.WriteLine($"TOTAL {count}/{count}; pure contract/summary tests only, no native world executed");
+
+var legacySelf=new SelfView(Vector3.Zero,Vector3.UnitZ,1,null,null,null,null,null,null,false);
+Check(legacySelf.IsMounted is null&&legacySelf.HasParentBody is null&&legacySelf.Grounded is null&&legacySelf.Immersion is null,"old snapshot defaults unknown not unmounted");
+var bodySelf=legacySelf with{IsMounted=true,HasParentBody=true,Grounded=false,Immersion=.75f};
+var nativeSerialize=typeof(ActorTools).GetMethod("ToJson",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!;
+var bodyJson=(System.Text.Json.JsonElement)nativeSerialize.Invoke(null,new object[]{bodySelf})!;
+Check(bodyJson.GetProperty("isMounted").GetBoolean()&&bodyJson.GetProperty("hasParentBody").GetBoolean(),"mounted and parent exported independently");
+Check(!bodyJson.GetProperty("grounded").GetBoolean()&&bodyJson.GetProperty("immersion").GetSingle()==.75f,"support and immersion preserved");
+var unknownJson=(System.Text.Json.JsonElement)nativeSerialize.Invoke(null,new object[]{legacySelf})!;
+Check(!unknownJson.TryGetProperty("isMounted",out var absentMounted)||absentMounted.ValueKind==System.Text.Json.JsonValueKind.Null,"native serializer omits unknown rather than inventing false");
+Console.WriteLine("BODY SNAPSHOT TOTAL "+count);

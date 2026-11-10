@@ -2,6 +2,7 @@ import copy
 import datetime
 import importlib.util
 import json
+import math
 from pathlib import Path
 import shutil
 import tempfile
@@ -62,6 +63,164 @@ def after_dig(p, status='succeeded', distance=.8, visible=True, drop_ref='drop',
     f['observation']['pickables'] = [{'reference': drop_ref, 'value': value, 'count': 1,
         'sense': 'vision' if visible else 'proximity', 'position': {'x': distance, 'y': 65, 'z': 0}}]
     setfacts(p, f)
+
+
+def scan_request():
+    p = request()
+    p['offers'].append(offer('act_FaceTowards', {
+        'bearing': {'type': 'number', 'minimum': -180, 'maximum': 180},
+        'timeout': {'type': 'number', 'minimum': .1, 'maximum': 4}}, ['bearing', 'timeout'],
+        [{'Required': ['bearing'], 'Forbidden': ['destination']}]))
+    f = facts(p)
+    f['observation']['visibleBlocks'] = []
+    f['observation']['self'].update(isMounted=False, hasParentBody=False, facing={'x': 0, 'y': 0, 'z': 1})
+    setfacts(p, f)
+    return p
+
+
+def after_turn(p, heading=270, status='succeeded'):
+    f = facts(p)
+    f['terminal']['action'] = {'action': 'FaceTowards', 'status': status}
+    f['outcomeFeedback'] = {'preceding': {'tool': 'act_FaceTowards', 'status': status}}
+    f['observation']['self']['facing'] = {'x': math.sin(math.radians(heading)), 'y': 0,
+                                        'z': math.cos(math.radians(heading))}
+    setfacts(p, f)
+
+
+class ScanPolicyTests(unittest.TestCase):
+    def test_relative_bearing_axes_not_host_absolute_bearing(self):
+        for x, z, heading, next_heading in [(0, 1, 0, 270), (1, 0, 90, 0),
+                                           (0, -1, 180, 90), (-1, 0, 270, 180)]:
+            self.assertEqual(d.horizontal_heading({'x': x, 'y': .3, 'z': z}), heading)
+            self.assertEqual(d.native_turn_heading(heading, 90), next_heading)
+
+    def test_native_negative_y_rotation_matches_atan2_axes_and_wrap(self):
+        # Independent reduction of Engine.Vector3.Transform(Quaternion(Y, -bearing)).
+        for heading in [0, 1, 45, 90, 179, 180, 181, 270, 359]:
+            for bearing in [-180, -90, 90, 180]:
+                x, z = math.sin(math.radians(heading)), math.cos(math.radians(heading))
+                s, c = math.sin(math.radians(-bearing)), math.cos(math.radians(-bearing))
+                actual = d.horizontal_heading({'x': x * c + z * s, 'y': 0, 'z': -x * s + z * c})
+                self.assertAlmostEqual(d.heading_distance(actual, d.native_turn_heading(heading, bearing)), 0)
+        self.assertEqual(d.heading_distance(359, 1), 2)
+        self.assertEqual(d.heading_distance(-179, 179), 2)
+
+    def test_at_most_three_single_relative_turns_with_actual_new_views(self):
+        p = scan_request(); policy = d.Policy()
+        for heading in [270, 180, 90]:
+            self.assertEqual(policy.decide(p)['steps'], [{'tool': 'act_FaceTowards', 'arguments': {'bearing': 90, 'timeout': 4}}])
+            after_turn(p, heading)
+        result = policy.decide(p)
+        self.assertEqual(result['steps'], [])
+        self.assertIn('three bounded', result['goal'])
+        self.assertEqual(policy.scan_attempts, 3)
+        self.assertEqual(len(policy.scan_headings), 4)
+        for _ in range(5):
+            setfacts(p, facts(p)); self.assertEqual(policy.decide(p)['steps'], [])
+        self.assertEqual(policy.scan_attempts, 3)
+
+    def test_missing_null_or_nonboolean_mount_parent_facts_block(self):
+        for key in ['isMounted', 'hasParentBody']:
+            for value in [None, 0, '', 'false', [], True, 'missing']:
+                with self.subTest(key=key, value=value):
+                    p = scan_request(); f = facts(p)
+                    if value == 'missing': f['observation']['self'].pop(key)
+                    else: f['observation']['self'][key] = value
+                    setfacts(p, f); policy = d.Policy(); result = policy.decide(p)
+                    self.assertEqual(result['steps'], [])
+                    self.assertIn('explicit self.isMounted=false', result['goal'])
+                    self.assertEqual(policy.scan_attempts, 0)
+
+    def test_mounted_never_auto_dismounts_even_when_offered(self):
+        p = scan_request(); p['offers'].append(offer('act_Dismount', {}, []))
+        f = facts(p); f['observation']['self'].update(isMounted=True, hasParentBody=True); setfacts(p, f)
+        result = d.Policy().decide(p)
+        self.assertEqual(result['steps'], [])
+        self.assertIn('no inferred riding state or automatic dismount', result['goal'])
+
+    def test_missing_invalid_or_vertical_facing_blocks(self):
+        for facing in [None, {}, {'x': 0, 'y': 1, 'z': 0}, {'x': float('nan'), 'y': 0, 'z': 1}]:
+            p = scan_request(); f = facts(p); f['observation']['self']['facing'] = facing; setfacts(p, f)
+            result = d.Policy().decide(p)
+            self.assertEqual(result['steps'], [])
+            self.assertIn('self.facing required', result['goal'])
+
+    def test_missing_duplicate_or_narrow_offer_blocks(self):
+        for mode in ['missing', 'duplicate', 'bearing', 'timeout']:
+            p = scan_request()
+            if mode == 'missing': p['offers'].pop()
+            elif mode == 'duplicate': p['offers'].append(copy.deepcopy(p['offers'][-1]))
+            elif mode == 'bearing': p['offers'][-1]['Parameters']['properties']['bearing']['maximum'] = 45
+            else: p['offers'][-1]['Parameters']['properties']['timeout']['maximum'] = 3
+            policy = d.Policy(); result = policy.decide(p)
+            self.assertEqual(result['steps'], [])
+            self.assertIn('offer does not permit', result['goal'])
+            self.assertEqual(policy.scan_attempts, 0)
+
+    def test_turn_waits_for_fresh_observation_and_real_terminal(self):
+        p = scan_request(); policy = d.Policy(); policy.decide(p)
+        self.assertEqual(policy.decide(p)['steps'], [])
+        setfacts(p, facts(p)); self.assertEqual(policy.decide(p)['steps'], [])
+        after_turn(p, 270, 'running'); self.assertEqual(policy.decide(p)['steps'], [])
+        after_turn(p, 270); self.assertEqual(policy.decide(p)['steps'][0]['tool'], 'act_FaceTowards')
+        self.assertEqual(policy.scan_attempts, 2)
+
+    def test_failure_cancel_rejected_skipped_latch_no_turn_retry(self):
+        for status in ['failed', 'cancelled', 'rejected', 'skipped']:
+            p = scan_request(); policy = d.Policy(); policy.decide(p); after_turn(p, 270, status)
+            result = policy.decide(p); self.assertEqual(result['steps'], [])
+            self.assertIn('ended ' + status, result['goal'])
+            after_turn(p, 270); self.assertEqual(policy.decide(p)['steps'], [])
+            self.assertEqual(policy.scan_attempts, 1)
+
+    def test_stale_success_unchanged_or_wrong_orientation_cannot_scan_again(self):
+        for heading in [0, 90, 180, 300]:
+            p = scan_request(); policy = d.Policy(); policy.decide(p); after_turn(p, heading)
+            result = policy.decide(p); self.assertEqual(result['steps'], [])
+            self.assertIn('no matching fresh self.facing', result['goal'])
+            after_turn(p, 270); self.assertEqual(policy.decide(p)['steps'], [])
+
+    def test_next_target_uses_actual_self_facing_not_old_assumed_heading(self):
+        p = scan_request(); policy = d.Policy(); policy.decide(p); after_turn(p, 275)
+        self.assertEqual(policy.decide(p)['steps'][0]['arguments']['bearing'], 90)
+        self.assertAlmostEqual(policy.pending['target']['heading'], 185)
+
+    def test_safe_candidate_before_scanning_and_after_new_view(self):
+        p = scan_request(); f = facts(p); f['observation']['visibleBlocks'] = [block()]; setfacts(p, f)
+        policy = d.Policy(); self.assertEqual(policy.decide(p)['steps'][0]['tool'], 'act_Dig')
+        self.assertEqual(policy.scan_attempts, 0)
+        p = scan_request(); policy = d.Policy(); policy.decide(p); after_turn(p)
+        f = facts(p); f['observation']['visibleBlocks'] = [block()]; setfacts(p, f)
+        self.assertEqual(policy.decide(p)['steps'][0]['tool'], 'act_Dig')
+        self.assertEqual(policy.scan_attempts, 1)
+
+    def test_changed_view_does_not_repeat_previously_scanned_direction(self):
+        p = scan_request(); policy = d.Policy(); policy.decide(p); after_turn(p)
+        f = facts(p); f['observation']['visibleBlocks'] = [block()]; setfacts(p, f)
+        self.assertEqual(policy.decide(p)['steps'][0]['tool'], 'act_Dig')
+        after_dig(p, status='failed'); f = facts(p)
+        f['observation']['visibleBlocks'] = []; f['observation']['self']['facing'] = {'x': 0, 'y': 0, 'z': 1}; setfacts(p, f)
+        result = policy.decide(p)
+        self.assertEqual(result['steps'], [])
+        self.assertIn('repeat an observed direction', result['goal'])
+        self.assertEqual(policy.scan_attempts, 1)
+
+    def test_water_gravel_sand_hazards_do_not_authorize_exploration_move(self):
+        for value in [6, 7, 18, 226]:
+            p = scan_request(); f = facts(p); f['observation']['visibleBlocks'] = [block(value=value)]; setfacts(p, f)
+            result = d.Policy().decide(p)
+            self.assertEqual([s['tool'] for s in result['steps']], ['act_FaceTowards'])
+
+    def test_prefetch_busy_health_and_unknown_outcome_never_scan(self):
+        for mode in ['prefetch', 'busy', 'health', 'unknown']:
+            p = scan_request(); f = facts(p)
+            if mode == 'prefetch': f['planningPhase'] = {'phase': 'AfterPrecedingSuccess'}
+            elif mode == 'busy': f['terminal']['navigation']['status'] = 'running'
+            elif mode == 'health': f['observation']['self']['health'] = .4
+            else: f['outcomeFeedback'] = {'status': 'outcome_unknown'}
+            setfacts(p, f); policy = d.Policy()
+            self.assertEqual(policy.decide(p)['steps'], [])
+            self.assertEqual(policy.scan_attempts, 0)
 
 
 class PolicyTests(unittest.TestCase):
