@@ -11,6 +11,7 @@ using Westworld.Scapi.Adapter;
 internal sealed class PlayableHost(int actorCount, string seed, int? requestLimit, string mode, bool watch)
 {
     private static readonly string Root = AppContext.BaseDirectory;
+    private static readonly InterestRadii ActorMapRange = new(32, 48);
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private readonly PlayDecisionQueue queue = new(2, requestLimit);
     private readonly List<PlayableActor> actors = new();
@@ -84,7 +85,7 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
             if (!loading && ScreensManager.CurrentScreen is MainMenuScreen && !ScreensManager.IsAnimating)
             {
                 loading = true;
-                SettingsManager.VisibilityRange = 32;
+                SettingsManager.VisibilityRange = (int)ActorMapRange.FullReady;
                 var settings = new WorldSettings
                 {
                     Name = "西部世界试玩", Seed = seed, GameMode = GameMode.Survival,
@@ -144,20 +145,21 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         senses = new NativeActorSession(project, worldId, actionsEnabled: false, observationAbove: Survival ? 3 : 1);
         foreach (var player in external)
         {
-            var actor = new PlayableActor(player, worldId, Log, Survival);
+            var actor = new PlayableActor(player, worldId, Log, Survival, ActorMapRange.Content);
             actors.Add(actor);
             senses.Bind(actor.Id, player);
             if (Survival) actor.BindTravel(senses);
         }
         updates.AddUpdateable(senses);
         backend = new ScapiInterestBackend(terrain, project.FindSubsystem<SubsystemSpawn>(true));
-        interests = new InterestCoordinator(senses.Registry, backend, new InterestRadii(32, 48));
+        interests = new InterestCoordinator(senses.Registry, backend, ActorMapRange);
         interests.Sync();
         foreach (var player in external) terrain.TerrainUpdater.RemoveUpdateLocation(player.PlayerData.PlayerIndex);
         if (Survival) trial = new PlaySurvivalTrial(project, external, time.GameTime, Log);
         if (watch) followView = new PlayFollowView(external[0], Log);
         Log(new { kind = "play_bound", worldId, views, passiveViews = watch ? 1 : 0, gameMode = settings.GameMode.ToString(),
             terrainMode = settings.TerrainGenerationMode.ToString(), survivalMechanics = settings.AreAdventureSurvivalMechanicsEnabled,
+            mapContentRadius = ActorMapRange.Content, terrainReadyRadius = ActorMapRange.FullReady,
             actors = actors.Select(a => new { a.Name, a.Id, a.Session }).ToArray() });
     }
 

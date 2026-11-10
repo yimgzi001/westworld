@@ -6,6 +6,7 @@ public readonly record struct VisibilityPoint(double X,double Y,double Z);
 /// No world reads: host supplies loaded-region and opaque-voxel checks separately.</summary>
 public static class VoxelSurfaceGeometry {
  public const double Inset=.001;
+ internal const float MaximumTraceReach=64f;
  public static VisibilityPoint SupportTop(int x,int y,int z)=>new(x+.5,y+1-Inset,z+.5);
  public static IReadOnlyList<VisibilityPoint> Samples(VisibilityPoint eye,int x,int y,int z){
   var result=new List<VisibilityPoint>{new(x+.5,y+.5,z+.5)};
@@ -30,7 +31,7 @@ public static class VoxelSurfaceGeometry {
 
  internal static bool LineOfSight(VisibilityPoint start,VisibilityPoint end,Func<int,int,int,bool?> opaque,double reach){
   ArgumentNullException.ThrowIfNull(opaque);
-  if(!Finite(start)||!Finite(end)||!double.IsFinite(reach)||reach<=0||reach>32||DistanceSquared(start,end)>reach*reach)return false;
+  if(!Finite(start)||!Finite(end)||!double.IsFinite(reach)||reach<=0||reach>MaximumTraceReach||DistanceSquared(start,end)>reach*reach)return false;
   int x=(int)Math.Floor(start.X),y=(int)Math.Floor(start.Y),z=(int)Math.Floor(start.Z),tx=(int)Math.Floor(end.X),ty=(int)Math.Floor(end.Y),tz=(int)Math.Floor(end.Z);
   double vx=end.X-start.X,vy=end.Y-start.Y,vz=end.Z-start.Z;
   int sx=Math.Sign(vx),sy=Math.Sign(vy),sz=Math.Sign(vz);

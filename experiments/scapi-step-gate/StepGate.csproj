@@ -14,7 +14,7 @@
     <Compile Include="../scapi-tool-agent/play/PlayDryRoutes.cs" Link="PlayDryRoutes.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalFood.cs" Link="PlaySurvivalFood.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalSenses.cs" Link="PlaySurvivalSenses.cs" />
-    <Compile Include="../scapi-tool-agent/play/PlaySurvivalSurvey.cs" Link="PlaySurvivalSurvey.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalPanorama.cs" Link="PlaySurvivalPanorama.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayEarthShelter.cs" Link="PlayEarthShelter.cs" />
   </ItemGroup>
 </Project>

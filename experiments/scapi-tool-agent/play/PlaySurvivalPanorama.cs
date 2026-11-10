@@ -4,7 +4,7 @@ using Engine;
 using Game;
 using Game.Westworld;
 
-internal static class PlaySurvivalSurvey
+internal static class PlaySurvivalPanorama
 {
     private const int Directions = 8;
     private const float SectorWidth = 360f / Directions;
@@ -53,15 +53,20 @@ internal static class PlaySurvivalSurvey
             }).ToArray()
         };
 
-        public Vector3? EarthInDirection(Vector3 origin, Vector2 direction)
+        public Vector3? EarthInDirection(Vector3 origin, Vector2 direction) => GroundInDirection(origin, direction, IsSoftEarth, 3f);
+
+        public Vector3? ShoreInDirection(Vector3 origin, Vector2 direction) => GroundInDirection(origin, direction,
+            block => block.BareTop && IsDryGround(block.Value), 2f);
+
+        private Vector3? GroundInDirection(Vector3 origin, Vector2 direction, Func<PanoramicBlock, bool> matching, float height)
         {
-            var earth = Panorama.Blocks.Where(IsSoftEarth).Where(block =>
+            var ground = Panorama.Blocks.Where(matching).Where(block =>
             {
                 var offset = block.Point - origin;
-                return MathF.Abs(offset.Y) <= 3f && offset.XZ.LengthSquared() > 0.25f
+                return MathF.Abs(offset.Y) <= height && offset.XZ.LengthSquared() > 0.25f
                     && Vector2.Dot(Vector2.Normalize(offset.XZ), direction) >= 0.55f;
             }).MinBy(block => (block.Point - origin).LengthSquared());
-            return earth is null ? null : new Vector3(earth.Cell.X + 0.5f, earth.Cell.Y + 1f, earth.Cell.Z + 0.5f);
+            return ground is null ? null : new Vector3(ground.Cell.X + 0.5f, ground.Cell.Y + 1f, ground.Cell.Z + 0.5f);
         }
 
         private static object Describe(string name, Vector3 point, Vector3 at, Vector2 facing)
@@ -78,9 +83,9 @@ internal static class PlaySurvivalSurvey
             && BlocksManager.Blocks[Terrain.ExtractContents(block.Value)] is GrassBlock or DirtBlock;
     }
 
-    public static Sweep? Capture(ComponentPlayer player, AtomicActions.ActorQueries queries, double gameTime)
+    public static Sweep? Capture(ComponentPlayer player, AtomicActions.ActorQueries queries, float radius, double gameTime)
     {
-        var panorama = queries.ReadPanorama();
+        var panorama = queries.ReadPanorama(radius);
         if (panorama is null) return null;
         var origin = player.ComponentBody.Position;
         var facing = player.ComponentBody.Matrix.Forward.XZ;

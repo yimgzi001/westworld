@@ -153,7 +153,8 @@ internal sealed class PlayEarthShelter
                 Begin(new Jump(), Phase.Raise);
                 break;
             case Phase.Raise:
-                if (body.Position.Y >= level + 1.01f && Focus(site.Cell(level - 1), 4) is { } baseBlock && Dirt() is { } earth)
+                // 原生放置用内缩 0.2 格的身体包围盒。接近一格时即可交给原生校验。
+                if (body.Position.Y >= level + 0.9f && Focus(site.Cell(level - 1), 4) is { } baseBlock && Dirt() is { } earth)
                 {
                     Begin(new Place(baseBlock, earth), Phase.Settle);
                 }

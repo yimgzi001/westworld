@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Buffers;
 using Engine;
 
 namespace Game.Westworld {
@@ -8,10 +9,10 @@ namespace Game.Westworld {
 
     public sealed partial class AtomicActions {
         public sealed partial class ActorQueries {
-            public ActorPanorama? ReadPanorama() {
+            public ActorPanorama? ReadPanorama(float radius) {
+                if (!float.IsFinite(radius) || radius <= 0 || radius > VoxelSurfaceGeometry.MaximumTraceReach)
+                    throw new ArgumentOutOfRangeException(nameof(radius));
                 if (!m_port.IsActorAvailable || !m_port.CanTargetWorld() || m_port.m_sleep?.IsSleeping == true) return null;
-                float radius = Math.Min(SettingsManager.VisibilityRange, 32);
-                if (radius <= 0) return null;
                 var eye = m_port.WorldEyes.EyePosition;
                 if (!float.IsFinite(eye.X) || !float.IsFinite(eye.Y) || !float.IsFinite(eye.Z) || eye.Y is < 0 or > 256)
                     return null;
@@ -22,11 +23,15 @@ namespace Game.Westworld {
             }
 
             private static bool PanoramaRayLoaded(Terrain terrain, Vector3 eye, Vector3 target, float radius) {
-                if (terrain.GetChunkAtCell(Terrain.ToCell(target.X), Terrain.ToCell(target.Z))?.State != TerrainChunkState.Valid)
+                if (!HasPanoramaContents(terrain.GetChunkAtCell(Terrain.ToCell(target.X), Terrain.ToCell(target.Z))))
                     return false;
                 return VoxelSurfaceGeometry.LineOfSight(Point(eye), Point(target),
-                    (x, _, z) => terrain.GetChunkAtCell(x, z)?.State == TerrainChunkState.Valid ? false : null, radius);
+                    (x, _, z) => HasPanoramaContents(terrain.GetChunkAtCell(x, z)) ? false : null, radius);
             }
+
+            // 内容刷新圈已生成方块和光照，外圈可以尚未生成渲染网格。
+            private static bool HasPanoramaContents(TerrainChunk? chunk) =>
+                chunk?.State >= TerrainChunkState.InvalidVertices1;
 
             private static IReadOnlyList<PanoramicBlock> ReadPanoramicSurfaces(Terrain terrain, Vector3 eye, float radius,
                 out bool unloaded) {
@@ -35,9 +40,16 @@ namespace Game.Westworld {
                 var max = Terrain.ToCell(eye + new Vector3(radius + 1));
                 min.Y = Math.Max(0, min.Y);
                 max.Y = Math.Min(TerrainChunk.Height - 1, max.Y);
+                int length = (max.X - min.X + 1) * (max.Y - min.Y + 1) * (max.Z - min.Z + 1);
+                var values = ArrayPool<int>.Shared.Rent(length);
+                try { return SamplePanoramicSurfaces(terrain, eye, radius, min, max, values, out unloaded); }
+                finally { ArrayPool<int>.Shared.Return(values); }
+            }
+
+            private static IReadOnlyList<PanoramicBlock> SamplePanoramicSurfaces(Terrain terrain, Vector3 eye, float radius,
+                Point3 min, Point3 max, int[] values, out bool unloaded) {
                 int height = max.Y - min.Y + 1;
                 int width = max.X - min.X + 1;
-                var values = new int[width * (max.Z - min.Z + 1) * height];
                 unloaded = false;
                 int Column(int x, int z) => ((z - min.Z) * width + x - min.X) * height;
                 int Value(int x, int y, int z) => x < min.X || x > max.X || y < min.Y || y > max.Y || z < min.Z || z > max.Z
@@ -46,13 +58,14 @@ namespace Game.Westworld {
                 for (int x = min.X; x <= max.X; x++) {
                     int column = Column(x, z);
                     var chunk = terrain.GetChunkAtCell(x, z);
-                    if (chunk?.State != TerrainChunkState.Valid) {
+                    if (!HasPanoramaContents(chunk)) {
                         Array.Fill(values, -1, column, height);
-                        unloaded = true;
+                        float dx = x + 0.5f - eye.X, dz = z + 0.5f - eye.Z;
+                        unloaded |= dx * dx + dz * dz <= radius * radius;
                         continue;
                     }
                     int start = TerrainChunk.CalculateCellIndex(x & 15, min.Y, z & 15);
-                    for (int offset = 0; offset < height; offset++) values[column + offset] = chunk.GetCellValueFast(start + offset);
+                    for (int offset = 0; offset < height; offset++) values[column + offset] = chunk!.GetCellValueFast(start + offset);
                 }
 
                 var result = new List<PanoramicBlock>();

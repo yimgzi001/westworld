@@ -11,6 +11,7 @@ sealed partial class Runner
     private PlayEarthShelter.Site? testSite;
     private Pickable? testEgg;
     private Pickable? hiddenEgg;
+    private Pickable? farEgg;
     private Point3 farMarker, hiddenMarker;
     private int eggValue;
     private bool sawLevelWalking;
@@ -18,6 +19,59 @@ sealed partial class Runner
     private float vitalBefore;
     private double sleepDay;
     private bool changedDigSlot;
+
+    private void RunCoast()
+    {
+        var body = p.ComponentBody;
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        if (stage == 0)
+        {
+            if (elapsed < 3) return;
+            var cell = Terrain.ToCell(body.Position);
+            int water = Terrain.MakeBlockValue(WaterBlock.Index, 0, FluidBlock.SetIsTop(0, true));
+            for (int x = cell.X - 4; x <= cell.X + 5; x++)
+            for (int z = cell.Z - 4; z <= cell.Z + 4; z++)
+            {
+                bool pool = x < cell.X + 2 && x > cell.X - 4 && Math.Abs(z - cell.Z) < 4;
+                terrain.ChangeCell(x, cell.Y - 3, z, DirtBlock.Index);
+                terrain.ChangeCell(x, cell.Y - 2, z, pool ? WaterBlock.Index : DirtBlock.Index);
+                terrain.ChangeCell(x, cell.Y - 1, z, pool ? water : GravelBlock.Index);
+                for (int y = cell.Y; y <= cell.Y + 3; y++) terrain.ChangeCell(x, y, z, 0);
+            }
+            var boat = DatabaseManager.CreateEntity(p.Project, "Boat", true);
+            var hull = boat.FindComponent<ComponentBody>(true);
+            hull.Position = new(cell.X + 0.5f, cell.Y - 0.35f, cell.Z + 0.5f);
+            hull.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
+            p.Project.AddEntity(boat);
+            body.Position = hull.Position + new Vector3(0, hull.BoxSize.Y + 0.2f, 0);
+            body.Rotation = hull.Rotation;
+            body.Velocity = Vector3.Zero;
+            forageTools = new(Guid.NewGuid(), p, new ActorTools(actions, true));
+            elapsed = 0;
+            stage = 1;
+            return;
+        }
+        if (stage == 1)
+        {
+            if (PlaySurvivalSenses.BoatDeck(body) is null)
+            {
+                if (elapsed > 4) throw new InvalidOperationException("角色没有在夹具里站上船壳。");
+                return;
+            }
+            if (PlaySurvivalSenses.OnDryGround(body)) throw new InvalidOperationException("船壳被误判为干地。");
+            travel = new(p, actions, 0, 8f, "dry_land", false, now, ReadForage,
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log);
+            stage = 2;
+            Gate.Log(new { kind = "coast_fixture_deck", position = body.Position.ToString(), onDryGround = false });
+        }
+        travel!.Update(now);
+        if (travel.Status is null) return;
+        float displacement = (body.Position - travel.Origin).XZ.Length();
+        Passed = travel.Status == "succeeded" && travel.Reason == "dry_ground_reached"
+            && PlaySurvivalSenses.OnDryGround(body) && displacement > 1.2f;
+        Done = true;
+        Gate.Log(new { kind = "coast_result", Passed, travel.Status, travel.Reason, displacement, onDryGround = PlaySurvivalSenses.OnDryGround(body) });
+    }
 
     private void RunSurvivalSkill()
     {
@@ -27,7 +81,9 @@ sealed partial class Runner
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
-            for (int x = cell.X - 5; x <= cell.X + 5; x++)
+            if (mode == "forage" && !ForageCorridorReady(cell.X, cell.Z)) return;
+            int endX = cell.X + (mode == "forage" ? 39 : 5);
+            for (int x = cell.X - 5; x <= endX; x++)
             for (int z = cell.Z - 5; z <= cell.Z + 5; z++)
             for (int y = cell.Y - 4; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
@@ -44,10 +100,12 @@ sealed partial class Runner
                     body.Position + new Vector3(0, 0.2f, 3.25f), Vector3.Zero, null);
                 hiddenEgg = pickables.AddPickable(eggValue, 1,
                     body.Position + new Vector3(0, 0.2f, -4.25f), Vector3.Zero, null);
+                farEgg = pickables.AddPickable(eggValue, 1,
+                    body.Position + new Vector3(38f, 0.2f, -3.25f), Vector3.Zero, null);
                 for (int x = cell.X - 2; x <= cell.X + 2; x++)
                 for (int y = cell.Y; y <= cell.Y + 3; y++)
                     terrain.ChangeCell(x, y, cell.Z - 2, GraniteBlock.Index);
-                farMarker = new(cell.X + 12, cell.Y, cell.Z + 2);
+                farMarker = new(cell.X + 38, cell.Y, cell.Z + 2);
                 hiddenMarker = new(cell.X, cell.Y, cell.Z - 4);
                 terrain.ChangeCell(farMarker.X, farMarker.Y, farMarker.Z, OakWoodBlock.Index);
                 terrain.ChangeCell(hiddenMarker.X, hiddenMarker.Y, hiddenMarker.Z, OakWoodBlock.Index);
@@ -67,25 +125,30 @@ sealed partial class Runner
         var body = p.ComponentBody;
         if (stage == 1)
         {
+            if (!ForageCorridorReady(farMarker.X - 38, farMarker.Z - 2)) return;
             if (ReadForage().Foods.Any(food => food.Value == eggValue))
                 throw new InvalidOperationException("测试鸟蛋应在初始朝向之外。");
             var position = body.Position;
             var direction = p.ComponentCreatureModel.EyeRotation.GetForwardVector();
             var started = System.Diagnostics.Stopwatch.GetTimestamp();
-            var sweep = PlaySurvivalSurvey.Capture(p, actions.Queries, now) ?? throw new InvalidOperationException("全向观察未返回。");
-            var food = sweep.Sectors.SelectMany(sector => sector.Food).Single(item => item.Value == eggValue);
+            var sweep = PlaySurvivalPanorama.Capture(p, actions.Queries, mapRange.Content, now)
+                ?? throw new InvalidOperationException("全向观察未返回。");
+            var food = sweep.Sectors.SelectMany(sector => sector.Food).Single(item => item.Value == eggValue
+                && (item.Point - testEgg!.Position).LengthSquared() < 0.5f);
             bool samePose = position == body.Position && direction == p.ComponentCreatureModel.EyeRotation.GetForwardVector()
                 && now == p.Project.FindSubsystem<SubsystemTime>(true).GameTime && !actions.IsActionRunning;
             bool hidden = sweep.Panorama.Objects.Pickables.All(item => (item.Position - hiddenEgg!.Position).LengthSquared() > 0.5f)
                 && sweep.Panorama.Blocks.All(block => block.Cell != hiddenMarker);
-            bool far = sweep.Panorama.Blocks.Any(block => block.Cell == farMarker && block.Distance > 10f);
-            if (sweep.Sectors.Length != 8 || food.InReach || !samePose || !hidden || !far)
-                throw new InvalidOperationException($"全向观察范围或遮挡不符合测试条件。原姿态 {samePose}，墙后隐藏 {hidden}，远处可见 {far}。");
+            bool farBlock = sweep.Panorama.Blocks.Any(block => block.Cell == farMarker && block.Distance > 32f);
+            bool farItem = sweep.Panorama.Objects.Pickables.Any(item => item.Distance > 32f
+                && (item.Position - farEgg!.Position).LengthSquared() < 0.5f);
+            if (sweep.Sectors.Length != 8 || sweep.Panorama.Radius != mapRange.Content || food.InReach || !samePose || !hidden || !farBlock || !farItem)
+                throw new InvalidOperationException($"全向观察范围或遮挡不符合测试条件。原姿态 {samePose}，墙后隐藏 {hidden}，远处方块 {farBlock}，远处拾取物 {farItem}。");
             float bearing = Vector2.Angle(body.Matrix.Forward.XZ, (food.Point - body.Position).XZ) * (180f / MathF.PI);
             travel = new(p, actions, bearing, 4.2f, "food", false, now, ReadForage,
                 () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log, foodTarget: food);
             Gate.Log(new { kind = "forage_survey", sectors = sweep.Sectors.Length, sweep.Panorama.Radius, food.Name, food.Distance,
-                bearing, samePose, hidden, far, durationMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds });
+                bearing, samePose, hidden, farBlock, farItem, durationMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds });
             stage = 3;
         }
         if (stage == 3)
@@ -128,6 +191,14 @@ sealed partial class Runner
         if (read.State != "returned") throw new InvalidOperationException("测试观察没有返回。");
         var (_, food) = PlaySurvivalFood.Project(read.Data);
         return (read.Data, food);
+    }
+
+    private bool ForageCorridorReady(int startX, int z)
+    {
+        for (int x = startX; x <= startX + 38; x++)
+        for (int offset = -4; offset <= 4; offset += 4)
+            if (!(terrain.Terrain.GetChunkAtCell(x, z + offset)?.State >= TerrainChunkState.InvalidVertices1)) return false;
+        return true;
     }
 
     private void RunShelter(double now)

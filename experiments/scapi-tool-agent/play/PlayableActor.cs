@@ -23,6 +23,7 @@ internal sealed class PlayableActor
     private readonly Guid worldId;
     private readonly Action<object> log;
     private readonly bool survival;
+    private readonly float panoramaRadius;
     private readonly Dictionary<int, JsonElement> items = new();
     private readonly PlaySocialInbox inbox = new();
     private readonly Queue<ToolDecisionStep> planned = new();
@@ -32,7 +33,7 @@ internal sealed class PlayableActor
     private PlaySurvivalTravel? travel;
     private (PlaySurvivalFood.Food Target, int Before)? foodApproach;
     private (PlaySurvivalFood.Food Target, double RetryAfter)? blockedFood;
-    private PlaySurvivalSurvey.Sweep? surroundings;
+    private PlaySurvivalPanorama.Sweep? surroundings;
     private PlayEarthShelter? shelter;
     private PlayEarthShelter.Site? earthSite;
     private NativeActorSession? travelSenses;
@@ -54,12 +55,13 @@ internal sealed class PlayableActor
         public HashSet<string> PickupAttempts { get; } = new();
     }
 
-    public PlayableActor(ComponentPlayer player, Guid worldId, Action<object> log, bool survival)
+    public PlayableActor(ComponentPlayer player, Guid worldId, Action<object> log, bool survival, float panoramaRadius)
     {
         this.player = player;
         this.worldId = worldId;
         this.log = log;
         this.survival = survival;
+        this.panoramaRadius = panoramaRadius;
         owner = new AtomicActions(player.Entity);
         tools = new NativeToolSession(Guid.NewGuid(), player, new ActorTools(owner, true));
     }
@@ -96,7 +98,7 @@ internal sealed class PlayableActor
         {
             nextDangerScan = gameTime + 0.55;
             var body = player.ComponentBody;
-            survivalMemory.VisitPosition(body.Position, body.StandingOnValue.HasValue && body.ImmersionDepth < 0.04f, gameTime);
+            survivalMemory.VisitPosition(body.Position, PlaySurvivalSenses.OnDryGround(body), gameTime);
             if (CheckDanger(queue, gameTime)) reply = null;
             if (retired) return;
         }
@@ -225,10 +227,12 @@ internal sealed class PlayableActor
             float bearing = step.Arguments.GetProperty("bearing").GetSingle();
             string seek = step.Arguments.GetProperty("seek").GetString()!;
             var body = player.ComponentBody;
-            var earth = seek == "shelter" && surroundings is { } sweep && gameTime - sweep.CompletedAt < 30
-                ? sweep.EarthInDirection(body.Position, PlaySurvivalTravel.Rotate(body.Matrix.Forward.XZ, bearing)) : null;
+            var direction = PlaySurvivalTravel.Rotate(body.Matrix.Forward.XZ, bearing);
+            var sweep = surroundings is { } current && gameTime - current.CompletedAt < 30 ? current : null;
+            var earth = seek == "shelter" ? sweep?.EarthInDirection(body.Position, direction) : null;
+            var shore = seek == "dry_land" ? sweep?.ShoreInDirection(body.Position, direction) : null;
             travel = new(player, owner, bearing, step.Arguments.GetProperty("distance").GetSingle(), seek,
-                false, gameTime, ObserveSurvival, ReadDryWindow, log, survivalMemory.VisitsTo, shelterTarget: earth);
+                false, gameTime, ObserveSurvival, ReadDryWindow, log, survivalMemory.VisitsTo, shelterTarget: earth, shoreTarget: shore);
         }
         else if (foodToHarvest is { } food)
         {
@@ -242,7 +246,7 @@ internal sealed class PlayableActor
         PlayDecisionQueue queue, double gameTime)
     {
         var body = player.ComponentBody;
-        bool dry = body.StandingOnValue.HasValue && body.ImmersionDepth < 0.04f;
+        bool dry = PlaySurvivalSenses.OnDryGround(body);
         if (tool == PlaySurvivalIntents.BuildShelter && PlayEarthShelter.At(body) is { } ground)
         {
             earthSite = ground;
@@ -385,14 +389,14 @@ internal sealed class PlayableActor
             if (survival)
             {
                 var started = Stopwatch.GetTimestamp();
-                surroundings = PlaySurvivalSurvey.Capture(player, owner.Queries, gameTime);
+                surroundings = PlaySurvivalPanorama.Capture(player, owner.Queries, panoramaRadius, gameTime);
                 if (surroundings is { } sweep)
-                    log(new { kind = "play_survival_survey", actor = Name, gameTime, sectors = sweep.Sectors.Length,
+                    log(new { kind = "play_survival_panorama", actor = Name, gameTime, sectors = sweep.Sectors.Length,
                         sweep.Panorama.Radius, blocks = sweep.Panorama.Blocks.Count,
                         animals = sweep.Panorama.Objects.Entities.Count, items = sweep.Panorama.Objects.Pickables.Count,
                         durationMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds });
             }
-            snapshot = Capture();
+            snapshot = Capture(includePanorama: true);
         }
         catch (Exception error) when (error is FormatException or JsonException or InvalidOperationException or ArgumentException)
         {
@@ -444,14 +448,15 @@ internal sealed class PlayableActor
     }
 
     private (Guid Observation, ToolDecisionPrompt Prompt, JsonElement Context, IReadOnlyList<ToolOffer> Offers,
-        PlaySurvivalFood.Food[]? Foods) Capture()
+        PlaySurvivalFood.Food[]? Foods) Capture(bool includePanorama = false)
     {
         var (observation, inventory) = Observe(survival ? 128 : 8);
         var body = player.ComponentBody;
         var mountBody = survival ? player.Entity.FindComponent<ComponentRider>()?.Mount?.ComponentBody : null;
         bool mounted = mountBody is not null;
-        bool exposedToWater = survival && (mounted || body.ImmersionDepth > 0.12f);
-        var shore = exposedToWater ? PlaySurvivalSenses.VisibleShore(observation, body, mountBody) : null;
+        var deck = survival ? PlaySurvivalSenses.BoatDeck(body) : null;
+        bool exposedToWater = survival && (mounted || deck is not null || body.ImmersionDepth > 0.12f);
+        var shore = exposedToWater ? PlaySurvivalSenses.VisibleShore(observation, body, mountBody ?? deck) : null;
         bool canDismount = !mounted || shore is { Distance: <= 2.5f }
             || mountBody!.StandingOnValue.HasValue || mountBody.ImmersionFactor > 0.92f;
         PlaySurvivalFood.Food[]? visibleFood = null;
@@ -486,7 +491,7 @@ internal sealed class PlayableActor
         var nativeOffers = NativeToolOffers.Build(supported.Where(tool =>
             (Actions.Contains(tool.Name) || (survival && (tool.Name == "act_Jump" || tool.Name == "act_Sleep" && canSleep)))
             && !(mounted && (tool.Name is "act_MoveTo" or "act_FaceTowards" or "act_Jump"))
-            && (!survival || tool.Name != "act_MoveTo")
+            && (!survival || tool.Name is not ("act_MoveTo" or "act_FaceTowards"))
             && (!inEarthShelter || tool.Name is "act_Wait" or "act_Eat" or "act_Sleep")
             && (canDismount || tool.Name != "act_Dismount")
             && (forageInWater || tool.Name is not ("act_Dig" or "act_PickUp"))).ToArray(),
@@ -540,8 +545,10 @@ internal sealed class PlayableActor
             inEarthShelter = survival ? inEarthShelter : (bool?)null,
             canBuildHere = survival ? !inEarthShelter && PlayEarthShelter.At(body) is not null : (bool?)null,
             canRestHere = survival ? canSleep : (bool?)null,
+            onBoatDeck = survival ? deck is not null : (bool?)null,
+            onDryGround = survival ? PlaySurvivalSenses.OnDryGround(body) : (bool?)null,
             localMemory = survival ? survivalMemory.Snapshot(gameTime) : null,
-            surroundings = survival && surroundings is { } surveyed && gameTime - surveyed.CompletedAt < 90
+            surroundings = includePanorama && surroundings is { } surveyed
                 ? surveyed.Snapshot(body.Position, body.Matrix.Forward.XZ, gameTime) : null,
             sleepBlocker = string.IsNullOrEmpty(sleepBlocker) ? null : sleepBlocker,
             receivedSocial = messages
@@ -702,7 +709,8 @@ internal sealed class PlayableActor
             log(new { kind = "play_predator_sight", actor = Name, predators, gameTime });
         }
         var body = player.ComponentBody;
-        bool inWater = body.ImmersionDepth > 0.12f || player.Entity.FindComponent<ComponentRider>()?.Mount is not null;
+        bool inWater = body.ImmersionDepth > 0.12f || player.Entity.FindComponent<ComponentRider>()?.Mount is not null
+            || PlaySurvivalSenses.BoatDeck(body) is not null;
         var threat = predators.FirstOrDefault(animal => PlaySurvivalSenses.NeedsAvoidance(animal, inWater)
             && !(earthSite is { } site && site.Contains(body) && body.Position.Y <= site.Surface - 2
                 && animal.Y >= site.Surface - 0.2f));

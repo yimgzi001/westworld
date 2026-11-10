@@ -43,6 +43,7 @@ Check(VoxelSurfaceGeometry.LineOfSight(eye,distant,(_,_,_)=>false,32),"全向观
 Check(!VoxelSurfaceGeometry.LineOfSight(eye,distant,(x,_,_)=>x==18,32),"远处目标仍会被墙挡住");
 Check(!VoxelSurfaceGeometry.LineOfSight(eye,distant,(x,_,_)=>x==18?null:false,32),"远处射线不会穿过未加载区");
 Check(!VoxelSurfaceGeometry.LineOfSight(eye,new(33.5,66.6,.5),(_,_,_)=>false,32),"全向观察止于视距边界");
+Check(VoxelSurfaceGeometry.LineOfSight(eye,new(45.5,66.6,.5),(_,_,_)=>false,48),"全向观察可以匹配较大的地图刷新半径");
 var around=SharedVoxelScanner.Scan(body,eye,forward,Loaded,World,allDirections:true);
 Check(!scan.AllDirections&&around.AllDirections,"普通观察仍使用朝向");
 Check(around.Cells.Any(c=>c.X==-3&&c.Y==64&&c.Z==0&&c.Value==2),"走路的全向近距观察能看到身后地面");

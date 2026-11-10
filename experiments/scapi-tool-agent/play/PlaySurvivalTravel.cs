@@ -6,7 +6,6 @@ using Engine;
 using Game;
 using Game.Westworld;
 using Westworld.Runtime.Core;
-using Westworld.Scapi.Adapter;
 
 internal sealed class PlaySurvivalTravel
 {
@@ -21,14 +20,14 @@ internal sealed class PlaySurvivalTravel
     private readonly Func<Position, int>? visits;
     private readonly PlaySurvivalFood.Food? foodTarget;
     private readonly Vector3? shelterTarget;
+    private readonly Vector3? shoreTarget;
     private readonly Action<object> log;
     private Vector2 direction;
     private Vector3 legOrigin;
     private AtomicActionRun? leg;
     private PlayDryRoutes.Leg? dryProof;
-    private NavigationLookPlan lookPlan = new(6);
     private long proofStarted;
-    private int scans, legs, dryLooks;
+    private int scans, legs;
     private float traveled;
     private bool detourUsed, jumpUsed, dryLeg, aligned;
     private PlaySurvivalSenses.Shore? lastShore;
@@ -38,7 +37,7 @@ internal sealed class PlaySurvivalTravel
     public PlaySurvivalTravel(ComponentPlayer player, AtomicActions owner, float bearing, float distance,
         string seek, bool evading, double gameTime, Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe,
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
-        PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null)
+        PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null)
     {
         this.player = player;
         this.owner = owner;
@@ -49,6 +48,7 @@ internal sealed class PlaySurvivalTravel
         this.visits = visits;
         this.foodTarget = foodTarget;
         this.shelterTarget = shelterTarget;
+        this.shoreTarget = shoreTarget;
         this.log = log;
         Evading = evading;
         Origin = player.ComponentBody.Position;
@@ -102,16 +102,16 @@ internal sealed class PlaySurvivalTravel
             float progress = (body.Position - legOrigin).XZ.Length();
             traveled += progress;
             blocked = progress < 0.32f && previous.Result.Status != AtomicActionStatus.Succeeded;
-            if (progress >= 0.32f)
-            {
-                dryLooks = 0;
-                lookPlan = new(6);
-            }
         }
         else if (previous?.Action is Steer && previous.Result.Status != AtomicActionStatus.Succeeded)
             blocked = true;
+        if (previous?.Action is Mount && previous.Result.Status != AtomicActionStatus.Succeeded)
+        {
+            Finish("failed", "boat_remount_failed");
+            return;
+        }
 
-        bool dry = body.StandingOnValue.HasValue && body.ImmersionDepth < 0.04f;
+        bool dry = PlaySurvivalSenses.OnDryGround(body);
         if (seek == "dry_land" && dry)
         {
             Finish("succeeded", "dry_ground_reached");
@@ -160,13 +160,14 @@ internal sealed class PlaySurvivalTravel
         {
             float remaining = approach is { } destination ? Math.Min(distance - traveled, (destination - body.Position).XZ.Length() + 0.2f)
                 : distance - traveled;
-            AdvanceOnLand(body, blocked, remaining, gameTime);
+            AdvanceOnLand(blocked, remaining, gameTime);
             return;
         }
-        if (BoatBody is null && body.ImmersionDepth < 0.04f) return;
-        dryLeg = false;
         var boat = BoatBody;
-        if (!dry && seek == "dry_land" && PlaySurvivalSenses.VisibleShore(observation, body, boat) is { } visible)
+        var deck = PlaySurvivalSenses.BoatDeck(body);
+        if (boat is null && deck is null && body.ImmersionDepth < 0.04f) return;
+        dryLeg = false;
+        if (seek == "dry_land" && PlaySurvivalSenses.VisibleShore(observation, body, boat ?? deck) is { } visible)
         {
             lastShore = visible;
             shoreSeenAt = gameTime;
@@ -174,8 +175,21 @@ internal sealed class PlaySurvivalTravel
         var shore = gameTime - shoreSeenAt <= 4 ? lastShore : null;
         Vector3? landing = shore is { } point ? new Vector3(point.X, point.Y, point.Z) : null;
         float shoreDistance = landing.HasValue ? (landing.Value - body.Position).XZ.Length() : float.MaxValue;
-        var heading = shoreDistance > 0.18f && landing.HasValue
-            ? Vector2.Normalize((landing.Value - body.Position).XZ) : direction;
+        var targetOnLand = landing ?? shoreTarget;
+        var towardLand = targetOnLand is { } landAim ? (landAim - body.Position).XZ : Vector2.Zero;
+        var heading = towardLand.LengthSquared() > 0.04f ? Vector2.Normalize(towardLand) : direction;
+
+        if (boat is null && deck is not null)
+        {
+            // 站在船壳上时仍处于水面。岸边近且已确认就直接靠过去，否则回到座位继续划。
+            if (landing is { } land && shoreDistance <= 3.1f && !blocked)
+            {
+                legs++;
+                Start(new MoveTo(land, 0.32f, 4f), gameTime);
+            }
+            else Start(new Mount(deck.Entity), gameTime);
+            return;
+        }
 
         if (boat is not null)
         {
@@ -200,7 +214,7 @@ internal sealed class PlaySurvivalTravel
                 Start(new Steer(MathF.Sign(angle), 0f, Math.Clamp(MathF.Abs(angle), 0.3f, 2.6f)), gameTime);
                 return;
             }
-            if (seek == "dry_land" && !landing.HasValue && !Evading)
+            if (seek == "dry_land" && targetOnLand is null && !Evading)
             {
                 if (++scans > 4)
                 {
@@ -273,7 +287,7 @@ internal sealed class PlaySurvivalTravel
             action = action.GetType().Name, nativeStatus = leg.Result.Status.ToString(), legs });
     }
 
-    private void AdvanceOnLand(ComponentBody body, bool blocked, float remaining, double gameTime)
+    private void AdvanceOnLand(bool blocked, float remaining, double gameTime)
     {
         dryLeg = true;
         if (blocked) direction = Rotate(direction, 50);
@@ -286,31 +300,8 @@ internal sealed class PlaySurvivalTravel
             Start(route.Action, gameTime, route);
             return;
         }
-        var eye = player.ComponentCreatureModel.EyePosition;
-        if (dryLooks == 0 && Vector2.Dot(Vector2.Normalize(body.Matrix.Forward.XZ), direction) < 0.85f)
-        {
-            dryLooks++;
-            Start(new FaceTowards(body.Position + 3f * new Vector3(direction.X, 0f, direction.Y), 3f, -12f), gameTime);
-            return;
-        }
-        var missing = LocalNavigationSkillGeometry.MissingCells(window, allowObservedSandAndGravel: true);
-        var observation = lookPlan.Next(window, new(eye.X, eye.Y, eye.Z), missing, maximumKnownAge: 1.5);
-        if (observation.Look is { } turn)
-        {
-            Start(new FaceTowards(new Vector3((float)turn.Target.X, (float)turn.Target.Y, (float)turn.Target.Z), 3f,
-                (float)Math.Clamp(turn.PitchRadians * 180 / Math.PI, -75, 75)), gameTime);
-            return;
-        }
-        if (dryLooks >= 4)
-        {
-            Finish("failed", "no_observed_dry_route");
-            return;
-        }
-        float offset = dryLooks switch { 0 => 0f, 1 => 55f, 2 => -55f, _ => 100f };
-        dryLooks++;
-        var look = Rotate(direction, offset);
-        // 只有连续走廊与常规观察都缺少落脚证据时，才专门低头补看。
-        Start(new FaceTowards(body.Position + 2f * new Vector3(look.X, 0f, look.Y), 3f, -28f), gameTime);
+        // 同一位置已经取得全向落脚证据，缺少可走路段时直接反馈。
+        Finish("failed", "no_observed_dry_route");
     }
 
     internal static Vector2 Rotate(Vector2 source, float degrees)

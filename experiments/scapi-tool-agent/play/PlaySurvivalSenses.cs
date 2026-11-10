@@ -10,6 +10,13 @@ internal static class PlaySurvivalSenses
     internal sealed record Threat(string Name, float Distance, bool Aquatic, bool Predator, float X, float Y, float Z);
     internal sealed record Shore(float X, float Y, float Z, float Distance);
 
+    public static bool OnDryGround(ComponentBody body) => body.ParentBody is null && body.StandingOnBody is null
+        && body.ImmersionDepth < 0.04f && body.StandingOnValue is int value && Terrain.ExtractContents(value) != 0
+        && BlocksManager.Blocks[Terrain.ExtractContents(value)] is { } block && block is not FluidBlock && block.IsCollidable_(value);
+
+    public static ComponentBody? BoatDeck(ComponentBody body) => body.StandingOnBody is { } support
+        && support.Entity.FindComponent<ComponentBoat>() is not null ? support : null;
+
     public static Threat[] Threats(ComponentPlayer player, AtomicActions.ActorQueries queries)
     {
         var visible = queries.FindVisibleObjectsAround(16f).Entities;
