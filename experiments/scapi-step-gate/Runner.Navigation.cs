@@ -8,6 +8,7 @@ sealed partial class Runner
     private int continuations, stationaryLooks;
     private float slowestContinuation = float.PositiveInfinity;
     private float biggestContinuousTurn;
+    private bool insetAtStart;
 
     private void RunRollingNavigation()
     {
@@ -15,6 +16,7 @@ sealed partial class Runner
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         bool cliff = mode == "navigate-drop";
         bool turn = mode == "navigate-turn";
+        bool edge = mode == "navigate-edge";
         if (stage == 0)
         {
             if (elapsed < 3) return;
@@ -27,13 +29,14 @@ sealed partial class Runner
             for (int x = cell.X - 3; x <= cell.X + 22; x++)
             for (int z = cell.Z - 4; z <= endZ; z++)
             {
-                int floor = cliff && x >= cell.X + 8 ? cell.Y - 4 : !cliff && !turn && x >= cell.X + 9 ? cell.Y : cell.Y - 1;
+                int floor = cliff && x >= cell.X + 8 ? cell.Y - 4 : edge && x < cell.X ? cell.Y - 2
+                    : !cliff && !turn && !edge && x >= cell.X + 9 ? cell.Y : cell.Y - 1;
                 for (int y = cell.Y - 4; y <= cell.Y + 4; y++)
                     terrain.ChangeCell(x, y, z, y <= floor ? DirtBlock.Index : 0);
             }
             if (turn)
                 for (int y = cell.Y; y < cell.Y + 2; y++) terrain.ChangeCell(cell.X + 6, y, cell.Z, GraniteBlock.Index);
-            body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
+            body.Position = new(cell.X + (edge ? 0.231f : 0.5f), cell.Y, cell.Z + 0.5f);
             body.Velocity = Vector3.Zero;
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
             elapsed = 0;
@@ -41,6 +44,8 @@ sealed partial class Runner
             return;
         }
         if (elapsed < 1) return;
+        if (edge && travel is null && (!PlaySurvivalSenses.OnDryGround(body) || body.BoundingBox.Min.X >= navigationOrigin.X))
+            throw new InvalidOperationException("夹具需要已站稳且向低一格侧稍微悬出。");
         travel ??= new(p, actions, turn ? 20 : 0, 18, "survey", false, now,
             () => (JsonSerializer.SerializeToElement(new { }), []),
             () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
@@ -55,11 +60,11 @@ sealed partial class Runner
         var destination = travel.Origin.XZ + 18 * PlaySurvivalTravel.Rotate(Vector2.UnitX, turn ? 20 : 0);
         float error = (body.Position.XZ - destination).Length();
         bool completed = cliff ? travel.Reason == "no_observed_dry_route" && moved > 6f && !jumped
-            : travel.Status == "succeeded" && error <= 0.45f && (turn ? biggestContinuousTurn > 35f : jumped);
+            : travel.Status == "succeeded" && error <= 0.45f && (turn ? biggestContinuousTurn > 35f : edge ? insetAtStart : jumped);
         Passed = continuousMovement && completed && PlaySurvivalSenses.OnDryGround(body)
-            && (cliff || turn || body.Position.Y >= navigationOrigin.Y + 0.95f);
+            && (cliff || turn || edge || body.Position.Y >= navigationOrigin.Y + 0.95f);
         Done = true;
-        Gate.Log(new { kind = "rolling_navigation_result", Passed, cliff, turn, travel.Status, travel.Reason, travel.Legs,
+        Gate.Log(new { kind = "rolling_navigation_result", Passed, cliff, turn, edge, insetAtStart, travel.Status, travel.Reason, travel.Legs,
             continuations, slowestContinuation = float.IsFinite(slowestContinuation) ? (float?)slowestContinuation : null,
             biggestContinuousTurn, stationaryLooks, jumped, moved, error, end = body.Position.ToString() });
     }
@@ -77,6 +82,9 @@ sealed partial class Runner
                 break;
             case "play_scout_step" when entry.GetProperty("action").GetString() == "FaceTowards":
                 stationaryLooks++;
+                break;
+            case "play_scout_step" when entry.GetProperty("action").GetString() == "MoveTo" && entry.GetProperty("legs").GetInt32() == 1:
+                insetAtStart = true;
                 break;
         }
     }

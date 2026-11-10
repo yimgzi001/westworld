@@ -25,6 +25,13 @@ Check(Project(scene with{Cells=scene.Cells.Select(c=>c.X==-1&&c.Y==63?c with{Vis
 Check(Project(scene with{Cells=scene.Cells.Select(c=>c.X==-1&&c.Y==64?c with{Value=3}:c).ToArray()}) is null,"source body overlap obstacle refused");
 Check(Project(scene with{Cells=scene.Cells.Select(c=>c.Y==63?c with{Value=18}:c).ToArray()}) is null,"water support refused");
 Check(Project(scene with{Cells=scene.Cells.Select(c=>c.Y==63?c with{Value=7}:c).ToArray()}) is null,"falling sand support refused");
+var edge=Scene(new(.231,64,.5));
+edge=edge with{Cells=edge.Cells.Select(c=>c.X==-1&&c.Y==63?c with{Value=0}:c).ToArray()};
+ObservedAlignmentRoute? Inward(ActorObservation o)=>LocalNavigationAlignment.Project(Window(o),allowLeavingSmallOverhang:true);
+Check(Project(edge) is null&&Inward(edge)?.Destination==new Position(.5,64,.5),"可从轻微悬出的位置收回当前支撑格");
+Check(Inward(edge with{Position=new(.18,64,.5)}) is null,"超过悬出上限时拒绝");
+Check(Inward(edge with{Cells=edge.Cells.Where(c=>c.X!=0||c.Y!=63).ToArray()}) is null,"中心格没有可见支撑时拒绝");
+Check(Inward(edge with{Cells=edge.Cells.Where(c=>c.X!=-1||c.Y!=64).ToArray()}) is null,"悬出部分没有身体净空证据时拒绝");
 var memory=new LocalObservationMemory(session,actor);memory.Observe(scene);
 var blind=scene with{ObservationId=Guid.NewGuid(),Time=2,Cells=scene.Cells.Select(c=>c with{Visibility="unknown",Value=null}).ToArray()};
 var historical=LocalNavigationAlignment.Project(memory.Observe(blind));

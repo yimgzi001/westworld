@@ -57,7 +57,8 @@ internal static class PlayDryRoutes
             .Where(option => option.Score > 0.12).OrderByDescending(option => option.Score).ToArray();
         if (options.Length > 0) return options[0].Route;
 
-        var alignment = canAlign ? LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true) : null;
+        var alignment = canAlign ? LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true,
+            allowLeavingSmallOverhang: true) : null;
         return alignment is { MaximumAge: <= 1.5 }
             ? new(new MoveTo(PositionOf(alignment.Destination), 0.04f, 3f), alignment.Evidence) : null;
     }

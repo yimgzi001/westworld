@@ -8,7 +8,8 @@ public sealed record ObservedAlignmentRoute(Guid Id,Guid SessionId,Guid ActorId,
 /// The caller chooses when to align and reobserves before executing. Frozen evidence cannot
 /// guarantee future clearance; native collision and bounded interruption remain mandatory.</summary>
 public static class LocalNavigationAlignment {
- public static ObservedAlignmentRoute? Project(LocalObservationWindow window,bool allowObservedSandAndGravel=false) {
+ public static ObservedAlignmentRoute? Project(LocalObservationWindow window,bool allowObservedSandAndGravel=false,
+  bool allowLeavingSmallOverhang=false) {
   ArgumentNullException.ThrowIfNull(window);var p=window.Position;
   if(window.SessionId==Guid.Empty||window.ActorId==Guid.Empty||window.ObservationId==Guid.Empty
    ||!double.IsFinite(window.Time)||window.Time<0||!float.IsFinite(window.Health)||window.Health<=0
@@ -24,8 +25,12 @@ public static class LocalNavigationAlignment {
   int minX=(int)Math.Floor(Math.Min(p.X,target.X)-.25+1e-5),maxX=(int)Math.Floor(Math.Max(p.X,target.X)+.25-1e-5);
   int minZ=(int)Math.Floor(Math.Min(p.Z,target.Z)-.25+1e-5),maxZ=(int)Math.Floor(Math.Max(p.Z,target.Z)+.25-1e-5);
   int top=(int)Math.Floor(Math.Max(p.Y,feet)+1.9-1e-5);
+  int supportX=(int)Math.Floor(p.X),supportZ=(int)Math.Floor(p.Z);
+  // 宿主已确认实际站地时，允许身体从原有的不超过 0.06 格的悬出部分收回。
+  // 仍要证明中心格的支撑和整个移动包围盒的净空，目标始终在同一格。
+  bool departingOverhang=allowLeavingSmallOverhang&&Math.Max(Math.Abs(target.X-p.X),Math.Abs(target.Z-p.Z))<=.31+1e-9;
   for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++) {
-   if(!Need(x,feet-1,z,true))return null;
+   if((!departingOverhang||x==supportX&&z==supportZ)&&!Need(x,feet-1,z,true))return null;
    for(int y=feet;y<=top;y++)if(!Need(x,y,z,false))return null;
   }
   return new(Guid.NewGuid(),window.SessionId,window.ActorId,window.ObservationId,window.Time,p,target,
