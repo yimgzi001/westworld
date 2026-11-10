@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Westworld.Runtime.Core -> <CLOUD_REPO>/runtime/Westworld.Runtime.Core/bin/Debug/net10.0/Westworld.Runtime.Core.dll
+  Westworld.Decisions.Local -> <CLOUD_REPO>/runtime/Westworld.Decisions.Local/bin/Debug/net10.0/Westworld.Decisions.Local.dll
+<CLOUD_REPO>/experiments/scapi-tool-agent/PrecedingExecution.cs(26,9): warning CS8618: Non-nullable property 'InvalidatedReason' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the property as nullable. [<CLOUD_REPO>/tests/Westworld.NativeToolOffers.Tests/NativeToolOffers.Tests.csproj]
+<CLOUD_REPO>/experiments/scapi-tool-agent/PrecedingExecution.cs(26,9): warning CS8618: Non-nullable field 'current' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [<CLOUD_REPO>/tests/Westworld.NativeToolOffers.Tests/NativeToolOffers.Tests.csproj]
+  NativeToolOffers.Tests -> <CLOUD_REPO>/tests/Westworld.NativeToolOffers.Tests/bin/Debug/net10.0/NativeToolOffers.Tests.dll
+
+Build succeeded.
+
+<CLOUD_REPO>/experiments/scapi-tool-agent/PrecedingExecution.cs(26,9): warning CS8618: Non-nullable property 'InvalidatedReason' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the property as nullable. [<CLOUD_REPO>/tests/Westworld.NativeToolOffers.Tests/NativeToolOffers.Tests.csproj]
+<CLOUD_REPO>/experiments/scapi-tool-agent/PrecedingExecution.cs(26,9): warning CS8618: Non-nullable field 'current' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [<CLOUD_REPO>/tests/Westworld.NativeToolOffers.Tests/NativeToolOffers.Tests.csproj]
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.90

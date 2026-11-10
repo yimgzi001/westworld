@@ -1,0 +1,11 @@
+{
+  "state": "blocked_before_process_start",
+  "apiRequests": 0,
+  "apiUsage": null,
+  "modelRunPerformed": false,
+  "nativeNaturalWorldStarted": false,
+  "credentialEntered": false,
+  "replayedOldRequest": false,
+  "reason": "Execution authorization review rejected transmission scope before process creation. Prior authorized data scope was not accepted by review. No alternate path or retry attempted.",
+  "scope": "This fresh stage only; older stage35 remains unknown, not zero-cost."
+}

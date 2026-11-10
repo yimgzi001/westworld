@@ -14,7 +14,7 @@ public static class NativeToolOffers {
   "act_Dismount","act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
   "act_Dig","act_Place","act_MeleeAttack","act_Craft","act_Jump","act_Sleep","act_WakeUp"
  };
- public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null){
+ public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null,Action<EatMenuCoverage>? reportEatCoverage=null,JsonElement? visibleEatInventory=null){
   ArgumentNullException.ThrowIfNull(native);ArgumentNullException.ThrowIfNull(recentResults);
   if(native.Count>128||recentResults.Count>32)throw new ArgumentException("Bounded native context required");
   if(!Enum.IsDefined(purpose))throw new ArgumentOutOfRangeException(nameof(purpose));
@@ -86,6 +86,7 @@ public static class NativeToolOffers {
   if(deferred&&!nativeDeferred&&(!navBusy||navigationStatus!.Value.GetProperty("status").GetString()!="running"))
    throw new ArgumentException("Deferred offers require actual running native movement or navigation evidence",nameof(navigationStatus));
   var result=new List<ToolOffer>();
+  var eatCoverage=new EatMenuCoverage("unavailable",0,0,0,0,0);
   foreach(var tool in native.Where(t=>Profile.Contains(t.Name))){
    // Dismount has no target argument. Never reinterpret block refs as mounts.
    if(tool.Name=="act_Dismount"&&!(observation.ValueKind==JsonValueKind.Object
@@ -124,7 +125,7 @@ public static class NativeToolOffers {
      HashSet<int>? ints=key=="slot"?slots:key=="value"&&tool.Name.StartsWith("act_",StringComparison.Ordinal)?values:
       key is "source_slot" or "destination_slot"?allSlots:key is "source_value" or "destination_value"?allValues:key=="food_value"?foodValues:null;
      if(ints is not null){if(ints.Count==0){if(needed){skip=true;break;}props.Remove(key);continue;}field["enum"]=JsonSerializer.SerializeToNode(ints.Order().Take(128));}
-     else {field["minimum"]=key is "count" or "limit" or "block_limit"?1:0;field["maximum"]=key=="count"?64:key=="block_limit"?128:key=="limit"?4:key=="offset"?(tool.Name=="read_map"?128:4096):int.MaxValue;}
+     else {field["minimum"]=key=="count"?Math.Max(1,field["minimum"]?.GetValue<int>()??1):key is "limit" or "block_limit"?1:0;field["maximum"]=key=="count"?Math.Min(64,field["maximum"]?.GetValue<int>()??64):key=="block_limit"?128:key=="limit"?4:key=="offset"?(tool.Name=="read_map"?128:4096):int.MaxValue;}
     }else if(type=="number"){
      (double low,double high)=key switch{"bearing"=>(-180,180),"pitch"=>(-82,82),"distance"=>(1,4),"range"=>(.1,1),"duration"=>(.1,tool.Name=="act_Wait"?10:4),"timeout"=>(.1,tool.Name=="act_Dig"?30:4),"look_distance" or "object_distance"=>(1,16),_=>(0,4)};
      field["minimum"]=low;field["maximum"]=high;
@@ -136,6 +137,10 @@ public static class NativeToolOffers {
    if(skip)continue;
    // No string positions or coordinate escape hatch; optional references may be absent.
    if(tool.Name=="act_PickUp"&&!props.ContainsKey("target")&&!props.ContainsKey("food_value"))continue;
+   if(tool.Name=="act_Eat"){
+    var paired=NativeEatOfferFactory.Build(visibleEatInventory.HasValue?Data(visibleEatInventory.Value):inventory,JsonSerializer.SerializeToElement(schema),Describe(tool),visibleEatInventory.HasValue?inventory:null);
+    eatCoverage=paired.Coverage;if(paired.Offer is not null)result.Add(paired.Offer);continue;
+   }
    IReadOnlyList<ToolParameterBranch>? branches=tool.Name switch{
     "act_MoveTo"=>new[]{new ToolParameterBranch(new[]{"destination"},new[]{"bearing","distance"}),new ToolParameterBranch(new[]{"bearing","distance"},new[]{"destination"})},
     "act_FaceTowards"=>new[]{new ToolParameterBranch(new[]{"destination"},new[]{"bearing","pitch"}),new ToolParameterBranch(new[]{"bearing"},new[]{"destination"})},
@@ -145,6 +150,7 @@ public static class NativeToolOffers {
   }
   // Planning capability is not execution permission. Preserve the actual busy status
   // in host context; dispatch must rebuild Immediate offers from a fresh snapshot.
+  reportEatCoverage?.Invoke(eatCoverage);
   if(deferred)return result.Select(o=>o with{Description="After predecessor SUCCESS and fresh validation only. "+o.Description}).ToArray();
   return result.AsReadOnly();
  }

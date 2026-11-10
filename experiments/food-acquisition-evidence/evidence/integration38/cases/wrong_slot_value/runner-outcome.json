@@ -1,0 +1,12 @@
+{
+  "case": "wrong_slot_value",
+  "hostExit": 1,
+  "driverExit": 0,
+  "watchdog": false,
+  "error": null,
+  "missingArtifacts": [],
+  "validationVerdict": "pass",
+  "elapsedSeconds": 55.19830882000679,
+  "drainUncertain": false,
+  "passed": true
+}

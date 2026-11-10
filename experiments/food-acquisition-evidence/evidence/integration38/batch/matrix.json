@@ -1,0 +1,133 @@
+{
+  "schema": "integration38-cases-v1",
+  "root": "<CLOUD_REPO>",
+  "hostSha256": "d9232e5704fa24d249c8ac3fd8e324826935fb273e98d5946dcfd7f40b6d1ac0",
+  "environment": "dot-cloud",
+  "cases": [
+    {
+      "case": "wrong_slot_value",
+      "directory": "<CLOUD_REPO>/work/integration38-wrong_slot_value",
+      "model": false,
+      "hostOnlyRun": "<CLOUD_REPO>/work/integration38-wrong_slot_value/run.sh",
+      "driverCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-wrong_slot_value/sources/work/integration38-cases/driver.py",
+        "<CLOUD_REPO>/work/integration38-wrong_slot_value",
+        "--case",
+        "wrong_slot_value"
+      ],
+      "validatorCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-wrong_slot_value/sources/work/integration38-cases/validate.py",
+        "<CLOUD_REPO>/work/integration38-wrong_slot_value",
+        "--output",
+        "<CLOUD_REPO>/work/integration38-wrong_slot_value/eat-contract-validation.json"
+      ],
+      "expectedHostExit": 1,
+      "requests": 4,
+      "wallSeconds": 180,
+      "requestSeconds": 45,
+      "drainSeconds": 7,
+      "runnerWatchdogSeconds": 195,
+      "installedHash": "8bfb3cb6df4432e944a18d14e91296493ab557371368c71034088658a87f3a35",
+      "sourceHash": "08df59453884fecaa108216990201f53dac2f5b65d5dc5b89f397118337f2209"
+    },
+    {
+      "case": "over_count",
+      "directory": "<CLOUD_REPO>/work/integration38-over_count",
+      "model": false,
+      "hostOnlyRun": "<CLOUD_REPO>/work/integration38-over_count/run.sh",
+      "driverCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-over_count/sources/work/integration38-cases/driver.py",
+        "<CLOUD_REPO>/work/integration38-over_count",
+        "--case",
+        "over_count"
+      ],
+      "validatorCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-over_count/sources/work/integration38-cases/validate.py",
+        "<CLOUD_REPO>/work/integration38-over_count",
+        "--output",
+        "<CLOUD_REPO>/work/integration38-over_count/eat-contract-validation.json"
+      ],
+      "expectedHostExit": 1,
+      "requests": 4,
+      "wallSeconds": 180,
+      "requestSeconds": 45,
+      "drainSeconds": 7,
+      "runnerWatchdogSeconds": 195,
+      "installedHash": "b5a35324257e2f747efb97306a513b1a37dea53e328009d5bc323acc3d712ba4",
+      "sourceHash": "08df59453884fecaa108216990201f53dac2f5b65d5dc5b89f397118337f2209"
+    },
+    {
+      "case": "fresh_slot_change",
+      "directory": "<CLOUD_REPO>/work/integration38-fresh_slot_change",
+      "model": false,
+      "hostOnlyRun": "<CLOUD_REPO>/work/integration38-fresh_slot_change/run.sh",
+      "driverCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-fresh_slot_change/sources/work/integration38-cases/driver.py",
+        "<CLOUD_REPO>/work/integration38-fresh_slot_change",
+        "--case",
+        "fresh_slot_change"
+      ],
+      "validatorCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-fresh_slot_change/sources/work/integration38-cases/validate.py",
+        "<CLOUD_REPO>/work/integration38-fresh_slot_change",
+        "--output",
+        "<CLOUD_REPO>/work/integration38-fresh_slot_change/eat-contract-validation.json"
+      ],
+      "expectedHostExit": 1,
+      "requests": 4,
+      "wallSeconds": 180,
+      "requestSeconds": 45,
+      "drainSeconds": 7,
+      "runnerWatchdogSeconds": 195,
+      "installedHash": "7b1a2bae02661913b08a8d2ecda58d98146aae86658dfef601075a91c9b0e473",
+      "sourceHash": "08df59453884fecaa108216990201f53dac2f5b65d5dc5b89f397118337f2209"
+    },
+    {
+      "case": "valid_eat",
+      "directory": "<CLOUD_REPO>/work/integration38-valid_eat",
+      "model": false,
+      "hostOnlyRun": "<CLOUD_REPO>/work/integration38-valid_eat/run.sh",
+      "driverCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-valid_eat/sources/work/integration38-cases/driver.py",
+        "<CLOUD_REPO>/work/integration38-valid_eat",
+        "--case",
+        "valid_eat"
+      ],
+      "validatorCommand": [
+        "python3",
+        "-B",
+        "<CLOUD_REPO>/work/integration38-valid_eat/sources/work/integration38-cases/validate.py",
+        "<CLOUD_REPO>/work/integration38-valid_eat",
+        "--output",
+        "<CLOUD_REPO>/work/integration38-valid_eat/eat-contract-validation.json"
+      ],
+      "expectedHostExit": 0,
+      "requests": 4,
+      "wallSeconds": 180,
+      "requestSeconds": 45,
+      "drainSeconds": 7,
+      "runnerWatchdogSeconds": 195,
+      "installedHash": "dafc124fb67ff3102cccd263ec5687e051ac6bb2983000f2ab6650e93f7f927a",
+      "sourceHash": "08df59453884fecaa108216990201f53dac2f5b65d5dc5b89f397118337f2209"
+    }
+  ],
+  "automaticStart": false,
+  "maxModelRequests": 8,
+  "modelCallsAlreadyMade": 0,
+  "naturalStage": "Parent-owned integration38-natural; not prepared or launched here",
+  "note": "Negative host goal failure is expected; judge contractVerdict separately. Native natural result not forced."
+}

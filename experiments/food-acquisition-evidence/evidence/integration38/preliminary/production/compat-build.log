@@ -1,0 +1,11 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Westworld.Runtime.Core -> <CLOUD_REPO>/work/eat38-production-isolated/bin/Westworld.Runtime.Core/debug/Westworld.Runtime.Core.dll
+  Westworld.Decisions.Local -> <CLOUD_REPO>/work/eat38-production-isolated/bin/Westworld.Decisions.Local/debug/Westworld.Decisions.Local.dll
+  ToolDecision.Tests -> <CLOUD_REPO>/work/eat38-production-isolated/bin/ToolDecision.Tests/debug/ToolDecision.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:05.83

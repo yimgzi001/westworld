@@ -1,0 +1,72 @@
+test_cancel_during_call_never_publishes (test_controller.HostDeadlineTests.test_cancel_during_call_never_publishes) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_deadline_and_cancel (test_controller.HostDeadlineTests.test_deadline_and_cancel) ... ok
+test_expired_never_calls (test_controller.HostDeadlineTests.test_expired_never_calls) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_cancel_while_stdin_is_backpressured_closes_all_pipes (test_controller.InFlightCancellationTests.test_cancel_while_stdin_is_backpressured_closes_all_pipes) ... ok
+test_completed_response_retains_usage (test_controller.InFlightCancellationTests.test_completed_response_retains_usage) ... ok
+test_precanceled_no_worker (test_controller.InFlightCancellationTests.test_precanceled_no_worker) ... ok
+test_slow_worker_cancel_reaped_unknown_usage (test_controller.InFlightCancellationTests.test_slow_worker_cancel_reaped_unknown_usage) ... ok
+test_worker_deadline_no_retry (test_controller.InFlightCancellationTests.test_worker_deadline_no_retry) ... ok
+test_attempt_fsync_failure_prevents_call_and_claim_blocks_retry (test_controller.LifecycleAuditTests.test_attempt_fsync_failure_prevents_call_and_claim_blocks_retry) ... Controller ready; waiting for host control directory (no directory creation).
+Controller ready; waiting for host control directory (no directory creation).
+ok
+test_durable_attempt_before_fake_transport_and_legacy_usage (test_controller.LifecycleAuditTests.test_durable_attempt_before_fake_transport_and_legacy_usage) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_existing_journal_never_overwritten (test_controller.LifecycleAuditTests.test_existing_journal_never_overwritten) ... ok
+test_interrupted_attempt_is_unknown_not_zero_usage (test_controller.LifecycleAuditTests.test_interrupted_attempt_is_unknown_not_zero_usage) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_key_interrupt_persists_start_and_end_without_secret (test_controller.LifecycleAuditTests.test_key_interrupt_persists_start_and_end_without_secret) ... ok
+test_ready_write_failure_never_waits_or_calls (test_controller.LifecycleAuditTests.test_ready_write_failure_never_waits_or_calls) ... ok
+test_replay_result_sidecar_failure_preserves_output_usage (test_controller.LifecycleAuditTests.test_replay_result_sidecar_failure_preserves_output_usage) ... ok
+test_result_journal_failure_preserves_legacy_usage_no_publish (test_controller.LifecycleAuditTests.test_result_journal_failure_preserves_legacy_usage_no_publish) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_startup_fsync_failure_prevents_key_read (test_controller.LifecycleAuditTests.test_startup_fsync_failure_prevents_key_read) ... ok
+test_wait_timeout_persists_ready_no_attempt (test_controller.LifecycleAuditTests.test_wait_timeout_persists_ready_no_attempt) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_claim_directory_symlink_rejected (test_controller.RecoveryClaimsTests.test_claim_directory_symlink_rejected) ... ok
+test_claim_has_no_prompt_or_key_and_canonical_id (test_controller.RecoveryClaimsTests.test_claim_has_no_prompt_or_key_and_canonical_id) ... ok
+test_partial_claim_blocks (test_controller.RecoveryClaimsTests.test_partial_claim_blocks) ... ok
+test_restart_failure_never_reposts (test_controller.RecoveryClaimsTests.test_restart_failure_never_reposts) ... Controller ready; waiting for host control directory (no directory creation).
+Controller ready; waiting for host control directory (no directory creation).
+ok
+test_atomic (test_controller.Tests.test_atomic) ... ok
+test_bounds (test_controller.Tests.test_bounds) ... ok
+test_duplicates (test_controller.Tests.test_duplicates) ... ok
+test_exit_before_control (test_controller.Tests.test_exit_before_control) ... ok
+test_failure_not_retried (test_controller.Tests.test_failure_not_retried) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_file_once (test_controller.Tests.test_file_once) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_getpass_no_plaintext_fallback (test_controller.Tests.test_getpass_no_plaintext_fallback) ... ok
+test_host_exit (test_controller.Tests.test_host_exit) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_http_error_no_body (test_controller.Tests.test_http_error_no_body) ... ok
+test_ids (test_controller.Tests.test_ids) ... ok
+test_incomplete_usage (test_controller.Tests.test_incomplete_usage) ... ok
+test_nonassistant (test_controller.Tests.test_nonassistant) ... ok
+test_payload_exact (test_controller.Tests.test_payload_exact) ... ok
+test_redirect_no_forward (test_controller.Tests.test_redirect_no_forward) ... ok
+test_refusal (test_controller.Tests.test_refusal) ... ok
+test_source_identity_frozen_at_import (test_controller.Tests.test_source_identity_frozen_at_import) ... ok
+test_supported_https_opener (test_controller.Tests.test_supported_https_opener) ... ok
+test_timeout_sanitized (test_controller.Tests.test_timeout_sanitized) ... ok
+test_unverified_model_no_fallback (test_controller.Tests.test_unverified_model_no_fallback) ... ok
+test_wait_bound (test_controller.Tests.test_wait_bound) ... ok
+test_wait_for_host_creation (test_controller.Tests.test_wait_for_host_creation) ... ok
+test_wait_in_total_budget (test_controller.Tests.test_wait_in_total_budget) ... Controller ready; waiting for host control directory (no directory creation).
+ok
+test_wait_symlink_rejected (test_controller.Tests.test_wait_symlink_rejected) ... ok
+test_wait_timeout_no_mkdir (test_controller.Tests.test_wait_timeout_no_mkdir) ... ok
+test_credential_echo_rejected (test_controller.WorkerTests.test_credential_echo_rejected) ... ok
+test_fixed_argv_pipe_only (test_controller.WorkerTests.test_fixed_argv_pipe_only) ... ok
+test_output_bounded (test_controller.WorkerTests.test_output_bounded) ... ok
+test_real_fixed_worker_invalid_packet_no_http (test_controller.WorkerTests.test_real_fixed_worker_invalid_packet_no_http) ... ok
+test_timeout_kill_reap_unknown_usage (test_controller.WorkerTests.test_timeout_kill_reap_unknown_usage) ... ok
+test_worker_error_cannot_log_key (test_controller.WorkerTests.test_worker_error_cannot_log_key) ... ok
+test_worker_exit (test_controller.WorkerTests.test_worker_exit) ... ok
+
+----------------------------------------------------------------------
+Ran 53 tests in 0.520s
+
+OK

@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 namespace Westworld.Decisions.Local;
 
-public sealed record ToolParameterBranch(IReadOnlyList<string> Required,IReadOnlyList<string> Forbidden);
+public sealed record ToolParameterBranch(IReadOnlyList<string> Required,IReadOnlyList<string> Forbidden,IReadOnlyDictionary<string,JsonElement>? IntegerConstraints=null);
 public sealed record ToolOffer(string Name,string Description,JsonElement Parameters,
  IReadOnlyDictionary<string,IReadOnlyList<string>>? ReferenceValues=null,
  IReadOnlyList<ToolParameterBranch>? ParameterBranches=null);
@@ -39,7 +39,7 @@ public sealed class ToolDecisionPrompt {
    }
    JsonNode effective=node;
    if(offer.ParameterBranches is not null){
-    if(offer.ParameterBranches.Count is <1 or >8)throw new ArgumentException("Invalid parameter branches");
+    if(offer.ParameterBranches.Count is <1 or >32)throw new ArgumentException("Invalid parameter branches");
     var variants=new JsonArray();
     foreach(var branch in offer.ParameterBranches){
      if(branch is null||branch.Required is null||branch.Forbidden is null||branch.Required.Count>32||branch.Forbidden.Count>32
@@ -54,6 +54,27 @@ public sealed class ToolDecisionPrompt {
      if(branch.Forbidden.Any(needed.Contains))continue;
      foreach(string key in branch.Forbidden)vp.Remove(key);
      foreach(string key in branch.Required)needed.Add(key);
+     foreach(var constraint in branch.IntegerConstraints??new Dictionary<string,JsonElement>()){
+      if(!needed.Contains(constraint.Key)||vp[constraint.Key] is not JsonObject field||field["type"]?.GetValue<string>()!="integer")throw new ArgumentException("Constraint must narrow a required integer field");
+      ValidateSchema(JsonSerializer.SerializeToElement(field),0); // narrowing must not hide unsupported native constraints
+      var c=constraint.Value;
+      if(c.ValueKind!=JsonValueKind.Object||c.EnumerateObject().Count()!=1)throw new ArgumentException("One integer constraint required");
+      var rule=c.EnumerateObject().Single();
+      if(rule.Name=="enum"){
+       if(rule.Value.ValueKind!=JsonValueKind.Array||rule.Value.GetArrayLength() is <1 or >128)throw new ArgumentException("Bounded integer enum required");
+       var values=rule.Value.EnumerateArray().ToArray();
+       if(values.Any(v=>v.ValueKind!=JsonValueKind.Number||!v.TryGetInt32(out _)||!Matches(JsonSerializer.SerializeToElement(field),v))||values.Select(v=>v.GetInt32()).Distinct().Count()!=values.Length)throw new ArgumentException("Enum outside native constraints");
+       vp[constraint.Key]=new JsonObject{["type"]="integer",["enum"]=JsonNode.Parse(rule.Value.GetRawText())};continue;
+      }
+      if(rule.Value.ValueKind!=JsonValueKind.Number||!rule.Value.TryGetInt32(out int number))throw new ArgumentException("Integer constraint required");
+      if(rule.Name=="const"){
+       if(!Matches(JsonSerializer.SerializeToElement(field),rule.Value))throw new ArgumentException("Constant outside native bounds");
+       vp[constraint.Key]=new JsonObject{["type"]="integer",["const"]=number};
+      }else if(rule.Name=="maximum"){
+       if(field["maximum"] is not JsonValue max||!max.TryGetValue<int>(out int nativeMax)||number>nativeMax||field["minimum"] is JsonValue min&&min.TryGetValue<int>(out int nativeMin)&&number<nativeMin)throw new ArgumentException("Bound widens or empties native range");
+       field["maximum"]=number;
+      }else throw new ArgumentException("Unsupported integer narrowing");
+     }
      variant["required"]=JsonSerializer.SerializeToNode(needed.Order(StringComparer.Ordinal));variants.Add(variant);
     }
     if(variants.Count==0)throw new ArgumentException("No available parameter branch");

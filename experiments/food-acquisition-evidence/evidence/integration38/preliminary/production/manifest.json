@@ -1,0 +1,11 @@
+{
+  "files": {
+    "runtime/Westworld.Decisions.Local/ToolDecisionPrompt.cs": "7c494fe9d0a7a169b2a2bfcd5653d2f853b9390f142af970e78a1db3a51cd0f0",
+    "tests/Westworld.ToolIntegerBranches.Tests/ToolIntegerBranches.Tests.csproj": "d7e2e464eb48f8e45b0545176234f9fdd20b9bda2c0cceef3b8db5ec2fdae896",
+    "tests/Westworld.ToolIntegerBranches.Tests/Program.cs": "28b5529fd6005b2584939d971c54286565f0de0c85a525c764c79a9861538678",
+    "tests/Westworld.ToolIntegerBranches.Tests/PairingFixture.cs": "9f63891a2fae95568d8330911514c7d839d7aa326ddb5b2d2b2bdeb36dc24d7c"
+  },
+  "pureAssertions": 98,
+  "legacyProtocolAssertions": 36,
+  "note": "No GUI/API. 60 of 98 assertions enumerate slot/value/count combinations. PairingFixture is test-only; production factory owned by hunt_gate."
+}

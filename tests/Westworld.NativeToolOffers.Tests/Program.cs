@@ -16,7 +16,7 @@ Tool("find_recipes","\"result_value\":{\"type\":\"integer\"},\"limit\":{\"type\"
 Tool("observe","\"look_distance\":{\"type\":\"number\"},\"object_distance\":{\"type\":\"number\"},\"limit\":{\"type\":\"integer\"}",""),
 Tool("act_Wait","\"duration\":{\"type\":\"number\"}","\"duration\""),Tool("shell","","")};
 var obs=J("""{"food":1,"focus":{"kind":"block","reference":"block1","storageReference":"table1"},"entities":[{"reference":"pig1"}],"pickables":[{"reference":"drop1","value":88}],"inventoryReference":"inv","craftingReference":"ownGrid"}""");
-var inventory=J("""{"slots":[{"slot":0,"value":162,"count":1},{"slot":1,"value":0,"count":0}]}""");
+var inventory=J("""{"slots":[{"slot":0,"value":162,"count":1,"item":{"nutrition":0.7}},{"slot":1,"value":0,"count":0}]}""");
 var recipes=J("""{"ok":true,"data":[{"reference":"recipe1","recipe":{"resultValue":122}}]}""");
 var table=J("""{"ok":true,"storage":"table1","data":{"inventory":{"slots":[{"slot":0,"value":0,"count":0}]},"crafting":{"recipe":null}}}""");
 var offers=NativeToolOffers.Build(tools,obs,inventory,[recipes,table]);
@@ -27,7 +27,7 @@ Check(Find("act_Dig").ReferenceValues!["target"].SequenceEqual(new[]{"block1"}),
 Check(Find("act_PickUp").ReferenceValues!["target"].SequenceEqual(new[]{"drop1"}),"pickup refs only visible drops");
 Check(Find("plan_craft").ReferenceValues!["recipe"].Single()=="recipe1","recipe reference from actual recent result");
 Check(Find("plan_craft").ReferenceValues!["workspace"].Contains("table1"),"observed storage classified as workbench only by preview");
-Check(Find("act_Eat").Parameters.GetProperty("properties").GetProperty("value").GetProperty("enum").EnumerateArray().Any(v=>v.GetInt32()==0),"native empty inventory value retained");
+Check(Find("act_Eat").Parameters.GetProperty("properties").GetProperty("value").GetProperty("enum").EnumerateArray().Any(v=>v.GetInt32()==0),"base inventory union retained but paired branch restricts actual Eat");
 Check(Find("act_MoveTo").Parameters.GetProperty("properties").GetProperty("timeout").GetProperty("maximum").GetDouble()==4,"short navigation timeout bounded");
 Check(Find("act_Wait").Parameters.GetProperty("properties").GetProperty("duration").GetProperty("maximum").GetDouble()==10,"wait upper bound ten seconds");
 Check(Find("find_recipes").Parameters.GetProperty("properties").GetProperty("limit").GetProperty("maximum").GetInt32()==4,"knowledge query result budget bounded");
@@ -230,3 +230,39 @@ Check(mountedOffers.Count==1&&mountedOffers[0].Name=="act_Dismount","actual moun
 Check(!mountedOffers[0].Parameters.GetProperty("properties").EnumerateObject().Any(),"dismount never gets block or entity target");
 Check(NativeToolOffers.Build(dismountTools,J("{\"self\":{\"isMounted\":true}}"),inventory,[],navBusy).Count==0,"busy navigation still excludes dismount");
 Console.WriteLine("BODY OFFERS TOTAL "+checks);
+
+// Eat current-slot/value/count association: no policy and no future-inventory inference.
+JsonElement EatingInventory(params (int Slot,int Value,int Count,double? Nutrition)[] rows)=>JsonSerializer.SerializeToElement(new{slots=rows.Select(r=>new{slot=r.Slot,value=r.Value,count=r.Count,item=new{nutrition=r.Nutrition}}).ToArray()});
+IReadOnlyList<ToolOffer> EatOffers(JsonElement inv,Action<EatMenuCoverage>? coverage=null)=>NativeToolOffers.Build(tools,obs,inv,[],reportEatCoverage:coverage);
+bool Eats(IReadOnlyList<ToolOffer> menu,int slot,int value,int count){try{new ToolDecisionPrompt(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),J("{}"),menu).ParseResponse(JsonSerializer.Serialize(new{goal="Choose own food",steps=new[]{new{tool="act_Eat",arguments=new{slot,value,count}}}}));return true;}catch(FormatException){return false;}}
+var eating=EatingInventory((0,226,1,.05),(1,162,3,.7),(2,162,1,.7),(3,6,10,0),(4,0,0,null));
+EatMenuCoverage? coverage=null;var eatingMenu=EatOffers(eating,c=>coverage=c);
+Check(coverage is {Status:"complete",KnownEdibleSlots:3,OfferedSlots:3,BranchCount:3},"eat coverage actual three grouped slots");
+foreach(int slot in new[]{0,1,2,3,4})foreach(int value in new[]{226,162,6,0})foreach(int count in new[]{1,2,4}){
+ bool valid=(slot==0&&value==226&&count==1)||(slot==1&&value==162&&count<=3)||(slot==2&&value==162&&count==1);
+ Check(Eats(eatingMenu,slot,value,count)==valid,"paired eat cartesian "+slot+"/"+value+"/"+count);
+}
+Check(!EatOffers(EatingInventory((0,226,1,null))).Any(x=>x.Name=="act_Eat"),"unknown nutrition does not fabricate food");
+Check(Eats(EatOffers(EatingInventory((0,162,1,.7))),0,162,1),"initial food remains selectable");
+Check(!Eats(EatOffers(EatingInventory((0,226,1,.05))),1,226,1),"fresh moved slot rejects prior slot");
+Check(!Eats(EatOffers(EatingInventory((0,262370,1,.05))),0,226,1),"fresh full value change rejects old food");
+var thirtyThreeSame=EatingInventory(Enumerable.Range(0,33).Select(i=>(i,162,2,(double?).7)).ToArray());
+var grouped=EatOffers(thirtyThreeSame,c=>coverage=c);Check(coverage is {OfferedSlots:33,BranchCount:1,OmittedSlots:0},"33 same food/count slots one lossless branch");Check(Eats(grouped,32,162,2),"last grouped slot remains usable");
+var thirtyThreeDifferent=EatingInventory(Enumerable.Range(0,33).Select(i=>(i,100+i,1,(double?).1)).ToArray());
+var partial=EatOffers(thirtyThreeDifferent,c=>coverage=c);Check(coverage is {Status:"partial",OfferedSlots:32,OmittedSlots:1,BranchCount:32},"33 distinct groups explicit partial");Check(partial.Single(x=>x.Name=="act_Eat").Description.Contains("Partial menu"),"partial exposed even without structured callback");
+Check(!Eats(partial,32,132,1),"omitted group not secretly executable");
+bool duplicateRejected=false;try{EatOffers(EatingInventory((0,226,1,.05),(0,162,1,.7)));}catch(ArgumentException){duplicateRejected=true;}Check(duplicateRejected,"duplicate current slots rejected");
+bool staleVisibleRejected=false;try{NativeToolOffers.Build(tools,obs,eating,[],visibleEatInventory:EatingInventory((0,226,8,.05)));}catch(ArgumentException){staleVisibleRejected=true;}Check(staleVisibleRejected,"visible nutrition view must match same current quantities");
+var narrowEat=Tool("act_Eat","\"slot\":{\"type\":\"integer\"},\"value\":{\"type\":\"integer\"},\"count\":{\"type\":\"integer\",\"maximum\":2}","\"slot\",\"value\",\"count\"");
+var narrowMenu=NativeToolOffers.Build(new[]{narrowEat},obs,EatingInventory((0,162,9,.7)),[]);Check(Eats(narrowMenu,0,162,2)&&!Eats(narrowMenu,0,162,3),"native count max never widened");
+Console.WriteLine($"EAT PAIRED OFFERS TOTAL {checks}");
+
+var future=NativeToolOffers.Build(tools,obs,EatingInventory((0,162,1,.7)),[],navBusy,OfferPurpose.AfterPrecedingSuccess);
+Check(Eats(future,0,162,1)&&!Eats(future,1,226,1),"deferred eat retains initial food but never future acquisition");
+var currentNarrow=EatOffers(EatingInventory((0,226,1,.05)));Check(!Eats(currentNarrow,0,226,2),"fresh count drop rejects prior larger request");
+EatOffers(EatingInventory((0,226,1,null)),c=>coverage=c);Check(coverage is {Status:"no_known_edible_slot",UnknownNutritionSlots:1},"unknown food status disclosed explicitly");
+var worst=new ToolDecisionPrompt(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),JsonSerializer.SerializeToElement(new{payload=new string('x',13000)}),partial);
+Console.WriteLine($"EAT COMPLETE MENU BUDGET prompt={worst.Prompt.Length} schema={worst.ResponseSchema.Length} offers={partial.Count}");
+Check(worst.Prompt.Length<=32768&&worst.ResponseSchema.Length<=32768,"32 distinct-group menu plus 13k observation fits unchanged full transport bounds");
+Check(partial.All(o=>o.Parameters.GetRawText().Length<=8192),"input offer cap remains8192");
+Console.WriteLine($"EAT PAIRED FINAL TOTAL {checks}");

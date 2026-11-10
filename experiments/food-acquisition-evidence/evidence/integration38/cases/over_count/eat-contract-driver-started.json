@@ -1,0 +1,1 @@
+{"case": "over_count", "nonModel": true, "maximumRequests": 4, "maximumSeconds": 180, "noRetry": true}

@@ -1,0 +1,23 @@
+{
+  "phase": "staged_not_run",
+  "previousUnknownRequestsReplayed": false,
+  "provider": "OpenAI official api.openai.com/v1/responses",
+  "model": "gpt-6.1-terra",
+  "reasoningEffort": "none",
+  "maxRequests": 8,
+  "totalSeconds": 180,
+  "payloadScope": [
+    "test_actor_game_observation",
+    "inventory",
+    "goal",
+    "tool_descriptions_and_parameter_rules"
+  ],
+  "excluded": [
+    "repository_contents",
+    "private_files",
+    "credentials"
+  ],
+  "credentialStorage": "hidden TTY memory only, no environment/file",
+  "scopeReview": "Eat menu coverage and historical-result note are game observation/tool facts; not extra private data",
+  "sourceDriverSha256": "9bb584494d1776994df5e6c4c753fdb083d2dde5ebc5340cfa203fabf5b31501"
+}

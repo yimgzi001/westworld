@@ -1,0 +1,20 @@
+{
+  "scope": "阶段38最终142源码构建哈希与已核验c0f62基线比较；补充对应测试项目和43套脚本",
+  "baseCommit": "c0f62f966502f5b2a2a05bf6da162f86d85ee5e5",
+  "buildSourceChecks": 142,
+  "files": {
+    "experiments/scapi-tool-agent/EatMenuContext.cs": "59fe1456b0b6692731908f04767dd94853a62cfca01ac6278e0a5ee55b251c3b",
+    "experiments/scapi-tool-agent/NativeEatOfferFactory.cs": "ef460bcf204dfad9cb6a595ffcb0fbc371d9addbdc9b65f6fe801728f275cc8c",
+    "experiments/scapi-tool-agent/NativeToolOffers.cs": "461f6483eb3c7e0b23b8119a40ea9ce50ebaef58bfd262f7a6c0062621da3ab9",
+    "experiments/scapi-tool-agent/Program.cs": "68457088099e02586b61a541d8df488152cd35b6096d36ffbb45bdeaf536062b",
+    "experiments/scapi-tool-agent/run-contract-tests.sh": "a802a84d3bdc7574502241d79fda66933266b93fef1da71143e8f7e2690c00f5",
+    "runtime/Westworld.Decisions.Local/ToolDecisionPrompt.cs": "7c494fe9d0a7a169b2a2bfcd5653d2f853b9390f142af970e78a1db3a51cd0f0",
+    "tests/Westworld.EatMenuContext.Tests/EatMenuContext.Tests.csproj": "add646ae56babeaf11216dc6e043efd0153eae112957468844e5322ff754297a",
+    "tests/Westworld.EatMenuContext.Tests/Program.cs": "a0c260d4903d3b57f4917919a2b977d0b1b262044da441200e864b24b335c589",
+    "tests/Westworld.NativeToolOffers.Tests/NativeToolOffers.Tests.csproj": "553383ed8fcec1ee7bfb36cd18ee13c0a354ce3e1ae0f220584b1a3ebdf1f01f",
+    "tests/Westworld.NativeToolOffers.Tests/Program.cs": "bc99258b3172daacf17decae7d0742ca2bc7425dfeb07125448e8f7090f8a045",
+    "tests/Westworld.ToolIntegerBranches.Tests/PairingFixture.cs": "9f63891a2fae95568d8330911514c7d839d7aa326ddb5b2d2b2bdeb36dc24d7c",
+    "tests/Westworld.ToolIntegerBranches.Tests/Program.cs": "28b5529fd6005b2584939d971c54286565f0de0c85a525c764c79a9861538678",
+    "tests/Westworld.ToolIntegerBranches.Tests/ToolIntegerBranches.Tests.csproj": "d7e2e464eb48f8e45b0545176234f9fdd20b9bda2c0cceef3b8db5ec2fdae896"
+  }
+}

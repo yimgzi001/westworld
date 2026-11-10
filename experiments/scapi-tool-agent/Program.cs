@@ -71,8 +71,13 @@ internal sealed partial class ToolAgentScenario:IUpdateable,IDisposable {
   var projected=recent.Where(r=>!r.TryGetProperty("tool",out var t)||t.GetString() is not("observe" or "read_self" or "read_inventory" or "action_status" or "task_status")).Select(r=>{if(!r.TryGetProperty("data",out var d)||d.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)return r;var obj=System.Text.Json.Nodes.JsonNode.Parse(r.GetRawText())!.AsObject();obj["data"]=System.Text.Json.Nodes.JsonNode.Parse(ToolResultProjection.Project(r.GetProperty("tool").GetString(),d).GetRawText());return JsonSerializer.SerializeToElement(obj);}).ToArray();
   currentContext=ToolResultProjection.BuildContext(facts,projected,maxChars:13600,maxUtf8Bytes:15600);if(currentContext.GetProperty("projectionStatus").GetString()=="facts_too_large")throw new InvalidOperationException("Actual model facts exceed context budget");
   currentContext=ToolContextMemory.CompactBounded(currentContext);
-  offers=Menu(NativeToolOffers.Build(gateway.GetTools(),o,i,ToolResultProjection.VisibleOfferFacts(currentContext),navigationState,purpose,purpose==OfferPurpose.AfterPrecedingSuccess&&predecessor?.Binding.Kind==PrecedingExecutionKind.NativeMoveTo?predecessor.Binding:null,purpose==OfferPurpose.AfterPrecedingSuccess&&predecessor?.Binding.Kind==PrecedingExecutionKind.NativeMoveTo?predecessorSample:null));
-  return new(gateway.SessionId,gateway.ActorId,currentObservationId,currentContext,offers,4);}
+  EatMenuCoverage eatCoverage=null;
+  offers=Menu(NativeToolOffers.Build(gateway.GetTools(),o,i,ToolResultProjection.VisibleOfferFacts(currentContext),navigationState,purpose,purpose==OfferPurpose.AfterPrecedingSuccess&&predecessor?.Binding.Kind==PrecedingExecutionKind.NativeMoveTo?predecessor.Binding:null,purpose==OfferPurpose.AfterPrecedingSuccess&&predecessor?.Binding.Kind==PrecedingExecutionKind.NativeMoveTo?predecessorSample:null,reportEatCoverage:c=>eatCoverage=c,visibleEatInventory:currentContext.GetProperty("facts").GetProperty("inventory")));
+  if(eatCoverage is null)throw new InvalidOperationException("Missing Eat menu coverage");
+  currentContext=EatMenuContext.Attach(currentContext,JsonSerializer.SerializeToElement(eatCoverage));
+  var prompt=new ToolDecisionPrompt(gateway.SessionId,gateway.ActorId,currentObservationId,currentContext,offers,4);
+  EatMenuContext.VerifyTransportBudget(prompt.Prompt,prompt.ResponseSchema);
+  return prompt;}
 
  int Count(int contents){var inv=p.ComponentMiner.Inventory;return Enumerable.Range(0,inv.SlotsCount).Where(i=>Terrain.ExtractContents(inv.GetSlotValue(i))==contents).Sum(inv.GetSlotCount);}
  static string Status(JsonElement data)=>data.ValueKind==JsonValueKind.Object&&data.TryGetProperty("status",out var s)?s.GetString():null;

@@ -1,0 +1,15 @@
+test_base_parameters_do_not_override_effective_schema (test_cases.Cases.test_base_parameters_do_not_override_effective_schema) ... ok
+test_cross_pair_is_rejected_even_each_component_visible (test_cases.Cases.test_cross_pair_is_rejected_even_each_component_visible) ... ok
+test_extra_key_and_bool_integer_rejected (test_cases.Cases.test_extra_key_and_bool_integer_rejected) ... ok
+test_fresh_transfer_then_old_eat_initially_valid (test_cases.Cases.test_fresh_transfer_then_old_eat_initially_valid) ... ok
+test_legacy_cross_product_detected_not_hidden (test_cases.Cases.test_legacy_cross_product_detected_not_hidden) ... ok
+test_missing_effective_schema_never_falls_back (test_cases.Cases.test_missing_effective_schema_never_falls_back) ... ok
+test_no_private_reference_or_empty_slot_guess (test_cases.Cases.test_no_private_reference_or_empty_slot_guess) ... ok
+test_over_count_rejected (test_cases.Cases.test_over_count_rejected) ... ok
+test_same_value_stacks_not_summed (test_cases.Cases.test_same_value_stacks_not_summed) ... ok
+test_valid_eat_admitted_not_called (test_cases.Cases.test_valid_eat_admitted_not_called) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.001s
+
+OK

@@ -1,0 +1,54 @@
+{
+  "results": [
+    {
+      "case": "wrong_slot_value",
+      "hostExit": 1,
+      "driverExit": 0,
+      "watchdog": false,
+      "error": null,
+      "missingArtifacts": [],
+      "validationVerdict": "pass",
+      "elapsedSeconds": 55.19830882000679,
+      "drainUncertain": false,
+      "passed": true
+    },
+    {
+      "case": "over_count",
+      "hostExit": 1,
+      "driverExit": 0,
+      "watchdog": false,
+      "error": null,
+      "missingArtifacts": [],
+      "validationVerdict": "pass",
+      "elapsedSeconds": 54.55024654099543,
+      "drainUncertain": false,
+      "passed": true
+    },
+    {
+      "case": "fresh_slot_change",
+      "hostExit": 1,
+      "driverExit": 0,
+      "watchdog": false,
+      "error": null,
+      "missingArtifacts": [],
+      "validationVerdict": "pass",
+      "elapsedSeconds": 9.38594613299938,
+      "drainUncertain": false,
+      "passed": true
+    },
+    {
+      "case": "valid_eat",
+      "hostExit": 0,
+      "driverExit": 0,
+      "watchdog": false,
+      "error": null,
+      "missingArtifacts": [],
+      "validationVerdict": "pass",
+      "elapsedSeconds": 7.983981457990012,
+      "drainUncertain": false,
+      "passed": true
+    }
+  ],
+  "remainingCasesNotRun": 0,
+  "allPassed": true
+}
