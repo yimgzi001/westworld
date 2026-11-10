@@ -195,7 +195,7 @@ internal static class PlayDryRoutes
     {
         int contents = Terrain.ExtractContents(value);
         var block = BlocksManager.Blocks[contents];
-        // 草和花保留原始方块证据，只在原生明确无碰撞时算作身体净空。
-        return contents == 0 || (block is TallGrassBlock or FlowerBlock) && !block.IsCollidable_(value);
+        // 草、花和棉花保留原始证据。只有原生无碰撞且无需避让的这类植物算作净空。
+        return contents == 0 || block is CrossBlock && !block.IsCollidable_(value) && !block.ShouldAvoid(value);
     }
 }

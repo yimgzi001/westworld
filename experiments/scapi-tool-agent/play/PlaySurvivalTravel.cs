@@ -78,8 +78,10 @@ internal sealed class PlaySurvivalTravel
         var offset = distance * new Vector3(direction.X, 0, direction.Y);
         surveyTarget = Origin + offset;
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
+        var destinationOffset = foodTarget is not null ? foodTarget.Point - Origin : offset;
+        bool hasLandTarget = seek is "survey" or "camp" || foodTarget is not null;
         landDistanceLimit = escapeFrom is not null ? distance + (escapeClearance > 0f ? 12f : 6f)
-            : seek is "survey" or "camp" ? MathF.Abs(offset.X) + MathF.Abs(offset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
+            : hasLandTarget ? MathF.Abs(destinationOffset.X) + MathF.Abs(destinationOffset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
     }
 
     public bool Evading { get; }
@@ -156,7 +158,9 @@ internal sealed class PlaySurvivalTravel
         {
             bool moved = dry && previous?.Result.Status == AtomicActionStatus.Succeeded
                 && (body.Position - legOrigin).XZ.Length() >= 0.5f;
-            Finish(moved ? "succeeded" : "failed", moved ? "scout_detoured_to_open_ground" : "no_observed_dry_route");
+            bool returned = moved && (body.Position - Origin).XZ.Length() < 0.5f;
+            Finish(moved && !returned ? "succeeded" : "failed",
+                returned ? "scout_returned_to_start" : moved ? "scout_detoured_to_open_ground" : "no_observed_dry_route");
             return;
         }
         if (seek == "dry_land" && dry)

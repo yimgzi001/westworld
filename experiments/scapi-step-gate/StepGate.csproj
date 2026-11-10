@@ -11,6 +11,7 @@
     <ProjectReference Include="../../runtime/Westworld.Decisions.Local/Westworld.Decisions.Local.csproj" />
     <Compile Include="../scapi-tool-agent/IsolatedGameSettings.cs" Link="IsolatedGameSettings.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalTravel.cs" Link="PlaySurvivalTravel.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlayNavigationMenu.cs" Link="PlayNavigationMenu.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayDryRoutes.cs" Link="PlayDryRoutes.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalFood.cs" Link="PlaySurvivalFood.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalSenses.cs" Link="PlaySurvivalSenses.cs" />

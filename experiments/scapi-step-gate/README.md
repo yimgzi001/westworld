@@ -36,6 +36,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `navigate-vegetation` 在长路线和台阶上铺设无碰撞的草和花。`shelter-shallow` 从背包无土的一格浅坑跳出。`shelter-camp` 在没有随机生成生物的夹具中验证过夜、出坑、走开、沿原生路线返回以及重建实体遮蔽。
 
+`navigate-natural-cotton` 从 `natural34-b` 的真实岸边卡点出发，保留相邻野棉花原始证据，验证一格自动跳和连续移动。`forage-far` 验证同一帧在 48 格范围内看到约 38 格外的蛋，实际用一条通过试玩菜单校验的导航任务接近并取食。
+
 `forage-pumpkin` 将成熟南瓜放在一格落差后。先确认站在原处挖掘受阻，再沿干地换位，通过原生挖掘命中外露部分，最后沿确认的台阶下去并核对实际入包、落脚和生命值。
 
 - `ObservedStepRoutes` 仅投影真实当前/≤3 秒历史观察的基底、身体、净空与落脚格。只支持一格、轴向、固定实心地面；不可见、未知、过高、空落点拒绝。

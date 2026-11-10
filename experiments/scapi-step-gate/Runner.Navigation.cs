@@ -19,7 +19,8 @@ sealed partial class Runner
     {
         const int fixtureTerrainKey = 33001;
         var body = p.ComponentBody;
-        var stalled = new Vector3(-101.541466f, 67f, 119.49001f);
+        bool cotton = mode == "navigate-natural-cotton";
+        var stalled = cotton ? new Vector3(-26.385578f, 65f, 156.83945f) : new Vector3(-101.541466f, 67f, 119.49001f);
         var cell = Terrain.ToCell(stalled);
         if (stage == 0)
         {
@@ -29,6 +30,7 @@ sealed partial class Runner
         }
         if (stage == 1)
         {
+            if (!DismountedForFixture(body)) return;
             for (int x = cell.X - 5; x <= cell.X + 5; x += 5)
             for (int z = cell.Z - 5; z <= cell.Z + 5; z += 5)
                 if (!(terrain.Terrain.GetChunkAtCell(x, z)?.State >= TerrainChunkState.InvalidVertices1)) return;
@@ -46,23 +48,29 @@ sealed partial class Runner
             var window = memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true));
             var blockedHeading = -Vector2.UnitY;
             var starts = PlayDryRoutes.WalkableBearings(window, body.Matrix.Forward.XZ);
-            bool blocked = PlayDryRoutes.Next(window, blockedHeading, 6f, false) is null;
-            Gate.Log(new { kind = "natural_stall_geometry", window.Position, blocked, starts,
+            var first = PlayDryRoutes.Next(window, blockedHeading, 6f, false);
+            bool cottonInProof = first?.Evidence.Any(evidence => Terrain.ExtractContents(evidence.Value) == CottonBlock.Index) == true;
+            bool blocked = first is null;
+            Gate.Log(new { kind = "natural_stall_geometry", window.Position, cotton, blocked, starts, cottonInProof,
                 grounded = PlaySurvivalSenses.OnDryGround(body) });
-            if (!blocked || starts.Length == 0) throw new InvalidOperationException("夹具需要原方向封住且有其他观察到的起步方向。");
+            if (cotton ? !cottonInProof : !blocked || starts.Length == 0)
+                throw new InvalidOperationException("同种子卡点的已观察地形与夹具不符。");
             float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, blockedHeading));
-            travel = new(p, actions, bearing, 6f, "survey", false, now,
+            travel = new(p, actions, bearing, cotton ? 4f : 6f, "survey", false, now,
                 () => (JsonSerializer.SerializeToElement(new { }), []),
                 () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
             stage = 3;
         }
+        jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
         travel!.Update(now);
         if (travel.Status is null) return;
         float moved = (body.Position - travel.Origin).XZ.Length();
-        Passed = travel.Reason == "scout_detoured_to_open_ground" && moved >= 1f && PlaySurvivalSenses.OnDryGround(body)
+        bool reached = cotton ? travel.Status == "succeeded" && jumped && moved >= 2.5f
+            : travel.Reason == "scout_detoured_to_open_ground" && moved >= 1f;
+        Passed = reached && PlaySurvivalSenses.OnDryGround(body)
             && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
         Done = true;
-        Gate.Log(new { kind = "natural_stall_result", Passed, travel.Status, travel.Reason, moved, stationaryLooks });
+        Gate.Log(new { kind = "natural_stall_result", Passed, cotton, travel.Status, travel.Reason, moved, jumped, stationaryLooks });
     }
 
     private void RunRollingNavigation()
@@ -266,14 +274,7 @@ sealed partial class Runner
         }
         if (stage == 1)
         {
-            if (body.ParentBody is not null)
-            {
-                if (elapsed < 1) return;
-                run ??= actions.Start(new Dismount());
-                if (run.Result.Status == AtomicActionStatus.Failed)
-                    throw new InvalidOperationException("夹具角色无法离开开局木船。");
-                return;
-            }
+            if (!DismountedForFixture(body)) return;
             for (int x = cell.X - 6; x <= cell.X + 24; x += 6)
             for (int z = cell.Z - 8; z <= cell.Z + 8; z += 8)
                 if (!(terrain.Terrain.GetChunkAtCell(x, z)?.State >= TerrainChunkState.InvalidVertices1)) return;
@@ -326,6 +327,16 @@ sealed partial class Runner
         Done = true;
         Gate.Log(new { kind = "predator_coast_turn_result", Passed, escapeStartDistance, travel.Status, travel.Reason,
             moved, clearance, jumped, stationaryLooks, end = body.Position.ToString(), health = p.ComponentHealth.Health });
+    }
+
+    private bool DismountedForFixture(ComponentBody body)
+    {
+        if (body.ParentBody is null) return true;
+        if (elapsed < 1) return false;
+        run ??= actions.Start(new Dismount());
+        if (run.Result.Status is AtomicActionStatus.Failed or AtomicActionStatus.Cancelled)
+            throw new InvalidOperationException("夹具角色无法离开开局木船。");
+        return false;
     }
 
     private void TrackNavigation(object value)
