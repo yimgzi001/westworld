@@ -1,11 +1,13 @@
 using Westworld.Runtime.Core;
 namespace Westworld.Scapi.Adapter;
 public static class LocalNavigationSkillGeometry {
- public static bool InObservedAir(IReadOnlyList<LocalObservedCell> evidence,Position min,Position max,Func<int,bool>? openCell=null) {
+ public static bool InObservedAir(IReadOnlyList<LocalObservedCell> evidence,Position min,Position max,Func<int,bool>? openCell=null,
+  Func<LocalObservedCell,bool>? additionalOpenCell=null) {
   if(!Valid(min)||!Valid(max)||max.X<min.X||max.Y<min.Y||max.Z<min.Z||max.X-min.X>.501||max.Z-min.Z>.501||max.Y-min.Y>1.901)return false;
   if(evidence.Any(c=>c.Value<0||c.SourceObservationId==Guid.Empty||!double.IsFinite(c.Age)||c.Age<0||c.Age>3)
     ||evidence.Select(c=>(c.X,c.Y,c.Z)).Distinct().Count()!=evidence.Count)return false;
-  var air=evidence.Where(c=>openCell?.Invoke(c.Value)??(c.Value&1023)==0).Select(c=>(c.X,c.Y,c.Z)).ToHashSet();
+  var air=evidence.Where(c=>(openCell?.Invoke(c.Value)??(c.Value&1023)==0)||additionalOpenCell?.Invoke(c)==true)
+   .Select(c=>(c.X,c.Y,c.Z)).ToHashSet();
   for(int x=(int)Math.Floor(min.X+1e-5);x<=(int)Math.Floor(max.X-1e-5);x++)
    for(int z=(int)Math.Floor(min.Z+1e-5);z<=(int)Math.Floor(max.Z-1e-5);z++)
     for(int y=(int)Math.Floor(min.Y+1e-5);y<=(int)Math.Floor(max.Y-1e-5);y++)if(!air.Contains((x,y,z)))return false;

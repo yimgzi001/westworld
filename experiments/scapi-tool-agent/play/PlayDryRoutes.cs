@@ -8,7 +8,8 @@ using Westworld.Scapi.Adapter;
 
 internal static class PlayDryRoutes
 {
-    internal sealed record Leg(AtomicAction Action, IReadOnlyList<LocalObservedCell> Evidence, ObservedStepRoute? Step = null)
+    internal sealed record Leg(AtomicAction Action, IReadOnlyList<LocalObservedCell> Evidence, ObservedStepRoute? Step = null,
+        Func<LocalObservedCell, BoundingBox, bool>? PartialClearance = null)
     {
         public Vector3 End => Action switch
         {
@@ -24,7 +25,8 @@ internal static class PlayDryRoutes
             var bounds = body.BoundingBox;
             var minimum = new Position(bounds.Min.X, bounds.Min.Y, bounds.Min.Z);
             var maximum = new Position(bounds.Max.X, bounds.Max.Y, bounds.Max.Z);
-            return Step is null ? LocalNavigationSkillGeometry.InObservedAir(Evidence, minimum, maximum, OpenCell)
+            return Step is null ? LocalNavigationSkillGeometry.InObservedAir(Evidence, minimum, maximum, OpenCell,
+                    PartialClearance is { } clearance ? cell => clearance(cell, bounds) : null)
                 : ObservedStepGuard.Check(Step, minimum, maximum, body.IsSmoothRiseEnabled, body.MaxSmoothRiseHeight, OpenCell).Inside;
         }
     }
@@ -183,12 +185,39 @@ internal static class PlayDryRoutes
                 flat.Provenance[candidate.EvidenceId]));
     }
 
-    private static Leg? Alignment(LocalObservationWindow window)
+    public static Leg? RecoverBesidePumpkin(LocalObservationWindow window, SubsystemTerrain terrain)
     {
-        var alignment = LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true, allowLeavingSmallOverhang: true,
-            openCell: OpenCell, recoverToObservedSupport: true);
-        return alignment is { MaximumAge: <= 1.5 }
-            ? new(new MoveTo(PositionOf(alignment.Destination), 0.04f, 3f), alignment.Evidence) : null;
+        var alignment = ObserveAlignment(window, value => OpenCell(value) || IsPumpkin(value));
+        if (alignment is not { MaximumAge: <= 1.5 }
+            || !alignment.Evidence.Any(cell => IsPumpkin(cell.Value))) return null;
+
+        // 格子边角可以落在身体范围内。用已观察到的南瓜尺寸核对整段收脚范围和每帧身体位置。
+        var start = PositionOf(alignment.Origin);
+        var end = PositionOf(alignment.Destination);
+        var sweep = new BoundingBox(Vector3.Min(start, end) - new Vector3(0.25f, 0f, 0.25f),
+            Vector3.Max(start, end) + new Vector3(0.25f, 1.9f, 0.25f));
+        if (alignment.Evidence.Any(cell => IsPumpkin(cell.Value) && !ClearOfPumpkin(cell, sweep))) return null;
+        return new(new MoveTo(end, 0.04f, 3f), alignment.Evidence, PartialClearance: ClearOfPumpkin);
+
+        bool ClearOfPumpkin(LocalObservedCell cell, BoundingBox bounds)
+        {
+            if (BlocksManager.Blocks[Terrain.ExtractContents(cell.Value)] is not BasePumpkinBlock pumpkin
+                || pumpkin.ShouldAvoid(cell.Value)) return false;
+            var offset = new Vector3(cell.X, cell.Y, cell.Z);
+            return pumpkin.GetCustomCollisionBoxes(terrain, cell.Value)
+                .All(box => !bounds.Intersection(new BoundingBox(box.Min + offset, box.Max + offset)));
+        }
+    }
+
+    private static bool IsPumpkin(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)] is BasePumpkinBlock;
+
+    private static Leg? Alignment(LocalObservationWindow window) => ObserveAlignment(window, OpenCell) is { MaximumAge: <= 1.5 } alignment
+        ? new(new MoveTo(PositionOf(alignment.Destination), 0.04f, 3f), alignment.Evidence) : null;
+
+    private static ObservedAlignmentRoute? ObserveAlignment(LocalObservationWindow window, Func<int, bool> openCell)
+    {
+        return LocalNavigationAlignment.Project(window, allowObservedSandAndGravel: true, allowLeavingSmallOverhang: true,
+            openCell: openCell, recoverToObservedSupport: true);
     }
 
     private static bool OpenCell(int value)

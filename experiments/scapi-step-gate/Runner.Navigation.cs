@@ -20,7 +20,11 @@ sealed partial class Runner
         const int fixtureTerrainKey = 33001;
         var body = p.ComponentBody;
         bool cotton = mode == "navigate-natural-cotton";
-        var stalled = cotton ? new Vector3(-26.385578f, 65f, 156.83945f) : new Vector3(-101.541466f, 67f, 119.49001f);
+        bool pumpkin = mode == "predator-pumpkin-corner";
+        var stalled = pumpkin ? new Vector3(-131.16777f, 66f, 257.81088f)
+            : cotton ? new Vector3(-26.385578f, 65f, 156.83945f) : new Vector3(-101.541466f, 67f, 119.49001f);
+        // 使用死亡场第一次撤离时记录的棕熊位置。夹具只复现路线计算和原生移动。
+        var threat = new Vector2(-149.43459f, 247.28473f);
         var cell = Terrain.ToCell(stalled);
         if (stage == 0)
         {
@@ -46,6 +50,23 @@ sealed partial class Runner
             if (elapsed < 0.9) return;
             terrain.TerrainUpdater.RemoveUpdateLocation(fixtureTerrainKey);
             var window = memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true));
+            if (pumpkin)
+            {
+                bool ordinaryBlocked = PlayDryRoutes.Escape(window, threat, 12f, true) is null;
+                bool seen = window.Cells.Any(evidence => evidence.X == -131 && evidence.Y == 66 && evidence.Z == 258
+                    && Terrain.ExtractContents(evidence.Value) == PumpkinBlock.Index);
+                Gate.Log(new { kind = "pumpkin_corner_geometry", window.Position, ordinaryBlocked, seen,
+                    bounds = body.BoundingBox.ToString(), grounded = PlaySurvivalSenses.OnDryGround(body) });
+                if (!ordinaryBlocked || !seen || !PlaySurvivalSenses.OnDryGround(body))
+                    throw new InvalidOperationException("同种子南瓜卡点与自然场记录不符。");
+                float away = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, body.Position.XZ - threat));
+                travel = new(p, actions, away, 12f, "survey", true, now,
+                    () => (JsonSerializer.SerializeToElement(new { }), []),
+                    () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
+                    escapeFrom: () => threat, escapeClearance: 10f);
+                stage = 3;
+                return;
+            }
             var blockedHeading = -Vector2.UnitY;
             var starts = PlayDryRoutes.WalkableBearings(window, body.Matrix.Forward.XZ);
             var first = PlayDryRoutes.Next(window, blockedHeading, 6f, false);
@@ -65,12 +86,13 @@ sealed partial class Runner
         travel!.Update(now);
         if (travel.Status is null) return;
         float moved = (body.Position - travel.Origin).XZ.Length();
-        bool reached = cotton ? travel.Status == "succeeded" && jumped && moved >= 2.5f
+        bool reached = pumpkin ? travel.Reason == "escaped_along_supported_ground" && moved >= 11.5f && travel.Legs >= 2
+            : cotton ? travel.Status == "succeeded" && jumped && moved >= 2.5f
             : travel.Reason == "scout_detoured_to_open_ground" && moved >= 1f;
         Passed = reached && PlaySurvivalSenses.OnDryGround(body)
             && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
         Done = true;
-        Gate.Log(new { kind = "natural_stall_result", Passed, cotton, travel.Status, travel.Reason, moved, jumped, stationaryLooks });
+        Gate.Log(new { kind = "natural_stall_result", Passed, cotton, pumpkin, travel.Status, travel.Reason, moved, jumped, stationaryLooks });
     }
 
     private void RunRollingNavigation()

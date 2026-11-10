@@ -352,6 +352,13 @@ internal sealed class PlaySurvivalTravel
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
         var route = DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
+        if (route is null && !aligned)
+        {
+            route = PlayDryRoutes.RecoverBesidePumpkin(window, player.Project.FindSubsystem<SubsystemTerrain>(true));
+            if (route is not null)
+                log(new { kind = "play_scout_pumpkin_alignment", actor = player.PlayerData.Name, gameTime,
+                    target = route.End.ToString() });
+        }
         if (route is null && allowEscapeTurn && !UsedEscapeTurn && remaining >= 4f && escapeFrom is { } readThreat
             && PlayDryRoutes.EscapeTurn(window, readThreat()) is { } turn)
         {
@@ -380,17 +387,7 @@ internal sealed class PlaySurvivalTravel
             AtomicAction action = route.Action;
             if (!detouring && !approachingEscapeTurn && action is MoveAlongObservedRoute flat)
             {
-                var body = player.ComponentBody;
-                var goalOffset = ((seek == "camp" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
-                if ((seek is "survey" or "camp") && !Evading && goalOffset.LengthSquared() < 1 && flat.Points.Count == 1)
-                {
-                    // 最后一小段沿已验证的走廊收短，避免为一格内的目标再走过头。
-                    var corridor = flat.Points[0] - body.Position;
-                    float length = corridor.XZ.Length();
-                    float along = Vector2.Dot(goalOffset, corridor.XZ) / length;
-                    if (along >= 0.2f && along < length)
-                        flat = flat with { Points = [body.Position + along / length * corridor], FinalRange = 0.1f };
-                }
+                flat = LimitFinalFlat(flat);
                 action = flat with { Continue = ContinueFlat };
             }
             Start(action, gameTime, route);
@@ -443,6 +440,7 @@ internal sealed class PlaySurvivalTravel
         if (towardLowerDrop && Vector2.Dot(Vector2.Normalize((route.End - body.Position).XZ), direction) < 0.9f)
             return null;
 
+        next = LimitFinalFlat(next);
         return (next, () =>
         {
             var velocity = body.Velocity.XZ;
@@ -456,6 +454,19 @@ internal sealed class PlaySurvivalTravel
             log(new { kind = "play_scout_continue", actor = player.PlayerData.Name, seek, gameTime,
                 legs, traveled, speed = velocity.Length(), turn });
         });
+    }
+
+    private MoveAlongObservedRoute LimitFinalFlat(MoveAlongObservedRoute route)
+    {
+        if (seek is not ("survey" or "camp") || Evading || route.Points.Count != 1) return route;
+        var body = player.ComponentBody;
+        var goalOffset = ((seek == "camp" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
+        var corridor = route.Points[0] - body.Position;
+        float length = corridor.XZ.Length();
+        float along = Vector2.Dot(goalOffset, corridor.XZ) / length;
+        // 发起和连续接续都收短最后一段，落点仍留在原先已验证的走廊内。
+        return along >= 0.2f && along < length
+            ? route with { Points = [body.Position + along / length * corridor], FinalRange = 0.1f } : route;
     }
 
     private (string? Reached, Vector3? Approach) ReadLandGoal(ComponentBody body)
