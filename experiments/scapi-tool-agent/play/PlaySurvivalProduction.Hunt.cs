@@ -10,11 +10,12 @@ internal sealed partial class PlaySurvivalProduction
 {
     private const float HuntReach = 2.35f;
     private const float HuntThrowReach = 4.75f;
+    private const float HuntApproachReach = 10f;
     private readonly HashSet<Guid> preyDrops = new();
     private Entity? prey;
     private ComponentHealth? preyHealth;
     private PlaySurvivalTravel? huntApproach;
-    private bool approachedPreyDrop, preparingThrow, thrown, lastHitByHunter;
+    private bool approachedLivePrey, approachedPreyDrop, preparingThrow, thrown, lastHitByHunter;
     private Guid preyId, hunterId;
     private int strikes, meatPicked;
     private double nextStrike;
@@ -37,7 +38,7 @@ internal sealed partial class PlaySurvivalProduction
     {
         var carry = player.ComponentMiner.Inventory;
         int weapon = HuntWeapon(player);
-        var target = FindFoodBird(player, owner.Queries.FindVisibleObjectsAround(HuntThrowReach).Entities, HuntThrowReach);
+        var target = FindFoodBird(player, owner.Queries.FindVisibleObjectsAround(HuntApproachReach).Entities, HuntApproachReach);
         if (weapon < 0 || target is null)
         {
             Finish(false, "hunt_weapon_or_visible_prey_unavailable");
@@ -79,11 +80,17 @@ internal sealed partial class PlaySurvivalProduction
                 Finish(false, "spear_throw_did_not_take_prey");
                 return;
             }
-            var visible = owner.Queries.FindVisibleObjectsAround(HuntThrowReach).Entities
+            var visible = owner.Queries.FindVisibleObjectsAround(HuntApproachReach).Entities
                 .FirstOrDefault(view => view.EntityId == prey!.Id);
             if (strikes >= 2 || !IsSpear(player.ComponentMiner.ActiveBlockValue) || visible is null)
             {
                 Finish(false, "prey_left_native_reach");
+                return;
+            }
+            if (visible.Distance > HuntThrowReach)
+            {
+                if (approachedLivePrey || strikes != 0 || !TryApproachLivePrey(visible, gameTime))
+                    Finish(false, "prey_left_native_reach");
                 return;
             }
             if (visible.Distance > HuntReach)
@@ -108,6 +115,21 @@ internal sealed partial class PlaySurvivalProduction
         var drop = VisiblePreyDrop();
         if (drop is not null) action = owner.Start(drop.CreatePickup(1));
         else if (gameTime > nextStrike + health.CorpseDuration + 4) Finish(false, "native_prey_drop_unconfirmed");
+    }
+
+    private bool TryApproachLivePrey(NearbyEntityView visible, double gameTime)
+    {
+        var body = player.ComponentBody;
+        var offset = (visible.Position - body.Position).XZ;
+        float distance = offset.Length() - 3.8f;
+        if (distance < 0.8f || !PlaySurvivalSenses.OnDryGround(preyHealth!.Entity.FindComponent<ComponentBody>(true)))
+            return false;
+        approachedLivePrey = true;
+        float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+        huntApproach = new(player, owner, bearing, distance, "survey", false, gameTime,
+            ObserveHuntFood, readDryWindow, log, permitLandLeg: permitLandLeg);
+        log(new { kind = "play_hunt_stalk", actor = player.PlayerData.Name, gameTime, observedDistance = visible.Distance, distance });
+        return true;
     }
 
     private void PrepareSpearThrow(double gameTime)
@@ -162,7 +184,7 @@ internal sealed partial class PlaySurvivalProduction
         approachedPreyDrop = true;
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
         huntApproach = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 9f), "food", false,
-            gameTime, ObserveHuntFood, readDryWindow, log, foodTarget: food);
+            gameTime, ObserveHuntFood, readDryWindow, log, foodTarget: food, permitLandLeg: permitLandLeg);
         log(new { kind = "play_hunt_approach", actor = player.PlayerData.Name, distance = offset.Length(), gameTime });
         return true;
     }

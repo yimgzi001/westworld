@@ -27,6 +27,7 @@ internal sealed partial class PlaySurvivalProduction
     private readonly Dictionary<int, Point3> stations;
     private readonly Action<object> log;
     private readonly Func<LocalObservationWindow> readDryWindow;
+    private readonly Func<Vector3, double, bool>? permitLandLeg;
     private readonly double deadline;
     private readonly int before;
     private Phase phase;
@@ -39,7 +40,8 @@ internal sealed partial class PlaySurvivalProduction
     private double collectUntil, nextPoll;
 
     public PlaySurvivalProduction(ComponentPlayer player, AtomicActions owner, NativeToolSession tools, string task,
-        double gameTime, Action<object> log, Dictionary<int, Point3> stations, Func<LocalObservationWindow> readDryWindow)
+        double gameTime, Action<object> log, Dictionary<int, Point3> stations, Func<LocalObservationWindow> readDryWindow,
+        Func<Vector3, double, bool>? permitLandLeg = null)
     {
         this.player = player;
         this.owner = owner;
@@ -47,6 +49,7 @@ internal sealed partial class PlaySurvivalProduction
         this.log = log;
         this.stations = stations;
         this.readDryWindow = readDryWindow;
+        this.permitLandLeg = permitLandLeg;
         Task = task;
         before = Stock(player, task);
         deadline = gameTime + 36;
@@ -77,12 +80,13 @@ internal sealed partial class PlaySurvivalProduction
             int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
             if (Stock(player, Spear) == 0 && hasTable && boards >= boardsNeeded) available.Add(Spear);
             if (HuntWeapon(player) >= 0 && Stock(player, Hunt) < 2 && panorama is { } sight
-                && FindFoodBird(player, sight.Objects.Entities, HuntThrowReach) is not null) available.Add(Hunt);
+                && FindFoodBird(player, sight.Objects.Entities, HuntApproachReach) is not null) available.Add(Hunt);
         }
         AddStationOffers(player, panorama, stations, available);
         if (available.Count == 0) return null;
         return new(Tool, "Collect a reachable log or stone, craft survival gear, or cook carried raw meat at a furnace. "
-            + "Hunt nonaggressive food birds with a spear, using one short throw or close melee. The game checks actual materials and reach.",
+            + "Hunt a visible nonaggressive food bird with a spear. Walk on verified dry ground to reach it, then throw or strike in range. "
+            + "Check actual materials before crafting and save raw meat to cook.",
             JsonSerializer.SerializeToElement(new
             {
                 type = "object",

@@ -15,12 +15,14 @@ sealed partial class Runner
     private PlaySurvivalProduction? production;
     private int productionIndex;
     private Point3[] resourceCells = [];
+    private Vector3 productionOrigin;
 
     private void RunProduction()
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-        bool ranged = mode == "production-hunt-ranged";
+        bool approach = mode == "production-hunt-approach";
+        bool ranged = approach || mode == "production-hunt-ranged";
         bool hunt = mode == "production-hunt" || ranged;
         bool kitchen = mode is "production-hunt" or "production-kitchen";
         var order = hunt ? HuntOrder : kitchen ? KitchenOrder : KitOrder;
@@ -29,7 +31,7 @@ sealed partial class Runner
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
-            for (int x = cell.X - 3; x <= cell.X + (ranged ? 6 : 3); x++)
+            for (int x = cell.X - 3; x <= cell.X + (approach ? 11 : ranged ? 6 : 3); x++)
             for (int z = cell.Z - 3; z <= cell.Z + 3; z++)
             for (int y = cell.Y - 1; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
@@ -43,6 +45,7 @@ sealed partial class Runner
                 terrain.ChangeCell(item.X, item.Y, item.Z, i < resourceCells.Length - 1 ? OakWoodBlock.Index : GraniteBlock.Index);
             }
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
+            productionOrigin = body.Position;
             body.Velocity = Vector3.Zero;
             if (order.Where(task => task != PlaySurvivalProduction.Cook).Any(task => PlaySurvivalProduction.Stock(p, task) > 0))
                 throw new InvalidOperationException("生产夹具要求开局没有目标材料和成品。");
@@ -59,11 +62,11 @@ sealed partial class Runner
             }
             if (hunt)
             {
-                int wallX = cell.X + (ranged ? 5 : 2);
+                int wallX = cell.X + (approach ? 10 : ranged ? 5 : 2);
                 for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
                 for (int y = cell.Y; y <= cell.Y + 2; y++) terrain.ChangeCell(wallX, y, z, GraniteBlock.Index);
                 var duck = DatabaseManager.CreateEntity(p.Project, "Duck", true);
-                duck.FindComponent<ComponentBody>(true).Position = body.Position + (ranged ? 3.65f : 1.1f) * Vector3.UnitX;
+                duck.FindComponent<ComponentBody>(true).Position = body.Position + (approach ? 8.2f : ranged ? 3.65f : 1.1f) * Vector3.UnitX;
                 var legs = duck.FindComponent<ComponentLocomotion>(true);
                 legs.WalkSpeed = legs.FlySpeed = legs.JumpSpeed = 0f;
                 p.Project.AddEntity(duck);
@@ -74,6 +77,13 @@ sealed partial class Runner
             return;
         }
         if (elapsed < 1) return;
+        if (production is null && approach && order[productionIndex] == PlaySurvivalProduction.Hunt)
+        {
+            var menu = PlaySurvivalProduction.Offer(p, actions.Queries.ReadPanorama(12f), productionStations, true);
+            if (menu is null || !menu.Parameters.GetProperty("properties").GetProperty("task").GetProperty("enum")
+                .EnumerateArray().Any(item => item.GetString() == PlaySurvivalProduction.Hunt))
+                throw new InvalidOperationException("手持木矛时，射程外可见食用鸟应进入试玩菜单。");
+        }
         production ??= new(p, actions, forageTools!, order[productionIndex], now, Gate.Log, productionStations,
             () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)));
         production.Update(now);
@@ -89,8 +99,10 @@ sealed partial class Runner
 
         bool materialConsumed = PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Wood) == 0;
         var inventory = p.ComponentMiner.Inventory;
+        float moved = (body.Position - productionOrigin).XZ.Length();
         Passed = materialConsumed && (ranged
             ? NativeAcquisitionAudit.InventoryCount(inventory, RawBirdBlock.Index) == 1 && p.ComponentHealth.Health >= 0.99f
+                && (!approach || moved >= 4f)
             : kitchen
             ? productionStations.ContainsKey(CraftingTableBlock.Index) && productionStations.ContainsKey(FurnaceBlock.Index)
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 0
@@ -99,7 +111,7 @@ sealed partial class Runner
             : productionStations.ContainsKey(CampfireBlock.Index) && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 1
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Workbench) == 1);
         Done = true;
-        Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, ranged, completed = productionIndex });
+        Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, ranged, approach, moved, completed = productionIndex });
     }
 
 }

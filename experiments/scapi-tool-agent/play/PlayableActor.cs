@@ -327,7 +327,7 @@ internal sealed class PlayableActor
         if (step.Tool == PlaySurvivalProduction.Tool)
         {
             production = new(player, owner, tools, step.Arguments.GetProperty("task").GetString()!, gameTime, log,
-                placedStations, ReadDryWindow);
+                placedStations, ReadDryWindow, PermitSurvivalLeg);
             return;
         }
         if (step.Tool is PlaySurvivalIntents.Gather or PlaySurvivalIntents.Eat or PlaySurvivalIntents.Rest
@@ -355,6 +355,9 @@ internal sealed class PlayableActor
             var targetFood = seek == "food" ? sweep?.FoodInDirection(player, direction, distance) : null;
             if (targetFood is not null && (!CanRetryFood(targetFood, body.Position, gameTime)
                 || !PermitSurvivalLeg(targetFood.Point, gameTime))) targetFood = null;
+            if (targetFood is { } observedFood)
+                log(new { kind = "play_scout_food_target", actor = Name, observedFood.Name,
+                    distance = (observedFood.Point - body.Position).XZ.Length(), gameTime });
             if (seek == "shelter") earth = sweep?.EarthInDirection(body.Position, direction);
             var shore = seek == "dry_land" ? sweep?.ShoreInDirection(body.Position, direction) : null;
             travel = new(player, owner, bearing, distance, seek, false, gameTime, ObserveSurvival, ReadDryWindow, log,
