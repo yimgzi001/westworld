@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Official Responses transport only; no game tools, shell tools or generated code."""
 import subprocess, sys, threading
-import argparse, datetime, getpass, hashlib, json, os, pathlib, socket, ssl, time, urllib.error, urllib.request, uuid, warnings
+import argparse, datetime, getpass, hashlib, json, math, os, pathlib, socket, ssl, time, urllib.error, urllib.request, uuid, warnings
+from concurrent.futures import ThreadPoolExecutor
 
 URL = "https://api.openai.com/v1/responses"
+KEY_ENV_VAR = "WESTWORLD_OPENAI_API_KEY"
 VERIFIED_MODELS = {"gpt-6.1-terra": {"none"}}  # Explicit user-selected official model; no default/fallback.
 IDS = ("sessionId", "actorId", "observationId", "requestId")
 MAX_BYTES = 262144
@@ -16,13 +18,35 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise ControllerError("redirect_rejected")
 
+def configured_key():
+    key = os.environ.get(KEY_ENV_VAR)
+    if key is not None or os.name != "nt":
+        return key
+
+    # 已打开的 Windows 终端可能还没有继承新设置的用户环境变量。
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as user_environment:
+            return winreg.QueryValueEx(user_environment, KEY_ENV_VAR)[0]
+    except FileNotFoundError:
+        return None
+
+
 def secure_key():
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", getpass.GetPassWarning)
-        key = getpass.getpass("OpenAI API key (hidden, memory only): ")
-    if not key or any(c.isspace() for c in key):
+    key = configured_key()
+    if key is None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", getpass.GetPassWarning)
+            key = getpass.getpass("OpenAI API key (hidden, memory only): ")
+    if not isinstance(key, str) or not key or any(c.isspace() for c in key):
         raise ControllerError("invalid_key")
     return key
+
+
+def child_environment():
+    environment = os.environ.copy()
+    environment.pop(KEY_ENV_VAR, None)
+    return environment
 
 def decode(raw):
     def pairs(items):
@@ -99,12 +123,12 @@ def isolated_http_post(payload, key, timeout, *, canceled=None):
     deadline = time.monotonic() + timeout
     process = subprocess.Popen([sys.executable, "-I", str(pathlib.Path(__file__).resolve()), "--http-worker"],
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                               shell=False)
+                               env=child_environment(), shell=False)
     stream = process.stdout
-    process.stdout = None  # communicate owns stdin/wait; bounded reader owns stdout.
     collected = bytearray()
     overflow = threading.Event()
     read_failed = threading.Event()
+    write_failed = threading.Event()
     def drain():
         try:
             while True:
@@ -121,38 +145,39 @@ def isolated_http_post(payload, key, timeout, *, canceled=None):
             read_failed.set()
         finally:
             stream.close()
-    reader = threading.Thread(target=drain, daemon=True)
-    reader.start()
-    try:
+
+    def supply_input():
+        # Windows 管道写满时可能阻塞。主线程仍须能按截止时间终止进程。
         try:
-            if canceled is None:
-                process.communicate(input=packet, timeout=max(0, deadline - time.monotonic()))
-            else:
-                first = True
-                while True:
-                    # A completed response keeps its real usage even if cancellation
-                    # arrives simultaneously. Delivery is independently checked later.
-                    if not first and process.poll() is not None:
-                        process.communicate()
-                        break
-                    if canceled():
-                        raise ControllerError("host_canceled")
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        raise subprocess.TimeoutExpired(process.args, timeout)
-                    try:
-                        process.communicate(input=packet if first else None, timeout=min(.05, remaining))
-                        break
-                    except subprocess.TimeoutExpired:
-                        first = False
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.communicate()  # reap the fixed worker; no retries
-            raise ControllerError("timeout") from None
+            with process.stdin as input_pipe:
+                input_pipe.write(packet)
+        except BrokenPipeError:
+            pass
+        except OSError:
+            write_failed.set()
+
+    reader = threading.Thread(target=drain, daemon=True)
+    writer = threading.Thread(target=supply_input, daemon=True)
+    reader.start()
+    writer.start()
+    try:
+        while process.poll() is None:
+            # 进程先完成时保留真实用量，能否发布回复由上层再核对。
+            if canceled is not None and canceled():
+                raise ControllerError("host_canceled")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ControllerError("timeout")
+            try:
+                process.wait(timeout=remaining if canceled is None else min(.05, remaining))
+            except subprocess.TimeoutExpired:
+                if canceled is None:
+                    raise ControllerError("timeout") from None
+        writer.join()
         reader.join()
         if overflow.is_set():
             raise ControllerError("worker_output_bound")
-        if read_failed.is_set() or process.returncode != 0:
+        if read_failed.is_set() or write_failed.is_set() or process.returncode != 0:
             raise ControllerError("worker_failed")
         reply = decode(collected)
         if not isinstance(reply, dict) or set(reply) not in ({"body"}, {"error"}):
@@ -163,15 +188,8 @@ def isolated_http_post(payload, key, timeout, *, canceled=None):
     finally:
         if process.poll() is None:
             process.kill()
-            process.wait()
-        # communicate(timeout=...) may leave stdin open while input is partial.
-        # Kill/reap first so closing a buffered pipe cannot wait on a live reader.
-        stdin = getattr(process, "stdin", None)
-        if stdin is not None and not stdin.closed:
-            try:
-                stdin.close()
-            except (BrokenPipeError, OSError):
-                pass  # The worker has gone; do not replace the cancellation result.
+        process.wait()
+        writer.join()
         reader.join()
         packet = None
 
@@ -309,12 +327,12 @@ def checked_control_path(root):
         raise ControllerError("control_symlink_rejected")
     return root
 
-def wait_for_control(root, deadline):
+def wait_for_control(root, deadline, host_stopped=lambda: False):
     # Never mkdir: only the host may create its fresh control directory.
     root = checked_control_path(root)
     while True:
         checked_control_path(root)
-        if (root.parent / "exit.txt").exists():
+        if host_stopped() or (root.parent / "exit.txt").exists():
             return None
         if root.exists():
             if not root.is_dir():
@@ -324,6 +342,15 @@ def wait_for_control(root, deadline):
         if remaining <= 0:
             raise ControllerError("control_directory_wait_timeout")
         time.sleep(min(.25, remaining))
+
+def sync_directory(directory):
+    # Windows 上的 Python 不支持用 os.open 打开目录，文件本身仍单独刷新。
+    if os.name != "nt":
+        fd = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
 def claim_request(root, envelope, prompt, schema, model, effort):
     # Reserve before calling the provider. A crash between reservation and POST
@@ -342,11 +369,7 @@ def claim_request(root, envelope, prompt, schema, model, effort):
         # O_EXCL also refuses an existing symlink; partial claims remain blocking.
         with claim.open("x", encoding="utf-8") as output:
             output.write(compact(value)); output.flush(); os.fsync(output.fileno())
-        fd = os.open(directory, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        sync_directory(directory)
         return True
     except FileExistsError:
         return False
@@ -383,11 +406,7 @@ class LifecycleAudit:
         self.output = self.path.open("x", encoding="utf-8")
         try:
             self.emit("startup")
-            fd = os.open(self.path.parent, os.O_RDONLY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            sync_directory(self.path.parent)
         except BaseException:
             self.output.close()
             raise
@@ -415,83 +434,109 @@ class LifecycleAudit:
             self.output.close()
         return False
 
-def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12, total_seconds=650, wait_seconds=60, lifecycle=None):
-    if not 1 <= max_requests <= 12 or not 0 < total_seconds <= 650:
+def file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12,
+              total_seconds=650, wait_seconds=60, parallelism=1, host_stopped=lambda: False, lifecycle=None,
+              survival_run=False):
+    valid_requests = max_requests is None or type(max_requests) is int and max_requests > 0
+    valid_time = total_seconds is None or math.isfinite(total_seconds) and total_seconds > 0
+    if not valid_requests or not valid_time or (not survival_run and
+            (max_requests is None or max_requests > 12 or total_seconds is None or total_seconds > 650)):
         raise ControllerError("run_bound")
     if not 0 < wait_seconds <= 60:
         raise ControllerError("wait_bound")
+    if parallelism not in (1, 2):
+        raise ControllerError("parallelism_bound")
     if lifecycle is None:
         with LifecycleAudit(audit_file, mode="file", model=model, reasoning_effort=reasoning_effort) as events:
-            return file_mode(root, key, audit_file, model=model, reasoning_effort=reasoning_effort,
-                             max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds, lifecycle=events)
+            return _file_mode(root, key, audit_file, model=model, reasoning_effort=reasoning_effort,
+                              max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds,
+                              parallelism=parallelism, host_stopped=host_stopped, lifecycle=events)
     return _file_mode(root, key, audit_file, model=model, reasoning_effort=reasoning_effort,
-                      max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds, lifecycle=lifecycle)
+                      max_requests=max_requests, total_seconds=total_seconds, wait_seconds=wait_seconds,
+                      parallelism=parallelism, host_stopped=host_stopped, lifecycle=lifecycle)
 
-def _file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests=12, total_seconds=650, wait_seconds=60, lifecycle):
+def _file_mode(root, key, audit_file, *, model, reasoning_effort, max_requests, total_seconds,
+               wait_seconds, parallelism, host_stopped, lifecycle):
     if model not in VERIFIED_MODELS or reasoning_effort not in VERIFIED_MODELS[model]:
         raise ControllerError("unverified_model_or_effort")
-    if not 1 <= max_requests <= 12 or not 0 < total_seconds <= 650:
-        raise ControllerError("run_bound")
-    if not 0 < wait_seconds <= 60:
-        raise ControllerError("wait_bound")
-    started = time.monotonic()
+    deadline = math.inf if total_seconds is None else time.monotonic() + total_seconds
     lifecycle.emit("ready", phase="waiting_for_host")
     print("Controller ready; waiting for host control directory (no directory creation).", flush=True)
-    root = wait_for_control(root, started + min(wait_seconds, total_seconds))
+    root = wait_for_control(root, min(deadline, time.monotonic() + wait_seconds), host_stopped)
     if root is None:
         return
     lifecycle.emit("host_control_ready")
     seen = set()
-    with audit_file.open("x", encoding="utf-8") as audit:
-        while len(seen) < max_requests and time.monotonic() - started < total_seconds:
-            checked_control_path(root)
-            if (root.parent / "exit.txt").exists():
-                return
-            for path in sorted(root.glob("*/request.json")):
-                if path.parent.is_symlink() or path.parent.resolve().parent != root:
-                    continue
-                if (root.parent / "exit.txt").exists():
-                    return
-                request = read_json(path)
-                envelope = request_envelope(request)
-                identity = envelope["requestId"]
-                if identity in seen or (path.parent / "response.json").exists():
-                    continue
-                remaining = total_seconds - (time.monotonic() - started)
-                if remaining <= 0:
-                    return
-                seen.add(identity)  # Including failures: never retry a request automatically.
-                if not claim_request(root, envelope, request["prompt"], request["responseSchema"], model, reasoning_effort):
-                    audit.write(compact(dict(envelope, error="prior_request_requires_reconciliation", usage=None)) + "\n")
-                    audit.flush(); os.fsync(audit.fileno())
-                    lifecycle.emit("request_skipped", **envelope, reason="prior_request_requires_reconciliation")
-                    if len(seen) >= max_requests:
-                        return
-                    continue
-                remaining = min(remaining, host_remaining(request, path.parent))
-                if remaining <= 0:
-                    audit.write(compact(dict(envelope, error="host_request_expired_or_canceled", usage=None)) + "\n")
-                    audit.flush(); os.fsync(audit.fileno())
-                    lifecycle.emit("request_skipped", **envelope, reason="host_request_expired_or_canceled")
-                    if len(seen) >= max_requests:
-                        return
-                    continue
-                lifecycle.attempt(request["prompt"], request["responseSchema"], envelope)
-                decision, record = infer(request["prompt"], request["responseSchema"], key, model=model, reasoning_effort=reasoning_effort, timeout=min(45, remaining),
-                                         canceled=lambda: (root.parent / "exit.txt").exists()
-                                         or time.monotonic() - started >= total_seconds
-                                         or host_remaining(request, path.parent) <= 0)
-                record.update(envelope)
-                publish = decision is not None and not (root.parent / "exit.txt").exists() and host_remaining(request, path.parent) > 0
-                record["delivery"] = "ready_to_publish" if publish else "withheld_or_no_decision"
-                audit.write(compact(record) + "\n"); audit.flush(); os.fsync(audit.fileno())
-                lifecycle.result(record, envelope)
-                if publish:
-                    atomic_json(path.parent / "response.json", dict(envelope, decision=decision))
-                    lifecycle.emit("response_published", **envelope)
-                if len(seen) >= max_requests:
-                    return
-            time.sleep(min(.25, max(0, total_seconds - (time.monotonic() - started))))
+    claimed_paths = set()
+    stopping = threading.Event()
+
+    def stopped():
+        return (stopping.is_set() or host_stopped() or (root.parent / "exit.txt").exists()
+                or time.monotonic() >= deadline)
+
+    def can_claim():
+        return (max_requests is None or len(seen) < max_requests) and not stopped()
+
+    def request_model(request, directory, remaining):
+        return infer(request["prompt"], request["responseSchema"], key, model=model,
+                     reasoning_effort=reasoning_effort, timeout=min(45, remaining),
+                     canceled=lambda: stopped() or host_remaining(request, directory) <= 0)
+
+    def record_result(audit, record):
+        audit.write(compact(record) + "\n")
+        audit.flush()
+        os.fsync(audit.fileno())
+
+    # 工作线程只访问模型，领用、审计和回复发布由一个线程顺序完成。
+    with audit_file.open("x", encoding="utf-8") as audit, ThreadPoolExecutor(max_workers=parallelism) as executor:
+        pending = {}
+        try:
+            while pending or can_claim():
+                for job, (request, envelope, directory) in list(pending.items()):
+                    if not job.done():
+                        continue
+                    del pending[job]
+                    decision, record = job.result()
+                    record.update(envelope)
+                    publish = decision is not None and not stopped() and host_remaining(request, directory) > 0
+                    record["delivery"] = "ready_to_publish" if publish else "withheld_or_no_decision"
+                    record_result(audit, record)
+                    lifecycle.result(record, envelope)
+                    if publish and not stopped() and host_remaining(request, directory) > 0:
+                        atomic_json(directory / "response.json", dict(envelope, decision=decision))
+                        lifecycle.emit("response_published", **envelope)
+
+                if len(pending) < parallelism and can_claim():
+                    checked_control_path(root)
+                    for path in sorted(root.glob("*/request.json")):
+                        if len(pending) >= parallelism or not can_claim():
+                            break
+                        directory = path.parent
+                        if path in claimed_paths:
+                            continue
+                        if directory.is_symlink() or directory.resolve().parent != root:
+                            continue
+                        request = read_json(path)
+                        envelope = request_envelope(request)
+                        identity = envelope["requestId"]
+                        if identity in seen or (directory / "response.json").exists():
+                            continue
+                        seen.add(identity)
+                        claimed_paths.add(path)
+                        claimed = claim_request(root, envelope, request["prompt"], request["responseSchema"], model, reasoning_effort)
+                        remaining = min(deadline - time.monotonic(), host_remaining(request, directory))
+                        if not claimed or remaining <= 0:
+                            reason = "host_request_expired_or_canceled" if claimed else "prior_request_requires_reconciliation"
+                            record_result(audit, dict(envelope, error=reason, usage=None))
+                            lifecycle.emit("request_skipped", **envelope, reason=reason)
+                            continue
+                        lifecycle.attempt(request["prompt"], request["responseSchema"], envelope)
+                        job = executor.submit(request_model, request, directory, remaining)
+                        pending[job] = request, envelope, directory
+                if pending or can_claim():
+                    time.sleep(0.05)
+        finally:
+            stopping.set()
 
 def main():
     parser = argparse.ArgumentParser()

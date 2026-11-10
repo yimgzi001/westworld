@@ -1,4 +1,4 @@
-import importlib.util, pathlib, tempfile, unittest, uuid, json, io
+import importlib.util, pathlib, tempfile, unittest, uuid, json, io, threading, time
 from unittest.mock import patch
 spec = importlib.util.spec_from_file_location("controller", pathlib.Path(__file__).with_name("controller.py"))
 c = importlib.util.module_from_spec(spec); spec.loader.exec_module(c)
@@ -35,6 +35,21 @@ class Tests(unittest.TestCase):
             with self.assertRaises(c.ControllerError):c.infer(prompt,SCHEMA,"unused",**OPTIONS)
         with self.assertRaises(c.ControllerError):c.infer("p",SCHEMA,"unused",**OPTIONS,timeout=46)
         with self.assertRaises(c.ControllerError):c.validate_decision({"goal":"x","steps":[{}]*5})
+    def test_survival_run_can_follow_host_without_budget(self):
+        root = pathlib.Path("unused")
+        with patch.object(c, "_file_mode") as run:
+            with self.assertRaisesRegex(c.ControllerError, "run_bound"):
+                c.file_mode(root, "fake-test-only", root, **OPTIONS, max_requests=13)
+            with self.assertRaisesRegex(c.ControllerError, "run_bound"):
+                c.file_mode(root, "fake-test-only", root, **OPTIONS, total_seconds=651)
+            for budget in ({"max_requests": 0}, {"total_seconds": -1}):
+                with self.assertRaisesRegex(c.ControllerError, "run_bound"):
+                    c.file_mode(root, "fake-test-only", root, **OPTIONS, survival_run=True, **budget)
+            c.file_mode(root, "fake-test-only", root, **OPTIONS, survival_run=True,
+                        max_requests=None, total_seconds=None, parallelism=2, lifecycle=object())
+            run.assert_called_once()
+            self.assertIsNone(run.call_args.kwargs["max_requests"])
+            self.assertIsNone(run.call_args.kwargs["total_seconds"])
     def test_ids(self):
         r={"protocol":"westworld-tool-file-v1","prompt":"p","responseSchema":SCHEMA}
         r.update({k:str(uuid.uuid4()) for k in c.IDS})
@@ -102,8 +117,18 @@ class Tests(unittest.TestCase):
                 c.file_mode(root,"unused",pathlib.Path(d)/"audit",**OPTIONS,total_seconds=1)
                 call.assert_not_called()
     def test_getpass_no_plaintext_fallback(self):
-        with patch.object(c.getpass,"getpass",side_effect=c.getpass.GetPassWarning("no tty")):
+        with patch.object(c, "configured_key", return_value=None), patch.object(
+                c.getpass, "getpass", side_effect=c.getpass.GetPassWarning("no tty")):
             with self.assertRaises(c.getpass.GetPassWarning):c.secure_key()
+    def test_key_environment_skips_prompt(self):
+        with patch.dict(c.os.environ, {c.KEY_ENV_VAR: "FAKE-PROJECT-KEY"}), patch.object(c.getpass, "getpass") as prompt:
+            self.assertEqual(c.secure_key(), "FAKE-PROJECT-KEY")
+            prompt.assert_not_called()
+    def test_key_environment_rejects_invalid_value(self):
+        with patch.dict(c.os.environ, {c.KEY_ENV_VAR: "FAKE KEY"}), patch.object(c.getpass, "getpass") as prompt:
+            with self.assertRaisesRegex(c.ControllerError, "invalid_key"):
+                c.secure_key()
+            prompt.assert_not_called()
     def test_failure_not_retried(self):
         with tempfile.TemporaryDirectory() as d:
             root=pathlib.Path(d)/"control";root.mkdir();req=root/"001";req.mkdir()
@@ -173,29 +198,37 @@ class Tests(unittest.TestCase):
 class WorkerTests(unittest.TestCase):
     def fake_process(self, raw=b'{"body":{"status":"completed"}}', code=0, timeout=False):
         import subprocess
+        class CapturedInput(io.BytesIO):
+            def write(self, packet):
+                self.packet = packet
+                return super().write(packet)
+
         class Fake:
             def __init__(self):
-                self.stdout=io.BytesIO(raw);self.returncode=None;self.killed=False;self.reaped=False;self.calls=[]
-            def communicate(self,input=None,timeout=None):
-                self.calls.append((input,timeout))
+                self.stdin=CapturedInput();self.stdout=io.BytesIO(raw)
+                self.returncode=None;self.killed=False;self.reaped=False;self.calls=[]
+            def wait(self,timeout=None):
+                self.calls.append(timeout)
                 if timeout is not None and fail_timeout:
                     raise subprocess.TimeoutExpired("fixed-worker",timeout)
-                self.returncode=code;self.reaped=True
-                return None,None
+                if self.returncode is None:self.returncode=code
+                self.reaped=True
+                return self.returncode
             def kill(self):self.killed=True;self.returncode=-9
-            def wait(self):self.reaped=True;return self.returncode
             def poll(self):return self.returncode
         fail_timeout=timeout
         return Fake()
     def test_fixed_argv_pipe_only(self):
         process=self.fake_process()
-        with patch.object(c.subprocess,"Popen",return_value=process) as start:
+        with patch.dict(c.os.environ, {c.KEY_ENV_VAR: "FAKE-SECRET-ONLY"}), patch.object(
+                c.subprocess, "Popen", return_value=process) as start:
             self.assertEqual(c.isolated_http_post({},"FAKE-SECRET-ONLY",1),{"status":"completed"})
         args,kwargs=start.call_args
-        self.assertNotIn("FAKE-SECRET-ONLY",repr(args)+repr(kwargs))
+        self.assertNotIn("FAKE-SECRET-ONLY",repr(args))
+        self.assertFalse(c.KEY_ENV_VAR in kwargs["env"], "HTTP 工作进程继承了密钥环境变量")
         self.assertEqual(args[0][-1],"--http-worker");self.assertFalse(kwargs["shell"])
         self.assertEqual(kwargs["stderr"],c.subprocess.DEVNULL)
-        self.assertIn(b"FAKE-SECRET-ONLY",process.calls[0][0]);self.assertTrue(process.reaped)
+        self.assertIn(b"FAKE-SECRET-ONLY",process.stdin.packet);self.assertTrue(process.reaped)
     def test_timeout_kill_reap_unknown_usage(self):
         process=self.fake_process(timeout=True)
         with patch.object(c.subprocess,"Popen",return_value=process):
@@ -464,6 +497,70 @@ class LifecycleAuditTests(unittest.TestCase):
                 with self.assertRaises(FileExistsError):c.file_mode(root,"FAKE",audit,**OPTIONS,max_requests=1,total_seconds=1)
                 call.assert_not_called()
             self.assertEqual(p.read_text(),"old")
+
+class ParallelPlayTests(unittest.TestCase):
+    def request(self, root, ordinal, prompt):
+        directory = root / f"{ordinal:04d}"
+        directory.mkdir(parents=True)
+        envelope = {key: str(uuid.uuid4()) for key in c.IDS}
+        (directory / "request.json").write_text(json.dumps(
+            dict(envelope, protocol="westworld-tool-file-v1", prompt=prompt, responseSchema=SCHEMA)))
+        return directory, envelope
+
+    def test_fast_role_publishes_while_slow_role_is_waiting(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp) / "control"
+            a, actor_a = self.request(root, 1, "slow")
+            b, actor_b = self.request(root, 2, "fast")
+            extra, _ = self.request(root, 3, "over-budget")
+            audit = root.parent / "usage.jsonl"
+
+            def infer(prompt, *args, **kwargs):
+                if prompt == "slow":
+                    end = time.monotonic() + 3
+                    while not (b / "response.json").exists() and time.monotonic() < end:
+                        time.sleep(0.01)
+                    self.assertTrue((b / "response.json").exists())
+                return DECISION, {"outcome": "received", "usage": {"total_tokens": 17}}
+
+            with patch.object(c, "infer", side_effect=infer) as call:
+                c.file_mode(root, "FAKE", audit, **OPTIONS, max_requests=2, parallelism=2, total_seconds=5)
+
+            self.assertEqual(call.call_count, 2)
+            self.assertEqual(c.read_json(a / "response.json")["actorId"], actor_a["actorId"])
+            self.assertEqual(c.read_json(b / "response.json")["actorId"], actor_b["actorId"])
+            self.assertFalse((extra / "response.json").exists())
+            results = [json.loads(line) for line in audit.read_text().splitlines()]
+            self.assertEqual([row["actorId"] for row in results], [actor_b["actorId"], actor_a["actorId"]])
+
+    def test_host_exit_keeps_known_usage_and_withholds_both_replies(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp) / "control"
+            a, _ = self.request(root, 1, "slow")
+            b, _ = self.request(root, 2, "fast")
+            audit = root.parent / "usage.jsonl"
+            both_started = threading.Barrier(2)
+            host_stopped = threading.Event()
+
+            def infer(prompt, *args, canceled, **kwargs):
+                both_started.wait(timeout=3)
+                if prompt == "fast":
+                    host_stopped.set()
+                    return DECISION, {"outcome": "received", "usage": {"total_tokens": 17}}
+                self.assertTrue(host_stopped.wait(timeout=3))
+                self.assertTrue(canceled())
+                return None, {"outcome": "failed", "error": "host_canceled", "usage": None}
+
+            with patch.object(c, "infer", side_effect=infer):
+                c.file_mode(root, "FAKE", audit, **OPTIONS, max_requests=2, parallelism=2, total_seconds=5,
+                            host_stopped=host_stopped.is_set)
+
+            self.assertFalse((a / "response.json").exists())
+            self.assertFalse((b / "response.json").exists())
+            results = [json.loads(line) for line in audit.read_text().splitlines()]
+            self.assertEqual(len(results), 2)
+            self.assertIn({"total_tokens": 17}, [row["usage"] for row in results])
+            self.assertTrue(all(row["delivery"] == "withheld_or_no_decision" for row in results))
 
 if __name__=="__main__":unittest.main()
 

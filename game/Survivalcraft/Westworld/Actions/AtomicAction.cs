@@ -7,7 +7,8 @@ namespace Game.Westworld {
 
     public sealed record MoveTo(Vector3 Destination, float Range = 0.75f, float Timeout = 15f) : AtomicAction;
     // Trusted host supplies already observed flat-route evidence; never exposed in model catalog.
-    public sealed record MoveAlongObservedRoute(IReadOnlyList<Vector3> Points, float FinalRange = 0.25f, float Timeout = 4f) : AtomicAction;
+    public sealed record MoveAlongObservedRoute(IReadOnlyList<Vector3> Points, float FinalRange = 0.25f,
+        float Timeout = 4f, bool LevelGaze = false) : AtomicAction;
     // Native body yaw plus head pitch, advanced through locomotion orders. Negative pitch looks down.
     // HorizontalOnly preserves legacy bearing-only tool calls without changing the existing pitch.
     public sealed record FaceTowards(Vector3 Point, float Timeout = 5f, float? PitchDegrees = null, bool HorizontalOnly = false) : AtomicAction;

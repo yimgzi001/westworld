@@ -1,1 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup><ProjectReference Include="../Westworld.Runtime.Core/Westworld.Runtime.Core.csproj"/><ProjectReference Include="../../game/Survivalcraft.Linux/Survivalcraft.Linux.csproj"/></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework Condition="'$(WestworldWindows)' == 'true'">net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Westworld.Runtime.Core/Westworld.Runtime.Core.csproj" />
+    <ProjectReference Include="../../game/Survivalcraft.Linux/Survivalcraft.Linux.csproj" Condition="'$(WestworldWindows)' != 'true'" />
+    <ProjectReference Include="../../game/Survivalcraft.Windows/Survivalcraft.Windows.csproj" Condition="'$(WestworldWindows)' == 'true'" />
+  </ItemGroup>
+</Project>

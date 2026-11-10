@@ -4,7 +4,7 @@
 
 固定 HTTPS api.openai.com/v1/responses，无自定义域名或重定向；使用标准urllib支持的环境HTTPS路径和代理处理，不读取、打印或改写代理配置，默认验证TLS证书。模型与reasoning effort均必须显式传入，没有默认或fallback。当前白名单仅允许用户指定、官方文档核实的gpt-6.1-terra/none组合，不允许Luna回退。请求store=false、max_output_tokens=512，原prompt/schema不改。text.format 为 json_schema、strict=false；这是发送配置，不保证该模型/账号接受此 schema 子集。若官方拒绝直接失败，不换模型、放宽schema或改接口重试。官方接口参考 https://platform.openai.com/docs/api-reference/responses/create 。
 
-密钥仅通过 getpass 隐藏终端读取并保留内存；无TTY时禁止退化为明文输入。不要把key放命令参数、环境变量、文件或shell历史。本驱动不读取环境中的key，也不打印HTTP错误正文、请求头或异常traceback。
+驱动优先读取项目专用环境变量 `WESTWORLD_OPENAI_API_KEY`，支持 Windows 当前用户环境。未配置时使用 getpass 隐藏输入，无 TTY 时拒绝退化为明文输入。HTTP 工作进程通过匿名管道收取密钥，日志只记录安全错误分类。
 
 replay 模式（一次请求，输出文件必须不存在）：
 
@@ -28,7 +28,7 @@ file 模式：
 
 ## 先准备驱动，再启动游戏
 
-先创建本轮独立工作父目录（由协调者完成），不要创建control目录。启动file驱动并在TTY隐藏输入key；看到“Controller ready; waiting for host control directory”后才启动游戏host。驱动等待host创建control，最多60秒，等待时间计入总650秒；超时明确退出，不自动创建目录、不重试API。父目录exit.txt存在则结束等待；控制目录及祖先symlink会被拒绝，host自身仍负责fresh世界/目录约束。已存在的response不会覆盖，audit仍要求新文件。
+先创建本轮独立工作父目录，由游戏宿主创建 control 目录。启动 file 驱动，从环境变量或终端隐藏输入读取密钥。看到“Controller ready; waiting for host control directory”后启动游戏宿主。驱动等待宿主创建 control，最多 60 秒，等待时间计入总 650 秒。父目录存在 exit.txt 时结束等待。控制目录和祖先目录的符号链接会被拒绝，宿主负责创建新世界和新目录。已存在的 response 保留，audit 需要新文件。
 
 单测会使用TemporaryDirectory和原子文件发布，因此需要系统允许的可写临时目录。只读执行环境出现临时文件权限错误不是产品回归失败证据；应按支持的权限流程授权后重跑，或使用已获准可写的TMPDIR。不要通过绕过环境限制执行。当前纯测试23项通过，无真实API/key。
 

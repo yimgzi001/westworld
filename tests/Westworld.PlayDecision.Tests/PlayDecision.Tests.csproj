@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../runtime/Westworld.Decisions.Local/Westworld.Decisions.Local.csproj" />
+    <ProjectReference Include="../../runtime/Westworld.Capabilities/Westworld.Capabilities.csproj" />
+    <Compile Include="../../experiments/scapi-tool-agent/play/PlayDecisionQueue.cs" Link="PlayDecisionQueue.cs" />
+    <Compile Include="../../experiments/scapi-tool-agent/play/PlayNavigationMenu.cs" Link="PlayNavigationMenu.cs" />
+    <Compile Include="../../experiments/scapi-tool-agent/play/PlaySocialInbox.cs" Link="PlaySocialInbox.cs" />
+  </ItemGroup>
+</Project>

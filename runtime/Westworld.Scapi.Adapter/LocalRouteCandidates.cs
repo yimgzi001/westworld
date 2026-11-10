@@ -107,7 +107,7 @@ public static class LocalRouteCandidates {
     // Native fixed cube classes only, never fluids, fire, plants, traps, furniture,
     // slabs, or modded geometry. Accepting sand/gravel does not inspect or infer
     // any layer below the directly observed floor cube.
-    static bool SupportedGround(int value, RouteGroundPolicy policy) =>
+    internal static bool SupportedGround(int value, RouteGroundPolicy policy) =>
         Contents(value) is 1 or 2 or 3 or 4 or 5 or 8
         || policy == RouteGroundPolicy.ObservedFullCube && Contents(value) is 6 or 7;
 }

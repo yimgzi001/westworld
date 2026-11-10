@@ -35,6 +35,8 @@ namespace Game.Westworld {
             float closest=(target-origin).XZ.Length();
             Vector2? lastWalk=null, previousWalk=null;
             Vector2 lastTurn=Vector2.Zero, previousTurn=Vector2.Zero;
+            Vector2? lastLook = null;
+            Vector2 previousLook = Vector2.Zero;
             double orderTime=double.NegativeInfinity;
             return StartRunning(action, () => {
                 if (!Grounded() || HasMovementDestination)
@@ -63,6 +65,15 @@ namespace Game.Westworld {
                 lastWalk=speed*new Vector2(Vector2.Dot(right,direction),Vector2.Dot(forward,direction));
                 lastTurn=new Vector2(Math.Clamp(Vector2.Angle(forward,direction),-1,1),0);
                 orderTime=m_time.GameTime;m_locomotion.WalkOrder=lastWalk;m_locomotion.TurnOrder=lastTurn;
+                // 行走只沿已验证的走廊，抬头可在同一个动作里完成。
+                float maxLook = m_locomotion.LookSpeed * m_time.GameTimeDelta;
+                if (action.LevelGaze && maxLook > 0f) {
+                    previousLook = m_locomotion.LookOrder;
+                    var angles = m_locomotion.LookAngles;
+                    lastLook = new Vector2(Math.Clamp(-angles.X / maxLook, -1f, 1f),
+                        Math.Clamp((MathUtils.DegToRad(-8f) - angles.Y) / maxLook, -1f, 1f));
+                    m_locomotion.LookOrder = lastLook.Value;
+                }
                 return null;
             }, () => {
                 // Locomotion consumes/resets orders each frame. Never clear a later
@@ -71,6 +82,7 @@ namespace Game.Westworld {
                 if(m_time.GameTime==orderTime){
                     if(m_locomotion.WalkOrder==lastWalk)m_locomotion.WalkOrder=previousWalk;
                     if(m_locomotion.TurnOrder==lastTurn)m_locomotion.TurnOrder=previousTurn;
+                    if(lastLook == m_locomotion.LookOrder)m_locomotion.LookOrder=previousLook;
                 }
             });
         }

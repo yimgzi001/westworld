@@ -6,8 +6,8 @@ using Westworld.Decisions.Local;
 
 /// <summary>Data-only bridge. Never interprets code or dispatches native actions.</summary>
 public sealed class StructuredFileController {
- readonly string root;readonly Action<object> log;long ordinal;readonly HashSet<Guid> issuedRequests=new();readonly object requestLock=new();
- public StructuredFileController(string directory,Action<object> audit){root=Path.GetFullPath(directory);log=audit;if(Directory.Exists(root))throw new InvalidOperationException("Fresh control directory required");Directory.CreateDirectory(root);}
+ readonly string root;readonly Action<object> log;readonly int? identityLimit;long ordinal;readonly HashSet<Guid> issuedRequests=new();readonly object requestLock=new();
+ public StructuredFileController(string directory,Action<object> audit,int? identityLimit=4096){root=Path.GetFullPath(directory);log=audit;this.identityLimit=identityLimit;if(identityLimit is <=0)throw new ArgumentOutOfRangeException(nameof(identityLimit));if(Directory.Exists(root))throw new InvalidOperationException("Fresh control directory required");Directory.CreateDirectory(root);}
  public async Task<ToolDecisionPlan> DecideAsync(ToolDecisionPrompt prompt,Guid session,Guid actor,Guid observation,JsonElement context,object offers,double gameTime,CancellationToken cancellation,Guid? requestId=null,TimeSpan? remainingBudget=null){
   long startedTicks=Stopwatch.GetTimestamp();
   TimeSpan budget=remainingBudget??TimeSpan.FromSeconds(120);
@@ -19,7 +19,7 @@ public sealed class StructuredFileController {
   string CancellationReason()=>ClassifyCancellation(callerCancellation.IsCancellationRequested,deadline.IsCancellationRequested,Stopwatch.GetElapsedTime(startedTicks)>=budget);
   void CheckDeadline(){cancellation.ThrowIfCancellationRequested();if(Stopwatch.GetElapsedTime(startedTicks)>=budget)throw new OperationCanceledException("Controller request deadline expired",cancellation);}
   Guid request=requestId??Guid.NewGuid();
-  lock(requestLock){if(issuedRequests.Count>=4096)throw new InvalidOperationException("Controller request identity budget exhausted");if(!issuedRequests.Add(request))throw new InvalidOperationException("Controller request ID already used");}
+  lock(requestLock){if(identityLimit is int limit&&issuedRequests.Count>=limit)throw new InvalidOperationException("Controller request identity budget exhausted");if(!issuedRequests.Add(request))throw new InvalidOperationException("Controller request ID already used");}
   CheckDeadline();long n=Interlocked.Increment(ref ordinal);string dir=Path.Combine(root,$"{n:D4}-{request:N}");Directory.CreateDirectory(dir);
   long publishedTicks=Stopwatch.GetTimestamp();
   try{

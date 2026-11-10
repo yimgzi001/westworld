@@ -14,9 +14,10 @@ public static class NativeToolOffers {
   "act_Dismount","act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
   "act_Dig","act_Place","act_MeleeAttack","act_Craft","act_Jump","act_Sleep","act_WakeUp"
  };
- public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null,Action<EatMenuCoverage>? reportEatCoverage=null,JsonElement? visibleEatInventory=null,bool includeDiscoveryQueries=false){
+ public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null,Action<EatMenuCoverage>? reportEatCoverage=null,JsonElement? visibleEatInventory=null,bool includeDiscoveryQueries=false,int waitSeconds=10,bool pickupInReachOnly=false){
   ArgumentNullException.ThrowIfNull(native);ArgumentNullException.ThrowIfNull(recentResults);
   if(native.Count>128||recentResults.Count>32)throw new ArgumentException("Bounded native context required");
+  if(waitSeconds is <1 or >60)throw new ArgumentOutOfRangeException(nameof(waitSeconds));
   if(!Enum.IsDefined(purpose))throw new ArgumentOutOfRangeException(nameof(purpose));
   observation=Data(observation);inventory=Data(inventory);
   var rememberedPositions=new HashSet<string>();var positions=new HashSet<string>();var blocks=new HashSet<string>();var entities=new HashSet<string>();var drops=new HashSet<string>();
@@ -40,7 +41,9 @@ public static class NativeToolOffers {
   }
   foreach(var item in Array(observation,"entities"))Ref(item,"reference",entities,positions);
   foreach(var item in Array(observation,"pickables")){
-   Ref(item,"reference",drops,positions);
+   Ref(item,"reference",positions);
+   if(pickupInReachOnly&&(!item.TryGetProperty("inReach",out var reach)||reach.ValueKind!=JsonValueKind.True))continue;
+   Ref(item,"reference",drops);
    // target-based pickup accepts non-food too. The food_value shortcut requires an
    // actual host/native nutritional fact, never an item-ID guess or mere visibility.
    if(item.ValueKind==JsonValueKind.Object&&item.TryGetProperty("value",out var v)&&v.TryGetInt32(out int n)&&n>=0
@@ -127,7 +130,7 @@ public static class NativeToolOffers {
      if(ints is not null){if(ints.Count==0){if(needed){skip=true;break;}props.Remove(key);continue;}field["enum"]=JsonSerializer.SerializeToNode(ints.Order().Take(128));}
      else {field["minimum"]=key=="count"?Math.Max(1,field["minimum"]?.GetValue<int>()??1):key is "limit" or "block_limit"?1:0;field["maximum"]=key=="count"?Math.Min(64,field["maximum"]?.GetValue<int>()??64):key=="block_limit"?128:key=="limit"?4:key=="offset"?(tool.Name=="read_map"?128:4096):int.MaxValue;}
     }else if(type=="number"){
-     (double low,double high)=key switch{"bearing"=>(-180,180),"pitch"=>(-82,82),"distance"=>(1,4),"range"=>(.1,1),"duration"=>(.1,tool.Name=="act_Wait"?10:4),"timeout"=>(.1,tool.Name=="act_Dig"?30:4),"look_distance" or "object_distance"=>(1,16),_=>(0,4)};
+     (double low,double high)=key switch{"bearing"=>(-180,180),"pitch"=>(-82,82),"distance"=>(1,4),"range"=>(.1,1),"duration"=>(.1,tool.Name=="act_Wait"?waitSeconds:4),"timeout"=>(.1,tool.Name=="act_Dig"?30:4),"look_distance" or "object_distance"=>(1,16),_=>(0,4)};
      field["minimum"]=low;field["maximum"]=high;
      // Native omission defaults can be longer; require explicit finite action deadline.
      if(key=="timeout"&&!needed)required.Add(key);

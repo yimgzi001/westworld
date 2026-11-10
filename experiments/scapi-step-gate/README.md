@@ -4,6 +4,8 @@
 
 构建到 `work/` 新目录后，从正常桌面终端运行 `dotnet StepGate.dll up` 或 `down`。每个模式使用单独输出目录；已有 `doc/` 拒绝覆盖。原生完整 Player，无 AI GameWidget，独立活动中心。
 
+Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证越过一格台阶后接上走路，`forage` 验证原地环视、平视靠近侧面的鸟蛋并吃掉，`shelter` 验证挖坑、封顶、从黄昏睡到天亮并离开。后两种夹具会准备地形，真实生存场的自然资源和结果另行统计。
+
 - `ObservedStepRoutes` 仅投影真实当前/≤3 秒历史观察的基底、身体、净空与落脚格。只支持一格、轴向、固定实心地面；不可见、未知、过高、空落点拒绝。
 - `StepTo` 是低层原生动作，不携带证据，**不能直接作为模型入口**。这里由 runner 强制校验逐帧包络与证据期限。未来集成必须保留这些约束。
 - 上台阶允许已观察落脚实心格的原生 SmoothRise 接触：仅开启原生功能，且脚高度差不超过 `min(MaxSmoothRiseHeight, 0.5)`。日志 `knownSupportContactUsed` 明示，不称全空气穿越。

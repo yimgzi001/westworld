@@ -10,10 +10,12 @@ public sealed record FlatRouteInspection(ObservedFlatRoute? Route,string Reason,
 /// <summary>Observed axis-aligned full-cube corridor only. Diagnostics never query the world.</summary>
 public static class ObservedFlatRoutes {
  public static ObservedFlatRoute? Project(LocalObservationWindow window,Position destination)=>Inspect(window,destination).Route;
- public static FlatRouteInspection Inspect(LocalObservationWindow window,Position destination,double maximumEvidenceAge=3) {
+ public static FlatRouteInspection Inspect(LocalObservationWindow window,Position destination,double maximumEvidenceAge=3,
+  RouteGroundPolicy groundPolicy=RouteGroundPolicy.StrictStable) {
   ArgumentNullException.ThrowIfNull(window);var origin=window.Position;
   FlatRouteInspection No(string reason)=>new(null,reason,0,Array.Empty<FlatRouteCellIssue>());
   if(!double.IsFinite(maximumEvidenceAge)||maximumEvidenceAge<0||maximumEvidenceAge>3)return No("invalid_evidence_age_limit");
+  if(!Enum.IsDefined(groundPolicy))return No("invalid_ground_policy");
   if(window.SessionId==Guid.Empty||window.ActorId==Guid.Empty||window.ObservationId==Guid.Empty
    ||!double.IsFinite(window.Time)||window.Time<0||!float.IsFinite(window.Health)||window.Health<=0
    ||!Valid(origin)||!Valid(destination)||window.Cells.Count>4096)return No("invalid_scope_or_body");
@@ -45,7 +47,8 @@ public static class ObservedFlatRoutes {
     ||!double.IsFinite(c.ObservedAt)||c.ObservedAt<0||Math.Abs(window.Time-c.ObservedAt-c.Age)>1e-6)reason="invalid_evidence";
    else if(c.Age>3)reason="stale_evidence";
    else if(c.Age>maximumEvidenceAge)reason="refresh_needed";
-   else {int contents=c.Value&1023;if(support?contents is not(1 or 2 or 3 or 4 or 5 or 8):contents!=0)reason=support?"unsupported_ground":"observed_solid";}
+   else if(support?!LocalRouteCandidates.SupportedGround(c.Value,groundPolicy):(c.Value&1023)!=0)
+    reason=support?"unsupported_ground":"observed_solid";
    if(reason is not null)issues.Add(new(x,y,z,reason,support));else proof.Add(c!);
   }
  }

@@ -4,13 +4,13 @@ namespace Westworld.Scapi.Adapter;
 public enum StepKind { Up, Down }
 public sealed record ObservedStepRoute(Guid Id,Guid SessionId,Guid ActorId,Guid ObservationId,
     double ObservedAt,Position Origin,Position Destination,StepKind Kind,
-    IReadOnlyList<LocalObservedCell> Evidence,double MaximumAge);
+    IReadOnlyList<LocalObservedCell> Evidence,double MaximumAge,bool AllowsLooseGround=false);
 
 /// <summary>Only cardinal, one-full-cube transitions with known source and landing support.
 /// This is geometric eligibility, NOT a proof the native controller can complete a jump.
 /// Missing/occluded launch or landing cells refuse the route. No terrain access.</summary>
 public static class ObservedStepRoutes {
-    public static IReadOnlyList<ObservedStepRoute> Project(LocalObservationWindow window) {
+    public static IReadOnlyList<ObservedStepRoute> Project(LocalObservationWindow window,bool allowObservedSandAndGravel=false) {
         ArgumentNullException.ThrowIfNull(window);
         var p=window.Position;
         if(window.SessionId==Guid.Empty||window.ActorId==Guid.Empty||window.ObservationId==Guid.Empty
@@ -29,7 +29,7 @@ public static class ObservedStepRoutes {
             bool Need(int x,int y,int z,bool solid) {
                 if(!cells.TryGetValue((x,y,z),out var c)||c.Value<0||c.SourceObservationId==Guid.Empty
                   ||!double.IsFinite(c.ObservedAt)||c.ObservedAt<0||!double.IsFinite(c.Age)||c.Age<0||c.Age>3||Math.Abs(window.Time-c.ObservedAt-c.Age)>1e-6
-                  ||(solid?!Ground(c.Value):((c.Value&1023)!=0)))return false;
+                  ||(solid?!Ground(c.Value,allowObservedSandAndGravel):((c.Value&1023)!=0)))return false;
                 proof[(x,y,z)]=c;return true;
             }
             int sx0=(int)Math.Floor(p.X-.25+1e-5),sx1=(int)Math.Floor(p.X+.25-1e-5);
@@ -51,9 +51,10 @@ public static class ObservedStepRoutes {
                 for(int y=bottom;y<=top&&ok;y++)ok=Need(x,y,z,false);
             }
             if(ok)result.Add(new(Guid.NewGuid(),window.SessionId,window.ActorId,window.ObservationId,window.Time,p,target,
-                dy>0?StepKind.Up:StepKind.Down,Array.AsReadOnly(proof.Values.ToArray()),proof.Values.Max(c=>c.Age)));
+                dy>0?StepKind.Up:StepKind.Down,Array.AsReadOnly(proof.Values.ToArray()),proof.Values.Max(c=>c.Age),allowObservedSandAndGravel));
         }
         return result.AsReadOnly();
     }
-    static bool Ground(int value)=>(value&1023) is 1 or 2 or 3 or 4 or 5 or 8;
+    internal static bool Ground(int value,bool allowLoose)=>(value&1023) is 1 or 2 or 3 or 4 or 5 or 8
+        ||allowLoose&&(value&1023) is 6 or 7;
 }

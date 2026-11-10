@@ -15,7 +15,7 @@ public static class ObservedStepGuard {
     for(int y=(int)Math.Floor(minimum.Y+1e-5);y<=(int)Math.Floor(maximum.Y-1e-5);y++) {
      if(!cells.TryGetValue((x,y,z),out var cell))return new(false,used,"outside_observed_envelope");
      int contents=cell.Value&1023;if(contents==0)continue;
-     bool ground=contents is 1 or 2 or 3 or 4 or 5 or 8;
+     bool ground=ObservedStepRoutes.Ground(contents,route.AllowsLooseGround);
      bool up=route.Kind==StepKind.Up&&smoothRise&&ground&&y==(int)Math.Round(route.Destination.Y)-1
        &&x==(int)Math.Floor(route.Destination.X)&&z==(int)Math.Floor(route.Destination.Z)
        &&minimum.Y>=route.Destination.Y-Math.Min(maximumSmoothRise,.5f);
