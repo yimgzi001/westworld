@@ -1,0 +1,5 @@
+PASS 15/15 file protocol checks; no game/model/native actions
+PASS 26/26 complete file protocol checks including attempt cap/cancel/publication failure
+PASS 36/36 file controller checks with host identity/deadline
+PASS 41/41 file controller checks including lifecycle markers
+PASS 45/45 file controller including deterministic cancellation source classification

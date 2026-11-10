@@ -1,0 +1,33 @@
+PASS explicit future planning phase
+PASS scope preserved
+PASS predecessor identity preserved
+PASS real busy facts preserved without arrival prediction
+PASS original parameters preserved
+PASS not forced waiting or forced action
+PASS no future evidence minted
+PASS invalid remaining budget rejected
+PASS invalid remaining budget rejected
+PASS invalid remaining budget rejected
+PASS invalid remaining budget rejected
+PASS invalid remaining budget rejected
+PASS bad predecessor rejected
+PASS bad predecessor rejected
+PASS bad predecessor rejected
+PASS bad predecessor rejected
+PASS unified native identity
+PASS full original goal preserved
+PASS actual predecessor status retained
+PASS success alone not dispatch permission
+PASS bad unified sample rejected
+PASS bad unified sample rejected
+PASS bad unified sample rejected
+PASS raw missing identity rejected
+PASS unified native identity
+PASS full original goal preserved
+PASS actual predecessor status retained
+PASS success alone not dispatch permission
+PASS bad unified sample rejected
+PASS bad unified sample rejected
+PASS bad unified sample rejected
+PASS raw missing identity rejected
+TOTAL 32/32

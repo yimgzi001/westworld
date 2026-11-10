@@ -1,0 +1,25 @@
+PASS first failed revalidation does not fabricate earlier action
+PASS overall goal longer than160 preserved
+PASS running is not outcome
+PASS actual navigation terminal accepted
+PASS actual before snapshot survived in-flight observation
+PASS starting new action preserves latest completed outcome
+PASS wrong receipt cannot overwrite terminal outcome
+PASS running successor cannot occupy main feedback
+PASS real failed terminal accepted
+PASS failure not rewritten as success
+PASS fresh failed-step observation reflects concurrent inventory growth
+PASS old step explicitly never executed
+PASS failed step feedback retains actual preceding receipt identity
+PASS immediate successful tool completion supported
+PASS consumption negative inventory delta no source inference
+PASS cancelled terminal supported
+PASS unchanged inventory remains empty delta
+PASS unknown terminal produces no invented delta
+PASS unknown terminal explicitly unavailable
+PASS cross actor terminal snapshot degrades to explicit invalid feedback
+PASS nonreturned receipt never assigned terminal success
+PASS attempted call not mislabeled unexecuted
+PASS only truly unattempted remainder is unexecuted
+PASS uncertain attempted call does not authorize replay
+TOTAL 24

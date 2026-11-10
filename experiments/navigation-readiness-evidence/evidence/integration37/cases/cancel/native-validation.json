@@ -1,0 +1,182 @@
+{
+  "schema": "navigation-audit37-native-v1",
+  "case": "cancel",
+  "verdict": "pass",
+  "checks": [
+    {
+      "check": "exact_navigation_attempt_count",
+      "status": "pass"
+    },
+    {
+      "check": "unique_host_request_ids",
+      "status": "pass"
+    },
+    {
+      "check": "one_bound_session_actor",
+      "status": "pass"
+    },
+    {
+      "check": "raw_native_call_receipt_19",
+      "status": "pass"
+    },
+    {
+      "check": "sample_requests_exactly_observed_runs",
+      "status": "pass"
+    },
+    {
+      "check": "one_sample_owner",
+      "status": "pass"
+    },
+    {
+      "check": "start_sample_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "start_boundary_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "terminal_sample_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "terminal_not_periodic_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "terminal_state_matches_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "terminal_still_motionless_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "unique_raw_terminal_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "true_terminal_state_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "real_path_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "terminal_sample_time_binding_10f876d8-5aca-4239-baa3-d246878bcd64",
+      "status": "pass"
+    },
+    {
+      "check": "explicit_stopping_preserved",
+      "status": "pass"
+    },
+    {
+      "check": "actual_observed_displacement",
+      "status": "pass"
+    },
+    {
+      "check": "only_navigation_decisions",
+      "status": "pass"
+    },
+    {
+      "check": "same_existing_native_routes",
+      "status": "pass"
+    },
+    {
+      "check": "one_explicit_cancel_after_displacement",
+      "status": "pass"
+    },
+    {
+      "check": "cancel_receipt_preserved",
+      "status": "pass"
+    },
+    {
+      "check": "no_candidate_after_cancel",
+      "status": "pass"
+    },
+    {
+      "check": "final_state_available",
+      "status": "pass"
+    },
+    {
+      "check": "actual_exit_success",
+      "status": "pass"
+    },
+    {
+      "check": "native_and_controller_idle",
+      "status": "pass"
+    },
+    {
+      "check": "no_late_dispatch",
+      "status": "pass"
+    },
+    {
+      "check": "final_public_owner_status",
+      "status": "pass"
+    },
+    {
+      "check": "final_physical_evidence",
+      "status": "pass"
+    },
+    {
+      "check": "final_speed_input_quiet",
+      "status": "pass"
+    },
+    {
+      "check": "physical_same_scope",
+      "status": "pass"
+    },
+    {
+      "check": "physical_actual_idle",
+      "status": "pass"
+    },
+    {
+      "check": "explicit_stop_boundary_present",
+      "status": "pass"
+    },
+    {
+      "check": "no_ordinary_write_from_stop_through_final",
+      "status": "pass"
+    },
+    {
+      "check": "exact_host_stop_target",
+      "status": "pass"
+    },
+    {
+      "check": "cleanup_terminal_action_status",
+      "status": "pass"
+    },
+    {
+      "check": "cleanup_terminal_task_status",
+      "status": "pass"
+    },
+    {
+      "check": "no_raw_failure_removed",
+      "status": "pass"
+    }
+  ],
+  "sampling": {
+    "sampleCount": 20,
+    "suppressedCandidatesRecorded": 417,
+    "candidateSuppressionFraction": 0.954233409610984,
+    "maxEmittedGapSeconds": 0.10529580600268673,
+    "coverageGapLimitSeconds": 0.15,
+    "movingPairCount": 1,
+    "coveredMovingPairCount": 1,
+    "movingPairCoverageFraction": 1.0,
+    "movingTimeBetweenPairsSeconds": 0.007434818995534442,
+    "coveredMovingSeconds": 0.007434818995534442,
+    "movingTimeCoverageFraction": 1.0,
+    "coveredSampleChordMetres": 0.00011999999999545707,
+    "maxObservedNetDisplacementMetres": 0.2705299999999937,
+    "movingCoverageGaps": [],
+    "coverageUnknownSampleCount": 0,
+    "continuousMotionCoverage": "sampled_intervals_only",
+    "warning": "Pairs are observed chords, not interpolated continuous motion or full physical path. Suppressed tail after final emission is not counted."
+  },
+  "readiness": null,
+  "scope": "Audit-only sampling lifecycle and observed displacement. No API, FPS improvement, zero-wait or all-interval continuity claim.",
+  "rawLogSha256": "f215ffa4c82b100c4a1587110a25761068f0bd28aa18b051c3bfa68febf46dd0",
+  "rawLogBytes": 537976
+}

@@ -1,0 +1,145 @@
+PASS non-profile arbitrary execution not offered
+PASS hunting refs only observed entities
+PASS dig refs only visible blocks
+PASS pickup refs only visible drops
+PASS recipe reference from actual recent result
+PASS observed storage classified as workbench only by preview
+PASS native empty inventory value retained
+PASS short navigation timeout bounded
+PASS wait upper bound ten seconds
+PASS knowledge query result budget bounded
+PASS missing required facts omit unavailable calls
+PASS no references still permits relative exploration
+PASS failed query cannot create recipe capability
+PASS factory schemas compile and parse in real pure protocol
+PASS full actor retains parallel navigation food production choices
+PASS dig receives thirty-second progress window
+PASS dig cannot omit timeout and bypass bound
+PASS move cannot silently use native fifteen-second default
+PASS native sixteen-metre observation range preserved
+PASS thirty-second native dig offer accepted
+PASS omitted dig deadline rejected by actual protocol
+PASS move still rejects over-four-second deadline
+PASS visible item value alone does not prove nutrition
+PASS food_value needs explicit positive native nutrition
+PASS non-food target pickup remains available
+PASS pickup branch exclusivity communicated
+PASS move destination branch accepted
+PASS move relative branch accepted
+PASS move both branches rejected
+PASS move neither branch rejected
+PASS move missing distance rejected
+PASS move missing bearing rejected
+PASS face destination accepted
+PASS face relative pitch accepted
+PASS face destination plus pitch rejected
+PASS face both branches rejected
+PASS face no direction rejected
+PASS pickup nonfood target branch accepted
+PASS pickup observed food shortcut accepted
+PASS pickup both selectors rejected
+PASS pickup no selector rejected
+PASS filtered destination retains relative branch
+PASS filtered branches cannot produce empty movement
+PASS strict generation grammar contains two disjoint movement objects
+PASS Craft prerequisite and non-cooking semantics retained
+PASS transfer expected destination value explained without truncation
+PASS plan_craft does not promise gather or cook
+PASS furnace native prerequisites explained
+PASS static recipe knowledge distinguished from resources
+49/49 linked factory checks passed using native type-shape stub; no game execution.
+PASS query limit cannot omit native default32
+PASS find_items explicit required limit
+PASS find_items omission rejected by strict parser
+PASS find_items limit four accepted
+PASS find_creatures explicit required limit
+PASS find_creatures omission rejected by strict parser
+PASS find_creatures limit four accepted
+PASS find_recipes explicit required limit
+PASS find_recipes omission rejected by strict parser
+PASS find_recipes limit four accepted
+FINAL TOTAL 59
+PASS craft count means exact native output multiple not batches
+FINAL TOTAL 60
+PASS map page limit mandatory
+PASS historical map ref permits navigation
+PASS act_FaceTowards cannot target historical memory
+PASS act_Dig cannot target historical memory
+PASS act_MeleeAttack cannot target historical memory
+PASS act_PickUp cannot target historical memory
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+PASS invalid map receipt cannot mint navigation ref
+MAP FINAL TOTAL 71
+PASS navigation busy excludes competing writes and fake generic cancel
+PASS cancel bound to actual active navigation ID
+PASS idle offers start not cancel
+PASS host navigation native deadline preserved
+PASS host absolute bearing not overwritten by relative primitive bounds
+PASS unknown navigation state exposes status only
+PASS forged cancellation request rejected before native
+HOST FINAL TOTAL 78
+PASS deferred exposes ordinary and navigation future capabilities
+PASS deferred excludes cancellation of predecessor
+PASS deferred permission explicitly conditional
+PASS deferred does not rewrite true busy facts
+PASS deferred preserves actual schema and refs act_MoveTo
+PASS deferred preserves actual schema and refs act_FaceTowards
+PASS deferred preserves actual schema and refs act_Dig
+PASS deferred preserves actual schema and refs act_MeleeAttack
+PASS deferred preserves actual schema and refs act_PickUp
+PASS deferred preserves actual schema and refs act_Eat
+PASS deferred preserves actual schema and refs find_recipes
+PASS deferred preserves actual schema and refs observe
+PASS deferred preserves actual schema and refs act_Wait
+PASS deferred preserves actual schema and refs host_navigate_local
+PASS deferred preserves actual schema and refs host_navigation_status
+PASS deferred requires validated running predecessor
+PASS deferred requires validated running predecessor
+PASS deferred requires validated running predecessor
+PASS deferred requires validated running predecessor
+PASS deferred does not invent future resource refs
+PASS invalid purpose fails closed
+PASS default immediate still rejects competing actions after deferred build
+PASS one observed batch offers two live block refs without focus
+PASS visible blocks cannot fabricate entity refs
+PASS historical batch is not current block authorization
+PASS batch live ref accepted by actual structured decision schema
+PREFETCH FINAL TOTAL 104
+PASS retained projected map unwraps into navigation evidence
+PASS retained projected storage establishes observed workspace
+PASS retained learned recipe independently authorizes recipe ref
+PASS budget fixture actually omits map and storage receipts
+PASS omitted map cannot leak historical destination through schema
+PASS omitted storage cannot leak workspace through schema
+PASS recipe retained in facts survives recent omission without losing capability
+PASS unsuccessful projection does not grant native offer facts
+PASS visible encoded empty slots restored exactly without invented ids
+PASS candidate derivation does not mutate final model context
+VISIBLE FACTS FINAL TOTAL 114
+PASS retained storage slot and value remain available
+PASS omitted storage slot and value absent from strict schema
+VISIBLE FACTS FINAL TOTAL 116
+PASS native movement allows deferred ordinary and navigation candidates
+PASS native deferred cannot cancel predecessor
+PASS native deferred never forges navigation running
+PASS native deferred rejects mismatched or nonrunning evidence
+PASS native deferred rejects mismatched or nonrunning evidence
+PASS native deferred rejects mismatched or nonrunning evidence
+PASS native deferred rejects mismatched or nonrunning evidence
+PASS native deferred rejects mismatched or nonrunning evidence
+PASS native deferred rejects competing navigation owner
+PASS immediate protections unchanged
+NATIVE DEFERRED TOTAL 126
+PASS unknown/unmounted never offers dismount
+PASS unknown/unmounted never offers dismount
+PASS unknown/unmounted never offers dismount
+PASS unknown/unmounted never offers dismount
+PASS unknown/unmounted never offers dismount
+PASS unknown/unmounted never offers dismount
+PASS actual mounted offers native dismount
+PASS dismount never gets block or entity target
+PASS busy navigation still excludes dismount
+BODY OFFERS TOTAL 135

@@ -1,0 +1,12 @@
+  Westworld.Runtime.Core -> <CLOUD_REPO>/work/visible-facts-host-isolated/bin/Westworld.Runtime.Core/debug/Westworld.Runtime.Core.dll
+  Zipping directory "<CLOUD_REPO>/game/Survivalcraft/Content" to "<CLOUD_REPO>/game/Survivalcraft/Content.zip".
+  Engine.Linux -> <CLOUD_REPO>/work/visible-facts-host-isolated/bin/Engine.Linux/debug_linux-x64/Engine.dll
+  EntitySystem.Linux -> <CLOUD_REPO>/work/visible-facts-host-isolated/bin/EntitySystem.Linux/debug_linux-x64/EntitySystem.dll
+  Survivalcraft.Linux -> <CLOUD_REPO>/work/visible-facts-host-isolated/bin/Survivalcraft.Linux/debug_linux-x64/Survivalcraft.dll
+  Westworld.Scapi.Adapter -> <CLOUD_REPO>/work/visible-facts-host-isolated/bin/Westworld.Scapi.Adapter/debug/Westworld.Scapi.Adapter.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:03.43

@@ -1,0 +1,71 @@
+13:49:02.703 INFO: Initialized display device: OpenGL ES, Vendor=Mesa, Renderer=llvmpipe (LLVM 19.1.7, 256 bits), Version=OpenGL ES 3.2 Mesa 25.0.7-2+deb13u1, R=8 G=8 B=8 A=8, D=24 S=8, MaxTextureSize=16384
+[W][13:49:02.756604] pw.conf      | [          conf.c: 1182 try_load_conf()] can't load config client.conf: No such file or directory
+[E][13:49:02.756636] pw.conf      | [          conf.c: 1215 pw_conf_load_conf_for_context()] can't load config client.conf: No such file or directory
+[ALSOFT] (EE) Failed to create PipeWire event context (errno: 2)
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM default
+13:49:02.762 ERROR: Could not create audio device
+13:49:02.801 INFO: Survivalcraft starting up at 11/10/2026 13:49:02, GameVersion=2.4.0.0, BuildConfiguration=Release, Platform=Linux, Storage.AvailableFreeSpace=4982MB, ApproximateScreenDpi=96.0, ApproxScreenInches=17.2, ScreenResolution=1091,748, ProcessorsCount=9, APIVersion=1.9.5.1, 64bit=True
+13:49:02.815 INFO: Initializing Mods Manager. Api Version: 1.9.5.1
+13:49:02.817 INFO: Program Initialize Success
+13:49:02.925 INFO: [SCPAK Resources](Version: 1.9.5.1) Loaded 862 resource files.
+13:49:03.156 INFO: [SCPAK Resources] Getting assemblies.
+13:49:03.157 INFO: [SCPAK Resources] Handling assembly [Survivalcraft, Version=2.4.0.0, Culture=neutral, PublicKeyToken=null]
+13:49:03.177 INFO: Language is not specified, system language (zh-CN) is successfully loaded.
+13:49:03.178 INFO: [SCPAK Resources] Loading English Language file
+13:49:03.181 INFO: [SCPAK Resources] Loading Current Language file
+13:49:03.494 WARNING: [FontLocator] matched face probe failed: file=<SYSTEM_FONTS>/openai-sans/OpenAISans-Regular.woff2 face=0: Missing required 'head' table.
+13:49:03.495 WARNING: [FontLocator] matched face probe failed: file=<SYSTEM_FONTS>/openai-sans/OpenAISans-Bold.woff2 face=0: Missing required 'head' table.
+13:49:03.502 INFO: [FontLocator] fontconfig [monospace] lang=- weight=80 file=<SYSTEM_FONTS>/truetype/dejavu/DejaVuSansMono.ttf face=0 -> Regular
+13:49:03.503 INFO: [FontLocator] fontconfig [monospace] lang=- weight=200 file=<SYSTEM_FONTS>/truetype/dejavu/DejaVuSansMono-Bold.ttf face=0 -> Bold
+13:49:03.504 INFO: [FontManager] no usable system fonts for body chain, slot reverted to built-in font; re-select the system default to retry once fonts become available.
+13:49:03.640 INFO: 设置已保存
+13:49:04.161 INFO: 执行初始化任务
+13:49:04.162 INFO: 初始化纹理地图
+13:49:04.173 INFO: [SCPAK Resources] 加载数据库
+13:49:04.224 INFO: 读取数据库(42ms)
+13:49:04.256 INFO: [SCPAK Resources] 加载方块数据
+13:49:04.475 INFO: [SCPAK Resources] 加载衣物数据
+13:49:04.555 INFO: 初始化方块管理器(331ms)
+13:49:04.561 INFO: [SCPAK Resources] 加载合成配方
+13:49:04.578 INFO: 初始化各类杂项
+13:49:04.593 INFO: 初始化模组设置参数
+13:49:04.874 INFO: [SCPAK Resources] 等待剩下的任务完成
+13:49:05.029 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.030 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.253 INFO: [SCPAK Resources] 加载方块数据
+13:49:05.309 INFO: [SCPAK Resources] 加载衣物数据
+13:49:05.322 INFO: [SCPAK Resources] 加载合成配方
+13:49:05.489 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.489 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.490 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.490 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.496 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.496 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.496 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.497 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.515 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.516 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.516 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.516 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.517 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.517 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.517 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.517 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.519 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.519 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.519 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.519 ERROR: OPENAL ERROR: IllegalCommand
+13:49:05.562 INFO: 世界加载成功，游戏模式=生存，出生点难度=简单，世界名称=Structured tool agent handoff，视距=32，渲染分辨率=高
+13:49:06.306 ERROR: OPENAL ERROR: IllegalCommand
+13:49:06.307 ERROR: OPENAL ERROR: IllegalCommand
+13:49:06.307 ERROR: OPENAL ERROR: IllegalCommand
+13:49:06.307 ERROR: OPENAL ERROR: IllegalCommand
+13:49:12.453 INFO: 模组设置已保存
+13:49:12.455 INFO: 设置已保存

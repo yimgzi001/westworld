@@ -25,7 +25,7 @@ public static class ToolOutcomeDelta {
    kind="tool_outcome_delta",sessionId=before.SessionId,actorId=before.ActorId,beforeObservationId=before.ObservationId,afterObservationId=after.ObservationId,
    originalGoal,preceding=new{tool=preceding.Tool,sequence=preceding.Sequence,status=preceding.Status},unexecuted=pending,
    inventoryDelta=changes.Take(keep).ToArray(),totalChangedValues=changes.Length,omittedChangedValues=changes.Length-keep,
-   note="Net owned inventory changes only; source and cause are not inferred. Unexecuted steps did not run. Omitted changes are unknown here; use the current inventory observation. No next action is prescribed."});
+   note="Historical action-result snapshot delta, not live inventory. Current inventory and goal progress may include subsequent automatic collection; an empty delta does not negate current possession. Source/cause not inferred. Unexecuted steps did not run. Omitted changes unknown. No next action prescribed."});
   while(true){var output=Encode();var json=output.GetRawText();if(json.Length<=maxChars&&Encoding.UTF8.GetByteCount(json)<=maxUtf8Bytes)return output;if(keep==0)throw new InvalidOperationException("Outcome identity/goal/terminal/unexecuted facts exceed budget; no partial feedback emitted");keep--;}
  }
  static Dictionary<int,long> Read(JsonElement inventory,out HashSet<int> ids){

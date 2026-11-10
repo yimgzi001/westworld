@@ -1,0 +1,12 @@
+{
+  "case": "arrive",
+  "hostExit": 0,
+  "driverExit": 0,
+  "watchdog": false,
+  "error": null,
+  "missingArtifacts": [],
+  "validationVerdict": "pass",
+  "elapsedSeconds": 10.488500219013076,
+  "drainUncertain": false,
+  "passed": true
+}
