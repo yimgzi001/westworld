@@ -380,11 +380,22 @@ sealed partial class Runner
         }
         var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         bool wetTest = mode == "shelter-wet";
+        bool hungryNight = mode == "shelter-night-hungry";
         bool lowerPredator = mode == "shelter-lower-predator";
         bool middlePredator = lowerPredator || mode == "shelter-middle-predator";
         bool jumpPredator = middlePredator || mode == "shelter-late-predator";
         if (stage == 1)
         {
+            if (hungryNight)
+            {
+                calendar.TimeOfDayOffset += calendar.DuskStart - 30f / calendar.DayDuration - calendar.TimeOfDay;
+                p.ComponentVitalStats.Food = 0.09f;
+                p.ComponentVitalStats.Sleep = 0.8f;
+                if (!PlaySurvivalRest.NightCoverDue(calendar) || calendar.TimeOfDay >= calendar.DuskStart)
+                    throw new InvalidOperationException("缺粮过夜夹具应在日落前进入庇护时段。");
+                Gate.Log(new { kind = "shelter_hungry_night_started", calendar.TimeOfDay, calendar.DuskStart,
+                    food = p.ComponentVitalStats.Food });
+            }
             if (mode == "shelter-illness")
             {
                 if (!p.ComponentSleep.CanSleep(out _)) return;
@@ -474,14 +485,18 @@ sealed partial class Runner
             earthShelter!.Update(now);
             if (earthShelter.Status is null) return;
             bool covered = PlaySurvivalRest.HasUsableCover(p);
+            bool retryDelay = PlayEarthShelter.ExitRetryDelay(1, 0.5f) == 48
+                && PlayEarthShelter.ExitRetryDelay(3, 0.5f) == 96
+                && PlayEarthShelter.ExitRetryDelay(8, 0.5f) == 150
+                && PlayEarthShelter.ExitRetryDelay(8, 0.1f) == 36;
             Passed = earthShelter.Reason == "predator_at_exit_resealed" && covered
                 && (jumpPredator ? jumpPredatorPlaced && jumped && exitThreatDuringJump && exitThreatLevel == jumpLevel : !jumped)
                 && (!middlePredator || exitThreatFromHost)
-                && (!lowerPredator || lowerPredatorObserved)
+                && (!lowerPredator || lowerPredatorObserved && retryDelay)
                 && p.ComponentBody.Position.Y <= site.Surface - 2.95f && p.ComponentHealth.Health >= vitalBefore;
             Done = true;
             Gate.Log(new { kind = "shelter_predator_result", Passed, earthShelter.Reason, covered, jumped, exitThreatDuringJump,
-                exitThreatLevel, exitThreatFromHost, lowerPredator, lowerPredatorObserved,
+                exitThreatLevel, exitThreatFromHost, lowerPredator, lowerPredatorObserved, retryDelay,
                 health = p.ComponentHealth.Health, floor = p.ComponentBody.Position.Y });
             return;
         }
@@ -491,19 +506,21 @@ sealed partial class Runner
             {
                 if (!PlaySurvivalRest.HasSecureCover(p) || !p.ComponentSleep.CanSleep(out _)) return;
                 p.ComponentHealth.Health = 0.4f;
+                p.ComponentVitalStats.Food = 0.45f;
                 p.ComponentSickness.StartSickness();
                 bool daytime = calendar.TimeOfDay >= calendar.DayStart && calendar.TimeOfDay < calendar.DuskStart;
                 bool recovering = PlaySurvivalRest.NeedsRecovery(p);
+                bool foodForHealing = PlaySurvivalRest.NeedsFoodForHealing(p);
                 bool coldPriority = PlaySurvivalRest.ColdNeedsShelter(4.2f, 45, false)
                     && !PlaySurvivalRest.ColdNeedsShelter(4.2f, 12, false)
                     && PlaySurvivalRest.ColdNeedsShelter(4.2f, 0, true)
                     && !PlaySurvivalRest.ColdNeedsShelter(6.1f, 100, true)
                     && PlaySurvivalRest.ColdNeedsShelter(3.5f, 0, false);
                 run = actions.Start(new Sleep());
-                Passed = refusedOpenCover && daytime && recovering && coldPriority
+                Passed = refusedOpenCover && daytime && recovering && foodForHealing && coldPriority
                     && run.Result.Status == AtomicActionStatus.Succeeded && p.ComponentSleep.IsSleeping;
                 Done = true;
-                Gate.Log(new { kind = "shelter_illness_result", Passed, refusedOpenCover, daytime, recovering, coldPriority,
+                Gate.Log(new { kind = "shelter_illness_result", Passed, refusedOpenCover, daytime, recovering, coldPriority, foodForHealing,
                     sleeping = p.ComponentSleep.IsSleeping, health = p.ComponentHealth.Health });
                 return;
             }
@@ -543,7 +560,7 @@ sealed partial class Runner
             bool slept = p.ComponentVitalStats.Sleep > vitalBefore && calendar.Day > sleepDay
                 && calendar.TimeOfDay >= calendar.DayStart && calendar.TimeOfDay < calendar.DuskStart;
             Gate.Log(new { kind = "shelter_morning", slept, sleepBefore = vitalBefore, sleepAfter = p.ComponentVitalStats.Sleep,
-                days = calendar.Day - sleepDay, calendar.TimeOfDay });
+                days = calendar.Day - sleepDay, calendar.TimeOfDay, food = p.ComponentVitalStats.Food, health = p.ComponentHealth.Health });
             if (!slept) { Done = true; return; }
             if (wetTest) p.ComponentLocomotion.JumpSpeed *= 0.95f;
             earthShelter = new(p, actions, testSite!, true, now, Gate.Log);
@@ -552,7 +569,7 @@ sealed partial class Runner
         if (stage != 5) return;
         earthShelter!.Update(now);
         if (earthShelter.Status is null) return;
-        Passed = earthShelter.Status == "succeeded" && p.ComponentBody.Position.Y >= testSite!.Surface - 0.05f
+        Passed = earthShelter.Status == "succeeded" && p.ComponentHealth.Health > 0f && p.ComponentBody.Position.Y >= testSite!.Surface - 0.05f
             && (mode != "shelter-retry" || changedDigSlot);
         Gate.Log(new { kind = "shelter_exit", Passed, earthShelter.Status, earthShelter.Reason, floor = p.ComponentBody.Position.Y });
         if (Passed && mode == "shelter-camp")

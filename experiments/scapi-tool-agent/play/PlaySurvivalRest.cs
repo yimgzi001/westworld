@@ -39,8 +39,18 @@ internal sealed class PlaySurvivalRest(ComponentPlayer player, double started)
     public static bool ColdNeedsShelter(float temperature, double coldSeconds, bool flu) =>
         temperature < 3.8f || temperature < 6f && (flu || coldSeconds >= 45);
 
+    public static bool NightCoverDue(SubsystemTimeOfDay calendar)
+    {
+        float now = calendar.TimeOfDay;
+        return now < calendar.DayStart || now >= calendar.DuskStart - 45f / calendar.DayDuration;
+    }
+
     public static bool NeedsRecovery(ComponentPlayer player) => player.ComponentHealth.Health < 0.55f
         && (player.ComponentSickness.IsSick || player.ComponentFlu.HasFlu);
+
+    // 普通生存清醒时，饱食超过一半才开始自然回血。
+    public static bool NeedsFoodForHealing(ComponentPlayer player) => player.ComponentHealth.Health < 0.75f
+        && player.ComponentVitalStats.Food <= 0.5f && HasSecureCover(player);
 
     public State Update(double gameTime)
     {

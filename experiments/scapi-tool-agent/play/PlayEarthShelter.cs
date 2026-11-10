@@ -46,6 +46,9 @@ internal sealed class PlayEarthShelter
     public bool OwnsExitMotion(ComponentBody body) => leaving && site.SameColumn(body)
         && (body.Position.Y < site.Surface - 0.05f || !PlaySurvivalSenses.OnDryGround(body));
 
+    public static int ExitRetryDelay(int retreats, float food) =>
+        food <= 0.18f ? 36 : Math.Min(150, 48 + 24 * (Math.Clamp(retreats, 1, 6) - 1));
+
     public static Site? At(ComponentBody body)
     {
         var feet = Terrain.ToCell(body.Position + new Vector3(0, 0.05f, 0));
