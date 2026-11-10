@@ -34,6 +34,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `shelter-lower-predator` 将棕熊放在低一格的地面、距坑口约 18.6 格。验证第二跳仍由出坑动作控制，看到熊后回落和重封。
 
+`shelter-passive-cow` 验证原生睡眠到天亮后，实际看到坑口约三格外未被招惹的奶牛，仍能满血走出坑口。
+
 `shelter-night-hungry` 在日落前 30 游戏秒以 9% 饱食开始，检查夜间庇护条件，完成原生搭建、睡到天亮和出坑。
 
 `predator-coast-turn` 使用 `natural34-b` 的真实窄岸地形。原生下船后从卡点开始，约 20 格外放置固定移动能力的灰狼。验证直接退路受阻时，能沿可见干地绕到一格高的出口，并在近处出现威胁时拒绝开始向其靠近。

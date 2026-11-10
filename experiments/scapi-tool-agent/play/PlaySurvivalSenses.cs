@@ -24,26 +24,29 @@ internal static class PlaySurvivalSenses
     public static Threat[] Threats(ComponentPlayer player, AtomicActions.ActorQueries queries, float radius = 24f)
     {
         var visible = queries.FindVisibleObjectsAround(radius).Entities;
-        if (visible.Count == 0) return [];
-        var ids = visible.Select(entity => entity.EntityId).ToHashSet();
         // 类型补充只连接原生全向视野实际看见的实体。遮挡后的动物不进入风险判断。
-        var predators = player.Project.Entities.Where(entity => ids.Contains(entity.Id)
-            && entity.FindComponent<ComponentChaseBehavior>() is { AttacksPlayer: true }
-            && entity.FindComponent<ComponentHealth>() is { Health: > 0f })
-            .ToDictionary(entity => entity.Id);
-        return visible.Where(entity => predators.ContainsKey(entity.EntityId)).Select(entity =>
+        var threats = new List<Threat>(5);
+        foreach (var entity in visible)
         {
-            var native = predators[entity.EntityId];
+            var native = player.Project.FindEntity(entity.EntityId);
+            if (native?.FindComponent<ComponentChaseBehavior>() is not { AttacksPlayer: true } chase
+                || native.FindComponent<ComponentHealth>() is not { Health: > 0f }) continue;
             string template = native.ValuesDictionary.DatabaseObject.Name;
-            var category = native.FindComponent<ComponentCreature>()?.Category ?? 0;
+            var creature = native.FindComponent<ComponentCreature>();
+            var category = creature?.Category ?? 0;
             bool aquatic = template.StartsWith("Shark", StringComparison.Ordinal)
                 || (category & CreatureCategory.WaterPredator) != 0;
             bool predator = (category & (CreatureCategory.LandPredator | CreatureCategory.WaterPredator)) != 0
                 || template.StartsWith("Shark", StringComparison.Ordinal);
+            // 奶牛等动物有被攻击后的反击能力。未主动追击、碰撞也不会反击时，仅在看到攻击动作后列为威胁。
+            if (!predator && chase.m_dayChaseRange <= 0 && chase.m_nightChaseRange <= 0 && chase.m_chaseOnTouchProbability <= 0
+                && creature?.ComponentCreatureModel.AttackOrder != true) continue;
             string name = string.IsNullOrWhiteSpace(entity.Name) ? template : entity.Name;
-            return new Threat(name, entity.Distance, aquatic, predator, entity.Position.X, entity.Position.Y, entity.Position.Z)
-                { EntityId = entity.EntityId };
-        }).Take(5).ToArray();
+            threats.Add(new Threat(name, entity.Distance, aquatic, predator, entity.Position.X, entity.Position.Y, entity.Position.Z)
+                { EntityId = entity.EntityId });
+            if (threats.Count == 5) break;
+        }
+        return threats.ToArray();
     }
 
     public static bool NeedsAvoidance(Threat animal, bool inWater) =>

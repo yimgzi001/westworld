@@ -27,6 +27,8 @@ sealed partial class Runner
     private double dryingStarted;
     private bool refusedOpenCover;
     private bool jumpPredatorPlaced, exitThreatDuringJump, exitThreatFromHost, lowerPredatorObserved;
+    private int? passiveShelterCow;
+    private bool passiveShelterCowSeen;
     private int exitThreatLevel;
     private Point3 threatOrigin;
     private Vector3 threatPosition;
@@ -772,15 +774,27 @@ sealed partial class Runner
                 days = calendar.Day - sleepDay, calendar.TimeOfDay, food = p.ComponentVitalStats.Food, health = p.ComponentHealth.Health });
             if (!slept) { Done = true; return; }
             if (wetTest) p.ComponentLocomotion.JumpSpeed *= 0.95f;
+            if (mode == "shelter-passive-cow") passiveShelterCow = PlaceShelterAnimal("Cow", 3.2f);
             earthShelter = new(p, actions, testSite!, true, now, Gate.Log);
             stage = 5;
         }
         if (stage != 5) return;
+        if (passiveShelterCow is int cow && !passiveShelterCowSeen)
+        {
+            var visible = actions.Queries.FindVisibleObjectsAround(5f).Entities.FirstOrDefault(animal => animal.EntityId == cow);
+            if (visible is not null)
+            {
+                passiveShelterCowSeen = true;
+                Gate.Log(new { kind = "shelter_passive_cow_seen", visible.Distance, now });
+            }
+        }
         earthShelter!.Update(now);
         if (earthShelter.Status is null) return;
         Passed = earthShelter.Status == "succeeded" && p.ComponentHealth.Health > 0f && p.ComponentBody.Position.Y >= testSite!.Surface - 0.05f
-            && (mode != "shelter-retry" || changedDigSlot);
-        Gate.Log(new { kind = "shelter_exit", Passed, earthShelter.Status, earthShelter.Reason, floor = p.ComponentBody.Position.Y });
+            && (mode != "shelter-retry" || changedDigSlot)
+            && (passiveShelterCow is null || passiveShelterCowSeen && p.ComponentHealth.Health >= 0.99f);
+        Gate.Log(new { kind = "shelter_exit", Passed, earthShelter.Status, earthShelter.Reason, floor = p.ComponentBody.Position.Y,
+            passiveShelterCowSeen, health = p.ComponentHealth.Health });
         if (Passed && mode == "shelter-camp")
         {
             var body = p.ComponentBody;
@@ -794,15 +808,19 @@ sealed partial class Runner
         else Done = true;
     }
 
-    private void PlaceShelterThreat(float offset, int belowSurface = 0)
+    private void PlaceShelterThreat(float offset, int belowSurface = 0) =>
+        PlaceShelterAnimal(offset > 1f ? "Bear_Brown" : "Bear_Black", offset, belowSurface);
+
+    private int PlaceShelterAnimal(string template, float offset, int belowSurface = 0)
     {
-        // 夹具固定猎食者移动能力，保留原生实体和遮挡。
-        var bear = DatabaseManager.CreateEntity(p.Project, offset > 1f ? "Bear_Brown" : "Bear_Black", true);
-        bear.FindComponent<ComponentBody>(true).Position = testSite!.Center(testSite.Surface - belowSurface) + offset * Vector3.UnitX;
-        var locomotion = bear.FindComponent<ComponentLocomotion>(true);
+        // 夹具固定动物移动能力，保留原生行为和遮挡。
+        var animal = DatabaseManager.CreateEntity(p.Project, template, true);
+        animal.FindComponent<ComponentBody>(true).Position = testSite!.Center(testSite.Surface - belowSurface) + offset * Vector3.UnitX;
+        var locomotion = animal.FindComponent<ComponentLocomotion>(true);
         locomotion.WalkSpeed = 0f;
         locomotion.JumpSpeed = 0f;
-        p.Project.AddEntity(bear);
+        p.Project.AddEntity(animal);
+        return animal.Id;
     }
 
     private void RunCampReturn(double now)
