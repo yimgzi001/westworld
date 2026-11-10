@@ -117,10 +117,17 @@ Check(baseMove.Parameters.GetProperty("properties").GetProperty("bearing").GetPr
 
 var scout = PlayNavigationMenu.ScoutOffer;
 var scoutPrompt = new ToolDecisionPrompt(session, a, observation, JsonSerializer.SerializeToElement(new { }), [scout]);
-Check(CanPlan(scoutPrompt, scout.Name, new { bearing = 180, distance = 12, seek = "dry_land" }), "允许先回头找岸");
-Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 13, seek = "food" }), "限制一轮探索距离");
+var shorePrompt = new ToolDecisionPrompt(session, a, observation, JsonSerializer.SerializeToElement(new { }), [PlayNavigationMenu.ShoreOffer]);
+var shelterPrompt = new ToolDecisionPrompt(session, a, observation, JsonSerializer.SerializeToElement(new { }), [PlayNavigationMenu.ShelterOffer]);
+Check(CanPlan(shorePrompt, scout.Name, new { bearing = 180, distance = 12, seek = "dry_land" }), "水上允许用身后的岸为目标");
+Check(!CanPlan(shorePrompt, scout.Name, new { bearing = 180, distance = 13, seek = "dry_land" }), "限制一次水上导航距离");
+Check(CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 24, seek = "food" }), "陆地觅食可持续导航二十四格");
+Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 25, seek = "food" }), "限制一次陆地导航距离");
+Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 5, seek = "dry_land" }), "陆地菜单不重复找岸");
+Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 5, seek = "shelter" }), "白天普通探索不重复原地寻找庇护");
+Check(CanPlan(shelterPrompt, scout.Name, new { bearing = 0, distance = 12, seek = "shelter" }), "需要寻找庇护时保留导航选项");
 Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 5, seek = "attack" }), "仅允许已有探索目的");
-Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 5, seek = "shelter", x = 100 }), "拒绝未观察坐标");
+Check(!CanPlan(shelterPrompt, scout.Name, new { bearing = 0, distance = 5, seek = "shelter", x = 100 }), "拒绝未观察坐标");
 
 var inbox = new PlaySocialInbox();
 JsonElement Offer(string reference, double gameTime) =>

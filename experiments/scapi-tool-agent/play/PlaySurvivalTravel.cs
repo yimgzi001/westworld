@@ -9,11 +9,12 @@ using Westworld.Runtime.Core;
 
 internal sealed class PlaySurvivalTravel
 {
+    private const int LandLegLimit = 48;
     private enum SeatAim { None, Turning, Ready }
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
     private readonly string seek;
-    private readonly float distance;
+    private readonly float distance, landDistanceLimit;
     private readonly float initialHealth;
     private readonly double deadline;
     private readonly Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe;
@@ -22,6 +23,7 @@ internal sealed class PlaySurvivalTravel
     private readonly PlaySurvivalFood.Food? foodTarget;
     private readonly Vector3? shelterTarget;
     private readonly Vector3? shoreTarget;
+    private readonly Vector3 surveyTarget;
     private readonly Action<object> log;
     private Vector2 direction;
     private Vector3 legOrigin;
@@ -57,6 +59,10 @@ internal sealed class PlaySurvivalTravel
         initialHealth = player.ComponentHealth.Health;
         deadline = gameTime + 25;
         direction = Rotate((BoatBody ?? player.ComponentBody).Matrix.Forward.XZ, bearing);
+        var offset = distance * new Vector3(direction.X, 0, direction.Y);
+        surveyTarget = Origin + offset;
+        // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
+        landDistanceLimit = seek == "survey" ? MathF.Abs(offset.X) + MathF.Abs(offset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
     }
 
     public bool Evading { get; }
@@ -128,52 +134,28 @@ internal sealed class PlaySurvivalTravel
             Finish("succeeded", "dry_ground_reached");
             return;
         }
-        var (observation, food) = observe();
-        Vector3? approach = null;
-        if (seek == "food" && dry)
+        if (dry)
         {
-            var edible = food.Where(item => foodTarget is not null ? item.Matches(foodTarget)
-                    : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && !PlaySurvivalFood.IsRawMeat(item.Value)
-                        && item.SicknessRisk < 0.5f).MinBy(item => item.Distance);
-            if (edible?.InReach == true)
+            var (reached, approach) = ReadLandGoal(body);
+            if (reached is not null)
             {
-                Finish("succeeded", "food_within_reach");
+                Finish("succeeded", reached);
                 return;
             }
-            approach = (edible ?? foodTarget)?.Point;
-            if (approach is { } foodPoint)
+            if (legs >= LandLegLimit || traveled >= landDistanceLimit - 0.3f)
             {
-                var offset = (foodPoint - body.Position).XZ;
-                if (offset.LengthSquared() > 0.1f) direction = Vector2.Normalize(offset);
-            }
-        }
-        if (seek == "shelter" && dry)
-        {
-            bool canSleep = player.ComponentSleep.CanSleep(out _);
-            if (canSleep || PlayEarthShelter.At(body) is not null)
-            {
-                Finish("succeeded", canSleep ? "native_sleep_site_ready" : "soft_earth_shelter_site");
+                Finish("failed", "navigation_distance_limit");
                 return;
             }
-            if (shelterTarget is { } earth)
-            {
-                approach = earth;
-                var offset = (earth - body.Position).XZ;
-                if (offset.LengthSquared() > 0.1f) direction = Vector2.Normalize(offset);
-            }
+            AdvanceOnLand(blocked, RemainingOnLand(body, approach, traveled), gameTime);
+            return;
         }
         if (legs >= 8 || traveled >= distance - 0.3f)
         {
             Finish(seek == "survey" && traveled >= 1f ? "succeeded" : "failed", "travel_distance_completed");
             return;
         }
-        if (dry)
-        {
-            float remaining = approach is { } destination ? Math.Min(distance - traveled, (destination - body.Position).XZ.Length() + 0.2f)
-                : distance - traveled;
-            AdvanceOnLand(blocked, remaining, gameTime);
-            return;
-        }
+        var (observation, _) = observe();
         var boat = BoatBody;
         var deck = PlaySurvivalSenses.BoatDeck(body);
         if (boat is null && deck is null && body.ImmersionDepth < 0.04f) return;
@@ -331,12 +313,93 @@ internal sealed class PlaySurvivalTravel
         {
             aligned = route.Action is MoveTo;
             legs++;
-            Start(route.Action, gameTime, route);
+            AtomicAction action = route.Action;
+            if (action is MoveAlongObservedRoute flat)
+            {
+                var body = player.ComponentBody;
+                var goalOffset = (surveyTarget - body.Position).XZ;
+                if (seek == "survey" && goalOffset.LengthSquared() < 1 && flat.Points.Count == 1)
+                {
+                    // 最后一小段沿已验证的走廊收短，避免为一格内的目标再走过头。
+                    var corridor = flat.Points[0] - body.Position;
+                    float length = corridor.XZ.Length();
+                    float along = Vector2.Dot(goalOffset, corridor.XZ) / length;
+                    if (along >= 0.2f && along < length)
+                        flat = flat with { Points = [body.Position + along / length * corridor], FinalRange = 0.1f };
+                }
+                action = flat with { Continue = ContinueFlat };
+            }
+            Start(action, gameTime, route);
             return;
         }
         // 同一位置已经取得全向落脚证据，缺少可走路段时直接反馈。
         Finish("failed", "no_observed_dry_route");
     }
+
+    private (MoveAlongObservedRoute Route, Action Accepted)? ContinueFlat(double gameTime)
+    {
+        var body = player.ComponentBody;
+        if (gameTime >= deadline || legs >= LandLegLimit || !PlaySurvivalSenses.OnDryGround(body)
+            || (!Evading && player.ComponentHealth.Health < initialHealth - 0.04f)
+            || dryProof?.Contains(body, Stopwatch.GetElapsedTime(proofStarted).TotalSeconds) != true)
+            return null;
+        var (reached, approach) = ReadLandGoal(body);
+        if (reached is not null) return null;
+        float progress = (body.Position - legOrigin).XZ.Length();
+        float remaining = RemainingOnLand(body, approach, traveled + progress);
+        if (remaining < 1.1f) return null;
+        var route = PlayDryRoutes.Next(readDryWindow(), direction, remaining, false, visits);
+        if (route?.Action is not MoveAlongObservedRoute next || !route.Contains(body, 0)) return null;
+
+        return (next, () =>
+        {
+            var velocity = body.Velocity.XZ;
+            float turn = velocity.LengthSquared() > 0.01f
+                ? MathUtils.RadToDeg(Vector2.Angle(velocity, (next.Points[0] - body.Position).XZ)) : 0f;
+            traveled += progress;
+            legOrigin = body.Position;
+            dryProof = route;
+            proofStarted = Stopwatch.GetTimestamp();
+            legs++;
+            log(new { kind = "play_scout_continue", actor = player.PlayerData.Name, seek, gameTime,
+                legs, traveled, speed = velocity.Length(), turn });
+        });
+    }
+
+    private (string? Reached, Vector3? Approach) ReadLandGoal(ComponentBody body)
+    {
+        Vector3? approach = null;
+        if (seek == "survey")
+        {
+            if ((surveyTarget - body.Position).XZ.LengthSquared() <= 0.45f * 0.45f)
+                return ("navigation_goal_reached", null);
+            approach = surveyTarget;
+        }
+        else if (seek == "food")
+        {
+            var (_, food) = observe();
+            var edible = food.Where(item => foodTarget is not null ? item.Matches(foodTarget)
+                    : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && !PlaySurvivalFood.IsRawMeat(item.Value)
+                        && item.SicknessRisk < 0.5f).MinBy(item => item.Distance);
+            if (edible?.InReach == true) return ("food_within_reach", null);
+            approach = (edible ?? foodTarget)?.Point;
+        }
+        else if (seek == "shelter")
+        {
+            if (player.ComponentSleep.CanSleep(out _)) return ("native_sleep_site_ready", null);
+            if (PlayEarthShelter.At(body) is not null) return ("soft_earth_shelter_site", null);
+            approach = shelterTarget;
+        }
+        if (approach is { } destination)
+        {
+            var offset = (destination - body.Position).XZ;
+            if (offset.LengthSquared() > 0.1f) direction = Vector2.Normalize(offset);
+        }
+        return (null, approach);
+    }
+
+    private float RemainingOnLand(ComponentBody body, Vector3? approach, float used) => approach is { } destination
+        ? Math.Min(landDistanceLimit - used, (destination - body.Position).XZ.Length() + 0.2f) : landDistanceLimit - used;
 
     internal static Vector2 Rotate(Vector2 source, float degrees)
     {

@@ -14,7 +14,7 @@ internal sealed class PlayEarthShelter
             && body.Position.Y < Surface - 0.5f;
     }
 
-    private enum Phase { Center, SurveyFloor, DigFloor, Settle, SurveyWall, Seal, SurveyRoof, Open, SurveyExitFloor, Jump, Raise }
+    private enum Phase { Center, SurveyFloor, DigFloor, Settle, SurveyWall, Seal, Resealed, SurveyRoof, Open, Peek, SurveyExitFloor, Jump, Raise }
     private static readonly Point3[] Walls = [new(1, 0, 0), new(0, 0, 1), new(-1, 0, 0), new(0, 0, -1)];
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
@@ -24,10 +24,10 @@ internal sealed class PlayEarthShelter
     private readonly Action<object> log;
     private AtomicActionRun? action;
     private Phase phase = Phase.Center;
-    private double settleUntil;
+    private double settleUntil, nextPeek;
     private int wall, level, digRetries, jumpRetries, lastExitLevel = int.MinValue;
     private float peakRise;
-    private bool opened;
+    private bool opened, retreating;
 
     public PlayEarthShelter(ComponentPlayer player, AtomicActions owner, Site site, bool leaving,
         double gameTime, Action<object> log)
@@ -73,7 +73,7 @@ internal sealed class PlayEarthShelter
                 // 自动拾取上一格土可能改变空手槽位。原生取消后重新观察，再尝试同一阶段。
                 if (run.Action is Dig && run.Result.Failure == AtomicActionFailure.TargetChanged && digRetries++ < 2)
                 {
-                    phase = leaving ? Phase.SurveyRoof : Phase.Settle;
+                    phase = leaving && !retreating ? Phase.SurveyRoof : Phase.Settle;
                     settleUntil = gameTime + 0.25;
                     log(new { kind = "play_shelter_dig_retry", actor = player.PlayerData.Name, leaving, digRetries, gameTime });
                     return;
@@ -85,6 +85,7 @@ internal sealed class PlayEarthShelter
             log(new { kind = "play_shelter_native", actor = player.PlayerData.Name,
                 action = run.Action.GetType().Name, leaving, gameTime });
             if (phase == Phase.Settle && run.Action is Dig or Place) settleUntil = gameTime + 0.35;
+            if (phase == Phase.Peek && run.Action is Dig) settleUntil = gameTime + 0.65;
         }
 
         switch (phase)
@@ -116,7 +117,9 @@ internal sealed class PlayEarthShelter
                         Begin(new MoveTo(center, 0.12f, 2f), Phase.Settle);
                         break;
                     }
-                    phase = opened ? Phase.SurveyExitFloor : Phase.SurveyRoof;
+                    if (retreating)
+                        phase = level > site.Surface - 3 ? Phase.SurveyFloor : Phase.SurveyWall;
+                    else phase = opened ? Phase.SurveyExitFloor : Phase.SurveyRoof;
                 }
                 else if (level == site.Surface - 3 && BlocksManager.Blocks[Terrain.ExtractContents(body.StandingOnValue.Value)].SleepSuitability > 0f)
                     phase = Phase.SurveyWall;
@@ -143,9 +146,12 @@ internal sealed class PlayEarthShelter
                 if (Focus(site.Cell(site.Surface - 1) + Walls[wall], null) is { } wallTarget
                     && wallTarget.Face is int side && wallTarget.Cell + CellFace.FaceToPoint3(side) == site.Cell(site.Surface - 1)
                     && Dirt() is { } cover)
-                    Begin(new Place(wallTarget, cover), Phase.Open);
+                    Begin(new Place(wallTarget, cover), retreating ? Phase.Resealed : Phase.Open);
                 else if (++wall < Walls.Length) phase = Phase.SurveyWall;
                 else Finish("failed", "no_roof_anchor_or_owned_earth");
+                break;
+            case Phase.Resealed:
+                Finish("failed", "predator_at_exit_resealed");
                 break;
             case Phase.SurveyRoof:
                 Begin(new FaceTowards(site.Center(body.Position.Y), 2f, 81f), Phase.Open);
@@ -158,11 +164,24 @@ internal sealed class PlayEarthShelter
                 }
                 opened = true;
                 if (Focus(site.Cell(site.Surface - 1), 5) is { } roof && SoftEarth(roof.ExpectedValue))
-                    Begin(new Dig(roof, 5f), Phase.SurveyExitFloor);
-                else phase = Phase.SurveyExitFloor;
+                    Begin(new Dig(roof, 5f), Phase.Peek);
+                else
+                {
+                    settleUntil = gameTime + 0.65;
+                    phase = Phase.Peek;
+                }
+                break;
+            case Phase.Peek:
+                if (gameTime >= nextPeek)
+                {
+                    nextPeek = gameTime + 0.12;
+                    if (RetreatFromPredator(gameTime)) break;
+                    if (gameTime >= settleUntil) phase = Phase.SurveyExitFloor;
+                }
                 break;
             case Phase.SurveyExitFloor:
-                Begin(new FaceTowards(site.Center(body.Position.Y), 2f, -81f), Phase.Jump);
+                if (!RetreatFromPredator(gameTime))
+                    Begin(new FaceTowards(site.Center(body.Position.Y), 2f, -81f), Phase.Jump);
                 break;
             case Phase.Jump:
                 if (Dirt() is null || Focus(site.Cell(level - 1), 4) is null)
@@ -217,6 +236,20 @@ internal sealed class PlayEarthShelter
     }
 
     private static bool SoftEarth(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)] is GrassBlock or DirtBlock;
+
+    private bool RetreatFromPredator(double gameTime)
+    {
+        // 开顶后从坑内用原生遮挡读取出口。发现近处威胁就回到坑底并补回屋顶。
+        var threat = PlaySurvivalSenses.Threats(player, owner.Queries).FirstOrDefault(animal => !animal.Aquatic
+            && animal.Y >= site.Surface - 1 && animal.Distance <= (animal.Predator ? 8f : 4f));
+        if (threat is null) return false;
+        retreating = true;
+        wall = 0;
+        settleUntil = gameTime;
+        phase = Phase.Settle;
+        log(new { kind = "play_shelter_exit_threat", actor = player.PlayerData.Name, threat, level, gameTime });
+        return true;
+    }
 
     private void Begin(AtomicAction next, Phase after)
     {

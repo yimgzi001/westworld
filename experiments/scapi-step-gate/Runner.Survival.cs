@@ -250,6 +250,20 @@ sealed partial class Runner
             Gate.Log(new { kind = "shelter_built", earthShelter.Status, earthShelter.Reason, ready, blocker,
                 floor = p.ComponentBody.Position.Y, roof = terrain.Terrain.GetCellContents(roof.X, roof.Y, roof.Z) });
             if (earthShelter.Status != "succeeded") { Done = true; return; }
+            if (mode == "shelter-predator")
+            {
+                // 真实黑熊停在出口旁。夹具固定其行走和跳跃速度，保留原生身体、遮挡和捕猎行为。
+                var bear = DatabaseManager.CreateEntity(p.Project, "Bear_Black", true);
+                bear.FindComponent<ComponentBody>(true).Position = testSite.Center(testSite.Surface) + 0.61f * Vector3.UnitX;
+                var locomotion = bear.FindComponent<ComponentLocomotion>(true);
+                locomotion.WalkSpeed = 0f;
+                locomotion.JumpSpeed = 0f;
+                p.Project.AddEntity(bear);
+                vitalBefore = p.ComponentHealth.Health;
+                earthShelter = new(p, actions, testSite, true, now, Gate.Log);
+                stage = 7;
+                return;
+            }
             if (wetTest && !openedForRepair)
             {
                 earthShelter = new(p, actions, testSite, true, now, Gate.Log);
@@ -273,6 +287,19 @@ sealed partial class Runner
             earthShelter = new(p, actions, testSite, false, now, Gate.Log);
             stage = 2;
             Gate.Log(new { kind = "shelter_repair_started", now });
+            return;
+        }
+        if (stage == 7)
+        {
+            jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
+            earthShelter!.Update(now);
+            if (earthShelter.Status is null) return;
+            bool covered = PlaySurvivalRest.HasUsableCover(p);
+            Passed = earthShelter.Reason == "predator_at_exit_resealed" && covered && !jumped
+                && p.ComponentBody.Position.Y <= testSite!.Surface - 2.95f && p.ComponentHealth.Health >= vitalBefore;
+            Done = true;
+            Gate.Log(new { kind = "shelter_predator_result", Passed, earthShelter.Reason, covered, jumped,
+                health = p.ComponentHealth.Health, floor = p.ComponentBody.Position.Y });
             return;
         }
         if (stage == 3)
