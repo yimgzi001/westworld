@@ -6,7 +6,7 @@ def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def runtime_environment(suite,social_menu):
  return {"WESTWORLD_CAPABILITY_MENU":"1","WESTWORLD_MATRIX41":suite,"WESTWORLD_SOCIAL42":"1" if social_menu else "0"}
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--social-menu',action='store_true',help='Validate social actions through current per-actor dynamic menus');ap.add_argument('--suite',choices=['baseline','equipment','combat','furniture','items','mount','climb','sleep','interact','queries','cancel','navigation'],default='baseline',help='One isolated reviewed matrix family per fresh world');ap.add_argument('--label',required=True);ap.add_argument('--assets',required=True);ap.add_argument('--modes',nargs='+',choices=['matrix_single','matrix_social'],default=['matrix_single','matrix_social']);args=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--social-menu',action='store_true',help='Validate social actions through current per-actor dynamic menus');ap.add_argument('--suite',choices=['baseline','equipment','combat','furniture','items','mount','climb','sleep','interact','queries','cancel','navigation','eat'],default='baseline',help='One isolated reviewed matrix family per fresh world');ap.add_argument('--label',required=True);ap.add_argument('--assets',required=True);ap.add_argument('--modes',nargs='+',choices=['matrix_single','matrix_social'],default=['matrix_single','matrix_social']);args=ap.parse_args()
  if args.social_menu and args.modes!=['matrix_social']:ap.error('social-menu requires --modes matrix_social')
  if len(set(args.modes))!=len(args.modes):ap.error('duplicate modes')
  if args.suite!='baseline' and args.modes!=['matrix_single']:ap.error('family suites require --modes matrix_single')
