@@ -153,16 +153,21 @@ internal sealed class PlaySurvivalTravel
             AdvanceOnLand(blocked, RemainingOnLand(body, approach, traveled), gameTime);
             return;
         }
+        var boat = BoatBody;
+        var deck = PlaySurvivalSenses.BoatDeck(body);
+        // 失去地面接触可能只是一帧的下台阶。实际落地或接触水面之前保留原导航任务。
+        if (boat is null && deck is null && body.ImmersionDepth < 0.04f) return;
+        if (dryLeg)
+        {
+            Finish("failed", "land_route_became_wet");
+            return;
+        }
         if (legs >= 8 || traveled >= distance - 0.3f)
         {
             Finish(seek == "survey" && traveled >= 1f ? "succeeded" : "failed", "travel_distance_completed");
             return;
         }
         var (observation, _) = observe();
-        var boat = BoatBody;
-        var deck = PlaySurvivalSenses.BoatDeck(body);
-        if (boat is null && deck is null && body.ImmersionDepth < 0.04f) return;
-        dryLeg = false;
         if (seek == "dry_land" && PlaySurvivalSenses.VisibleShore(observation, body, boat ?? deck) is { } visible)
         {
             var offset = new Vector2(visible.X - body.Position.X, visible.Z - body.Position.Z);
@@ -311,7 +316,11 @@ internal sealed class PlaySurvivalTravel
         dryLeg = true;
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
-        var route = PlayDryRoutes.Next(window, direction, remaining, !aligned, visits);
+        var route = PlayDryRoutes.Next(window, direction, remaining, !aligned && !Evading, visits);
+        if (route is null && Evading)
+            route = PlayDryRoutes.Next(window, Rotate(direction, 45), remaining, false, visits)
+                ?? PlayDryRoutes.Next(window, Rotate(direction, -45), remaining, false, visits)
+                ?? (!aligned ? PlayDryRoutes.Next(window, direction, remaining, true, visits) : null);
         if (route is not null)
         {
             aligned = route.Action is MoveTo;
@@ -386,7 +395,7 @@ internal sealed class PlaySurvivalTravel
             var (_, food) = observe();
             var edible = food.Where(item => foodTarget is not null ? item.Matches(foodTarget)
                     : PlaySurvivalFood.CanApproachOnLand(item, body.Position) && PlaySurvivalFood.CanSeek(player, item))
-                .MinBy(item => item.Distance);
+                .OrderBy(item => item.SicknessRisk).ThenBy(item => item.Distance).FirstOrDefault();
             if (edible?.InReach == true) return ("food_within_reach", null);
             approach = (edible ?? foodTarget)?.Point;
         }

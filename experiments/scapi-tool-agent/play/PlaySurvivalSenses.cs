@@ -17,12 +17,12 @@ internal static class PlaySurvivalSenses
     public static ComponentBody? BoatDeck(ComponentBody body) => body.StandingOnBody is { } support
         && support.Entity.FindComponent<ComponentBoat>() is not null ? support : null;
 
-    public static Threat[] Threats(ComponentPlayer player, AtomicActions.ActorQueries queries)
+    public static Threat[] Threats(ComponentPlayer player, AtomicActions.ActorQueries queries, float radius = 24f)
     {
-        var visible = queries.FindVisibleObjectsAround(16f).Entities;
+        var visible = queries.FindVisibleObjectsAround(radius).Entities;
         if (visible.Count == 0) return [];
         var ids = visible.Select(entity => entity.EntityId).ToHashSet();
-        // 类型补充只连接当前原生视锥返回的实体。视野外的动物不进入风险判断。
+        // 类型补充只连接原生全向视野实际看见的实体。遮挡后的动物不进入风险判断。
         var predators = player.Project.Entities.Where(entity => ids.Contains(entity.Id)
             && entity.FindComponent<ComponentChaseBehavior>() is { AttacksPlayer: true }
             && entity.FindComponent<ComponentHealth>() is { Health: > 0f })
@@ -42,7 +42,7 @@ internal static class PlaySurvivalSenses
     }
 
     public static bool NeedsAvoidance(Threat animal, bool inWater) =>
-        (!animal.Aquatic || inWater) && animal.Distance <= (animal.Predator ? 14f : 5f);
+        (!animal.Aquatic || inWater) && animal.Distance <= (animal.Predator ? animal.Aquatic ? 14f : 18f : 5f);
 
     public static Shore? VisibleShore(JsonElement observation, ComponentBody body, ComponentBody? boat)
     {

@@ -23,6 +23,58 @@ sealed partial class Runner
     private PlaySurvivalRest? fixtureDrying;
     private double dryingStarted;
     private bool refusedOpenCover;
+    private Point3 threatOrigin;
+    private Vector3 threatPosition;
+    private float sightDistance;
+
+    private void RunThreatRange()
+    {
+        var body = p.ComponentBody;
+        if (stage == 0)
+        {
+            if (elapsed < 3) return;
+            var cell = Terrain.ToCell(body.Position);
+            if (!(terrain.Terrain.GetChunkAtCell(cell.X + 18, cell.Z)?.State >= TerrainChunkState.InvalidVertices1)) return;
+            threatOrigin = cell;
+            for (int x = cell.X - 1; x <= cell.X + 19; x++)
+            for (int z = cell.Z - 2; z <= cell.Z + 2; z++)
+            for (int y = cell.Y - 1; y <= cell.Y + 3; y++)
+                terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
+            body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
+            body.Velocity = Vector3.Zero;
+            var bear = DatabaseManager.CreateEntity(p.Project, "Bear_Black", true);
+            threatPosition = body.Position + 17f * Vector3.UnitX;
+            bear.FindComponent<ComponentBody>(true).Position = threatPosition;
+            var locomotion = bear.FindComponent<ComponentLocomotion>(true);
+            locomotion.WalkSpeed = 0f;
+            locomotion.JumpSpeed = 0f;
+            p.Project.AddEntity(bear);
+            elapsed = 0;
+            stage = 1;
+            return;
+        }
+        if (elapsed < 0.8) return;
+        bool IsFixtureThreat(PlaySurvivalSenses.Threat animal) => MathF.Abs(animal.X - threatPosition.X) < 1f
+            && MathF.Abs(animal.Z - threatPosition.Z) < 1f;
+        var visible = PlaySurvivalSenses.Threats(p, actions.Queries);
+        if (stage == 1)
+        {
+            var first = visible.FirstOrDefault(IsFixtureThreat);
+            if (first is null || first.Distance is <= 16f or > 18f || !PlaySurvivalSenses.NeedsAvoidance(first, false)
+                || PlaySurvivalSenses.Threats(p, actions.Queries, 16).Any(IsFixtureThreat))
+                throw new InvalidOperationException("预警夹具未能从 16 格以外的实际视野识别黑熊。");
+            sightDistance = first.Distance;
+            for (int y = threatOrigin.Y; y <= threatOrigin.Y + 2; y++)
+            for (int z = threatOrigin.Z - 2; z <= threatOrigin.Z + 2; z++)
+                terrain.ChangeCell(threatOrigin.X + 7, y, z, GraniteBlock.Index);
+            elapsed = 0;
+            stage = 2;
+            return;
+        }
+        Passed = !visible.Any(IsFixtureThreat);
+        Done = true;
+        Gate.Log(new { kind = "threat_range_result", Passed, sightDistance, blockedByWall = Passed });
+    }
 
     private void RunFoodSafety()
     {
@@ -193,11 +245,16 @@ sealed partial class Runner
                 && (item.Position - farEgg!.Position).LengthSquared() < 0.5f);
             if (sweep.Sectors.Length != 8 || sweep.Panorama.Radius != mapRange.Content || food.InReach || !samePose || !hidden || !farBlock || !farItem)
                 throw new InvalidOperationException($"全向观察范围或遮挡不符合测试条件。原姿态 {samePose}，墙后隐藏 {hidden}，远处方块 {farBlock}，远处拾取物 {farItem}。");
-            float bearing = Vector2.Angle(body.Matrix.Forward.XZ, (food.Point - body.Position).XZ) * (180f / MathF.PI);
+            var towardFood = (food.Point - body.Position).XZ;
+            var reserve = sweep.FoodInDirection(p, Vector2.Normalize(towardFood), 4.2f);
+            bool reserveTarget = reserve?.Matches(food) == true && !PlaySurvivalFood.CanEat(p, eggValue);
+            if (!reserveTarget) throw new InvalidOperationException("正常饱食时应保留生蛋的采集目标并限制进食。");
+            float bearing = Vector2.Angle(body.Matrix.Forward.XZ, towardFood) * (180f / MathF.PI);
             travel = new(p, actions, bearing, 4.2f, "food", false, now, ReadForage,
                 () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log, foodTarget: food);
             Gate.Log(new { kind = "forage_survey", sectors = sweep.Sectors.Length, sweep.Panorama.Radius, food.Name, food.Distance,
-                bearing, samePose, hidden, farBlock, farItem, durationMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds });
+                bearing, samePose, hidden, farBlock, farItem, reserveTarget,
+                durationMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds });
             stage = 3;
         }
         if (stage == 3)

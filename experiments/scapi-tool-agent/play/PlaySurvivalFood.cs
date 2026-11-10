@@ -37,8 +37,20 @@ internal static class PlaySurvivalFood
         return vitals.m_satiation.GetValueOrDefault(contents) + added <= 3.5f;
     }
 
-    public static bool CanSeek(ComponentPlayer player, Food food) => !IsRawMeat(food.Value)
-        && AcceptableRisk(food.SicknessRisk, player.ComponentVitalStats.Food, player.ComponentSickness.IsSick);
+    public static bool CanSeek(ComponentPlayer player, Food food) => !food.Underwater && !IsRawMeat(food.Value)
+        && (food.SicknessRisk <= 0f || food.SicknessRisk <= 0.15f
+            && BlocksManager.Blocks[Terrain.ExtractContents(food.Value)] is EggBlock && RawEggStock(player) < 2);
+
+    public static int RawEggStock(ComponentPlayer player)
+    {
+        var inventory = player.ComponentMiner.Inventory;
+        return Enumerable.Range(0, inventory.SlotsCount).Where(slot =>
+        {
+            int value = inventory.GetSlotValue(slot);
+            return inventory.GetSlotCount(slot) > 0 && BlocksManager.Blocks[Terrain.ExtractContents(value)] is EggBlock egg
+                && egg.GetSicknessProbability(value) is > 0f and <= 0.15f;
+        }).Sum(inventory.GetSlotCount);
+    }
 
     private static bool AcceptableRisk(float risk, float food, bool sick) =>
         risk <= 0f || !sick && food <= EmergencyFood && risk <= 0.15f;

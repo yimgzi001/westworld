@@ -37,6 +37,10 @@ internal static class PlaySurvivalPanorama
                     .OrderBy(block => block.Distance).Take(1).Select(block => Describe("dry_ground", block.Point, at, facing)).FirstOrDefault(),
                 softEarth = sector.Blocks.Where(IsSoftEarth).MinBy(block => (block.Point - at).LengthSquared()) is { } earth
                     ? Describe("soft_earth", earth.Point, at, facing) : null,
+                wood = sector.Blocks.Where(block => PlaySurvivalProduction.IsMaterial(block.Value, PlaySurvivalProduction.Wood))
+                    .MinBy(block => block.Distance) is { } wood ? Describe("wood", wood.Point, at, facing) : null,
+                stone = sector.Blocks.Where(block => PlaySurvivalProduction.IsMaterial(block.Value, PlaySurvivalProduction.Stone))
+                    .MinBy(block => block.Distance) is { } stone ? Describe("granite", stone.Point, at, facing) : null,
                 food = sector.Food.OrderBy(food => food.SicknessRisk).ThenBy(food => food.Distance).Take(4)
                     .Select(food => DescribeFood(food, at, facing)).ToArray(),
                 animals = sector.Animals.Where(animal => !string.IsNullOrWhiteSpace(animal.Name)).Take(4)
@@ -68,7 +72,7 @@ internal static class PlaySurvivalPanorama
                     float horizontal = offset.XZ.Length();
                     return offset.Y is >= -2f and <= 3f && horizontal > 0.1f && horizontal <= distance + 0.5f
                         && Vector2.Dot(offset.XZ / horizontal, direction) >= 0.65f;
-                }).MinBy(food => (food.Point - origin).LengthSquared());
+                }).OrderBy(food => food.SicknessRisk).ThenBy(food => (food.Point - origin).LengthSquared()).FirstOrDefault();
         }
 
         private Vector3? GroundInDirection(Vector3 origin, Vector2 direction, Func<PanoramicBlock, bool> matching, float height)

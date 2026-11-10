@@ -14,6 +14,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `food-safety` 使用原生食物属性、饱食和疾病状态验证进食筛选。`shelter-illness` 先比较原生睡眠检查和实体封闭检查，再搭建土坑并用夹具设置的低血量和疾病状态触发白天原生睡眠。
 
+`production-kit` 从两个实际木块和一个花岗岩块开始，验证采集、工作台、营火制作和放置。`production-kitchen` 另放 7 块圆石、生肉和木板作为世界拾取物，再挖出一块圆石，验证工作台、熔炉、装燃料和取熟肉的原生流程。`threat-range` 固定一只原生黑熊的移动，验证 16 格外预警及墙体遮挡。
+
 - `ObservedStepRoutes` 仅投影真实当前/≤3 秒历史观察的基底、身体、净空与落脚格。只支持一格、轴向、固定实心地面；不可见、未知、过高、空落点拒绝。
 - `StepTo` 是低层原生动作，不携带证据，**不能直接作为模型入口**。这里由 runner 强制校验逐帧包络与证据期限。未来集成必须保留这些约束。
 - 上台阶允许已观察落脚实心格的原生 SmoothRise 接触：仅开启原生功能，且脚高度差不超过 `min(MaxSmoothRiseHeight, 0.5)`。日志 `knownSupportContactUsed` 明示，不称全空气穿越。

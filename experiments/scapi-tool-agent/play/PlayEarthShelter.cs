@@ -240,7 +240,7 @@ internal sealed class PlayEarthShelter
     private bool RetreatFromPredator(double gameTime)
     {
         // 开顶后从坑内用原生遮挡读取出口。发现近处威胁就回到坑底并补回屋顶。
-        var threat = PlaySurvivalSenses.Threats(player, owner.Queries).FirstOrDefault(animal => !animal.Aquatic
+        var threat = PlaySurvivalSenses.Threats(player, owner.Queries, 8f).FirstOrDefault(animal => !animal.Aquatic
             && animal.Y >= site.Surface - 1 && animal.Distance <= (animal.Predator ? 8f : 4f));
         if (threat is null) return false;
         retreating = true;
