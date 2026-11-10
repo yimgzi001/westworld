@@ -26,6 +26,7 @@ let detail = 'overview';
 let eventFocus = null;
 let eventTask = null;
 let streamGap = false;
+const feedFollowing = { 'speech-list': true, timeline: true };
 
 function escape(value) {
   return String(value ?? '未提供').replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
@@ -45,7 +46,10 @@ const actorLink = (id, name) => `<button class="link" data-actor="${id}">${escap
 const eventLink = (id, text) => `<button class="link" data-event="${id}">${text}</button>`;
 
 function paint(id, html) {
-  const node = $(id);
+  paintNode($(id), html);
+}
+
+function paintNode(node, html) {
   if (node.dataset.rendered === html) return;
   const open = [...node.querySelectorAll('details[data-evidence][open]')].map(block => block.dataset.evidence);
   node.innerHTML = html;
@@ -137,7 +141,7 @@ function actorDetails(actor) {
   if (detail === 'task') body = renderTask(actor);
   else if (detail === 'speech') body = renderSpeechRows(actor.id);
   else if (detail === 'memory') body = renderMemory(actor.cognition);
-  else if (detail === 'history') body = renderEventRows(snapshot.events.filter(event => belongsTo(event, actor.id) && event.kind !== 'speech'), false);
+  else if (detail === 'history') body = renderEventRows(snapshot.events.filter(event => belongsTo(event, actor.id) && event.kind !== 'speech'));
   else body = renderOverview(actor);
   return `<h2>${escape(actor.name)} <span class="meta">#${actor.id}</span></h2><p class="meta">X / Y / Z · ${coords(actor.position)}${actor.alive ? '' : ' · 死亡'}</p>${nav}${body}`;
 }
@@ -197,8 +201,7 @@ function belongsTo(event, id) {
   return event.actorId === id || event.data.recipient?.id === id || event.data.listeners?.some(listener => listener.id === id);
 }
 
-function renderSpeechRows(actorId = null) {
-  const search = actorId == null ? $('speech-search').value.trim().toLocaleLowerCase() : '';
+function collectSpeeches(actorId = null) {
   const speeches = new Map();
   for (const event of snapshot?.speech ?? snapshot?.events ?? []) {
     if (event.kind !== 'speech' || (actorId != null && !belongsTo(event, actorId))) continue;
@@ -206,36 +209,100 @@ function renderSpeechRows(actorId = null) {
     if (!speeches.has(key)) speeches.set(key, []);
     speeches.get(key).push(event);
   }
-  return [...speeches.values()].reverse().filter(parts => !search || parts.some(event =>
-    [event.actorName,event.data.text,...event.data.listeners.map(listener => listener.name)].join(' ').toLocaleLowerCase().includes(search)))
-    .map(parts => {
+  return [...speeches.values()];
+}
+
+function renderSpeechRows(actorId) {
+  return collectSpeeches(actorId).reverse().map(parts => {
       const first = parts[0], last = parts.at(-1);
       const lines = parts.filter(part => part.data.text).map(part => `<p>${escape(part.data.text)}<span class="sub">实际听众 · ${part.data.listeners.map(listener => actorLink(listener.id, listener.name)).join('、') || '无人听见'}</span></p>`).join('');
       return `<article class="entry"><time>${simTime(first.time)}</time><div>${actorLink(first.actorId,first.actorName)} <span class="meta">${label(first.data.mode)} · ${label(last.data.status)}</span>${first.data.chunk > 0 ? '<p class="sub">窗口从中间片段开始</p>' : ''}${lines}</div></article>`;
-    }).join('') || empty(search ? '没有匹配的对话' : '当前窗口还没有对话');
+    }).join('') || empty('当前窗口还没有对话');
 }
 
-function renderSpeech() { paint('speech-list', renderSpeechRows()); }
+function updateFeedState(id) {
+  const following = feedFollowing[id];
+  const state = $(id + '-state');
+  state.dataset.following = following;
+  state.textContent = following ? '跟随最新' : '浏览历史';
+  $(id + '-latest').hidden = following;
+}
 
-function renderEventRows(events, links = true) {
-  return [...events].reverse().map(event => {
-    const data = event.data;
-    let content;
-    if (event.kind === 'body') content = `${bodyChange(data)}<span class="sub">来自相邻快照 · 原因未记录</span>`;
-    else if (event.kind === 'transfer') content = `${label(data.status)} · ${escape(data.item)} ×${data.count} · 接收者 ${actorLink(data.recipient.id,data.recipient.name)}<span class="sub">提议编号 ${escape(data.offerId)}</span>`;
-    else content = `${label(data.action.name)}${data.action.item ? ` ${escape(data.action.item)}` : ''} · ${label(data.status)}${data.failure !== 'none' ? ` · ${label(data.failure)}` : ''}
+function renderFeed(id, rows, message) {
+  const feed = $(id);
+  if (!rows.length) {
+    if (feed.firstElementChild?.textContent !== message || feed.firstElementChild?.className !== 'empty') {
+      feed.innerHTML = empty(message);
+    }
+    updateFeedState(id);
+    return;
+  }
+  const previous = new Map([...feed.children].map(node => [node.dataset.key, node]));
+  const keys = new Set(rows.map(row => row.key));
+  for (const [key, node] of previous) if (!keys.has(key)) node.remove();
+  let cursor = feed.firstElementChild;
+  for (const row of rows) {
+    let node = previous.get(row.key);
+    if (!node) {
+      node = document.createElement('article');
+      node.className = 'feed-row';
+      node.dataset.key = row.key;
+      node.tabIndex = -1;
+      if (feedFollowing[id] && previous.size && !previous.has(undefined)) node.dataset.new = 'true';
+    }
+    const pill = `<button class="link actor-pill" data-actor="${row.actorId}"${row.detail ? ` data-detail-target="${row.detail}"` : ''}>${escape(row.actorName)} <span class="meta">#${row.actorId}</span></button>`;
+    paintNode(node, `${pill}<div class="feed-content">${row.content}</div>`);
+    if (row.highlight) node.dataset.highlight = 'true';
+    else delete node.dataset.highlight;
+    if (node !== cursor) feed.insertBefore(node, cursor);
+    cursor = node.nextElementSibling;
+  }
+  if (feedFollowing[id]) feed.scrollTop = feed.scrollHeight;
+  updateFeedState(id);
+}
+
+function renderSpeech() {
+  if (!feedFollowing['speech-list']) return;
+  const search = $('speech-search').value.trim().toLocaleLowerCase();
+  const rows = collectSpeeches().map(parts => {
+    const first = parts[0], last = parts.at(-1);
+    const text = parts.map((part, index) => part.data.text
+      ? (index && part.data.chunk > parts[index - 1].data.chunk + 1 ? '…' : '') + part.data.text : '').join('');
+    const listeners = parts.flatMap(part => part.data.listeners);
+    if (search && ![first.actorName, first.actorId, text, ...listeners.map(listener => listener.name)].join(' ').toLocaleLowerCase().includes(search)) return null;
+    const speakerDetails = parts.filter(part => part.data.text).map(part => `<p>${escape(part.data.text)}<span class="sub">实际听众 · ${part.data.listeners.map(listener => actorLink(listener.id, listener.name)).join('、') || '无人听见'}</span></p>`).join('');
+    const count = new Set(listeners.map(listener => listener.id)).size;
+    return { key: first.data.speechId, actorId: first.actorId, actorName: first.actorName, content:
+      `<p>${escape(text || '发言中断')}</p><div class="feed-meta"><time>${simTime(first.time)}</time><span class="meta">${label(first.data.mode)} · ${label(last.data.status)}${first.data.chunk > 0 ? ' · 开头已离开窗口' : ''}</span></div>
+      ${speakerDetails ? `<details data-evidence="${escape(first.data.speechId)}"><summary class="meta">${count ? `${count} 位听众` : '无人听见'}</summary>${speakerDetails}</details>` : ''}` };
+  }).filter(Boolean);
+  renderFeed('speech-list', rows, search ? '没有匹配的对话' : '当前窗口还没有对话');
+}
+
+function eventContent(event) {
+  const data = event.data;
+  if (event.kind === 'body') return `${bodyChange(data)}<span class="sub">来自相邻快照 · 原因未记录</span>`;
+  if (event.kind === 'transfer') return `${label(data.status)} · ${escape(data.item)} ×${data.count} · 接收者 ${actorLink(data.recipient.id,data.recipient.name)}<span class="sub">提议编号 ${escape(data.offerId)}</span>`;
+  return `${label(data.action.name)}${data.action.item ? ` ${escape(data.action.item)}` : ''} · ${label(data.status)}${data.failure !== 'none' ? ` · ${label(data.failure)}` : ''}
       ${data.affectedCount > 0 ? `<span class="sub">影响数量 ${data.affectedCount}</span>` : ''}${data.items?.map(item => `<span class="sub">获得 ${escape(item.name)} ×${item.count}</span>`).join('') ?? ''}`;
-    const next = links ? `<button class="link" data-actor="${event.actorId}" data-detail-target="history">人物记录</button>` : eventLink(event.sequence, '查看全局事件');
-    return `<article class="entry" data-sequence="${event.sequence}" tabindex="-1"${eventFocus === event.sequence ? ' data-highlight="true"' : ''}><time>${simTime(event.time)}</time><div>${actorLink(event.actorId,event.actorName)}<p>${content}</p>${next}</div></article>`;
-  }).join('') || empty('内存窗口内暂无匹配事件');
 }
 
-function renderEvents() {
+function renderEventRows(events) {
+  return [...events].reverse().map(event =>
+    `<article class="entry"><time>${simTime(event.time)}</time><div>${actorLink(event.actorId,event.actorName)}<p>${eventContent(event)}</p>${eventLink(event.sequence, '查看全局事件')}</div></article>`
+  ).join('') || empty('内存窗口内暂无匹配事件');
+}
+
+function renderEvents(force = false) {
+  if (!force && !feedFollowing.timeline) return;
   const kind = $('event-filter').value;
   const events = (snapshot?.events ?? []).filter(event => event.kind !== 'speech' && (kind === 'all' || event.kind === kind)
     && (!eventTask || (event.actorId === eventTask.actor && event.data.taskId === eventTask.id)));
-  const filter = eventTask ? '<p><button class="link" data-clear-task>清除任务筛选</button></p>' : '';
-  paint('timeline', filter + renderEventRows(events));
+  $('clear-task').hidden = !eventTask;
+  const rows = events.map(event => ({ key: String(event.sequence), actorId: event.actorId, actorName: event.actorName,
+    detail: 'history', highlight: eventFocus === event.sequence, content:
+      `<div>${eventContent(event)}</div><div class="feed-meta"><time>${simTime(event.time)}</time></div>` }));
+  renderFeed('timeline', rows, '内存窗口内暂无匹配事件');
 }
 
 function renderWorld(world, model, dispatch) {
@@ -273,6 +340,15 @@ function show(nextView) {
   render();
 }
 
+function followLatest(id) {
+  feedFollowing[id] = true;
+  if (id === 'speech-list') renderSpeech();
+  else {
+    eventFocus = null;
+    renderEvents();
+  }
+}
+
 function inspect(id, section = 'overview') {
   if (!snapshot?.actors.some(actor => actor.id === id)) return;
   selectedId = id;
@@ -288,17 +364,25 @@ document.addEventListener('click', event => {
   if (!button) return;
   const data = button.dataset;
   if (data.view) show(data.view);
+  if (data.latest) {
+    followLatest(data.latest);
+    $(data.latest).focus({preventScroll: true});
+  }
   if (data.actor) inspect(Number(data.actor), data.detailTarget);
   if (data.detail) { detail = data.detail; renderDetails(); }
   if (data.event || data.taskEvents) {
     eventFocus = data.event ? Number(data.event) : null;
     eventTask = data.taskEvents ? {id: data.taskEvents, actor: Number(data.taskActor)} : null;
+    feedFollowing.timeline = eventFocus == null;
     $('event-filter').value = 'all';
     if ($('detail-dialog').open) $('detail-dialog').close();
     show('events');
-    document.querySelector('[data-highlight=true]')?.focus();
+    if (eventFocus != null) renderEvents(true);
+    const highlighted = $('timeline').querySelector('[data-highlight=true]');
+    highlighted?.focus({preventScroll: true});
+    highlighted?.scrollIntoView({block: 'nearest'});
   }
-  if (data.clearTask !== undefined) { eventTask = null; renderEvents(); }
+  if (data.clearTask !== undefined) { eventTask = null; feedFollowing.timeline = true; renderEvents(); }
 });
 $('inspect-current').addEventListener('click', () => inspect(selectedId,detail));
 $('hungry').addEventListener('click', () => {
@@ -306,8 +390,21 @@ $('hungry').addEventListener('click', () => {
   renderPeople(snapshot?.actors ?? []);
 });
 $('search').addEventListener('input', () => renderPeople(snapshot?.actors ?? []));
-$('speech-search').addEventListener('input', renderSpeech);
-$('event-filter').addEventListener('change', renderEvents);
+$('speech-search').addEventListener('input', () => { feedFollowing['speech-list'] = true; renderSpeech(); });
+$('event-filter').addEventListener('change', () => { eventFocus = null; feedFollowing.timeline = true; renderEvents(); });
+for (const id of Object.keys(feedFollowing)) {
+  const feed = $(id);
+  feed.addEventListener('scroll', () => {
+    if (!feed.clientHeight) return;
+    const following = feed.scrollHeight - feed.scrollTop - feed.clientHeight <= 8;
+    if (following === feedFollowing[id]) return;
+    if (following) followLatest(id);
+    else {
+      feedFollowing[id] = false;
+      updateFeedState(id);
+    }
+  }, {passive: true});
+}
 
 async function poll() {
   try {
@@ -318,6 +415,10 @@ async function poll() {
       selectedId = eventFocus = eventTask = null;
       detail = 'overview';
       streamGap = false;
+      for (const id of Object.keys(feedFollowing)) {
+        feedFollowing[id] = true;
+        $(id).replaceChildren();
+      }
       if ($('detail-dialog').open) $('detail-dialog').close();
     } else if (next.sequence > snapshot?.sequence) {
       const isNew = event => event.sequence > snapshot.sequence;
