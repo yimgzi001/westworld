@@ -1,0 +1,6 @@
+{
+  "schema": "natural-food-validation-v1",
+  "verdict": "pass",
+  "failures": [],
+  "scope": "Independent raw-log consistency for natural block-origin food acquisition and eating; not model autonomy or untampered-log proof."
+}

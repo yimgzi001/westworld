@@ -1,0 +1,1 @@
+{"sessionId": "80d71be1-e497-47a4-9c29-2fcde3a4cd27", "actorId": "0347d272-8405-4920-815b-84c7fdb2af10", "observationId": "9a8ded31-bc84-4cef-ae56-e629f3c68195", "requestId": "327a0200-4da2-4153-b590-cf88c9c91248", "decision": {"goal": "当前库存与目标进度已证实新海胆，吃掉1个以完成新食物获取与进食验收。", "steps": [{"tool": "act_Eat", "arguments": {"slot": 0, "value": 226, "count": 1}}]}}
