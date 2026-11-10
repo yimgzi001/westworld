@@ -41,6 +41,17 @@ class StageTests(unittest.TestCase):
    root,out,content=self.setup(tmp);(root/stage.SOURCE_FILES[0]).unlink()
    with self.assertRaises(FileNotFoundError):stage.stage(root,'food28',out,content)
    self.assertFalse((root/'work/food28').exists())
+ def test_direct_handoff_mode_is_exact(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root,out,content=self.setup(tmp);dest=stage.stage(root,'direct29',out,content,handoff_case='direct_early')
+   self.assertEqual(json.loads((dest/'stage.json').read_text())['mode'],'handoff file direct_early')
+   self.assertIn('ToolAgentGate.dll handoff file direct_early >console.log',(dest/'run.sh').read_text())
+   self.assertNotIn('food_drop file',(dest/'run.sh').read_text())
+ def test_unknown_case_no_stage(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root,out,content=self.setup(tmp)
+   with self.assertRaises(ValueError):stage.stage(root,'direct29',out,content,handoff_case='bad; command')
+   self.assertFalse((root/'work/direct29').exists())
  def test_fresh_required(self):
   with tempfile.TemporaryDirectory() as tmp:
    root,out,content=self.setup(tmp);stage.stage(root,'food24',out,content)

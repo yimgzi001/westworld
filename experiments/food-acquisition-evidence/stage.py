@@ -2,8 +2,9 @@
 """Stage a given existing build. Never build, launch a game/driver, or call an API."""
 import argparse,hashlib,json,pathlib,re,shlex,shutil
 REQUIRED=('ToolAgentGate.dll','Survivalcraft.dll','Westworld.Scapi.Adapter.dll','Westworld.Runtime.Core.dll','Westworld.Decisions.Local.dll','ToolAgentGate.runtimeconfig.json','ToolAgentGate.deps.json','runtimes/linux-x64/native/libglfw.so.3','runtimes/linux-x64/native/libnfd.so')
-SOURCE_FOLDERS=('runtime','game/Survivalcraft/Westworld','experiments/scapi-tool-agent','experiments/food-acquisition-evidence','experiments/openai-tool-controller')
-SOURCE_FILES=('game/Survivalcraft/Component/ComponentPickableGathererPlayer.cs',)
+SOURCE_FOLDERS=('runtime','game/Survivalcraft/Westworld','experiments/scapi-tool-agent','experiments/food-acquisition-evidence','experiments/openai-tool-controller','experiments/direct-move-prefetch-evidence')
+SOURCE_FILES=('game/Survivalcraft/Component/ComponentPickableGathererPlayer.cs','experiments/navigation-continuity/driver.py')
+DIRECT_CASES=('direct_early','direct_late','direct_failure','direct_cancel','direct_replace','direct_stale_reference')
 def safe(path):
  p=pathlib.Path(path).absolute()
  if any(x.is_symlink() for x in (p,*p.parents)):raise ValueError('symlink')
@@ -11,8 +12,10 @@ def safe(path):
 
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def native(name):return bool(re.fullmatch(r'[A-Za-z0-9_+.-]+\.so(?:\.[0-9]+)*',name)) or name.endswith(('.dll','.dylib'))
-def stage(root,label,build_output,content,controller='deterministic'):
+def stage(root,label,build_output,content,controller='deterministic',handoff_case=None):
  root=safe(root);out=safe(build_output);content=safe(content)
+ if handoff_case is not None and handoff_case not in DIRECT_CASES:raise ValueError('handoff case')
+ mode='food_drop file' if handoff_case is None else 'handoff file '+handoff_case
  if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,60}',label) or controller not in ('deterministic','model'):raise ValueError('stage arguments')
  dest=safe(root/'work'/label)
  if dest.exists():raise FileExistsError('fresh destination required')
@@ -42,7 +45,7 @@ def stage(root,label,build_output,content,controller='deterministic'):
  for p in sources:
   relative=p.relative_to(root);target=dest/'sources'/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,target);sourceHashes[relative.as_posix()]=sha(p)
  (dest/'source-hashes.json').write_text(json.dumps(sourceHashes,sort_keys=True,indent=2))
- metadata={'schema':'food-acquisition-stage-v1','mode':'food_drop file','controllerKind':controller,'status':'staged_not_run','stagingOnly':True,'automaticDriver':False,'automaticApi':False,'sourceBuildCorrespondence':'Hashes capture given binaries and current source separately; coordinator must verify source/build correspondence. Staging does not prove it.','buildOutput':str(out),'sourceCount':len(sourceHashes),'maximumDriverRequests':4,'maximumDriverSeconds':180}
+ metadata={'schema':'food-acquisition-stage-v1','mode':mode,'controllerKind':controller,'status':'staged_not_run','stagingOnly':True,'automaticDriver':False,'automaticApi':False,'sourceBuildCorrespondence':'Hashes capture given binaries and current source separately; coordinator must verify source/build correspondence. Staging does not prove it.','buildOutput':str(out),'sourceCount':len(sourceHashes),'maximumDriverRequests':4,'maximumDriverSeconds':180}
  (dest/'stage.json').write_text(json.dumps(metadata,indent=2))
  q=shlex.quote
  (dest/'run.sh').write_text(f'''#!/bin/bash
@@ -58,7 +61,7 @@ for name,expected in json.load(open('installed-hashes.json')).items():
  assert hashlib.sha256(p.read_bytes()).hexdigest()==expected,name
 CHECK
 if [ $? -ne 0 ]; then exit 2; fi
-{q(str(root/'work/dotnet/dotnet'))} ToolAgentGate.dll food_drop file >console.log 2>&1
+{q(str(root/'work/dotnet/dotnet'))} ToolAgentGate.dll {mode} >console.log 2>&1
 code=$?
 printf '%s\\n' "$code" >exit.txt
 exit "$code"
@@ -67,4 +70,4 @@ exit "$code"
  (dest/'installed-hashes.json').write_text(json.dumps(hashes,sort_keys=True,indent=2))
  return dest
 if __name__=='__main__':
- ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--root',type=pathlib.Path,default=pathlib.Path(__file__).resolve().parents[2]);ap.add_argument('--label',required=True);ap.add_argument('--build-output',type=pathlib.Path,required=True);ap.add_argument('--content',type=pathlib.Path,required=True);ap.add_argument('--controller',choices=['deterministic','model'],default='deterministic');a=ap.parse_args();print(stage(a.root,a.label,a.build_output,a.content,a.controller))
+ ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--root',type=pathlib.Path,default=pathlib.Path(__file__).resolve().parents[2]);ap.add_argument('--label',required=True);ap.add_argument('--build-output',type=pathlib.Path,required=True);ap.add_argument('--content',type=pathlib.Path,required=True);ap.add_argument('--controller',choices=['deterministic','model'],default='deterministic');ap.add_argument('--handoff-case',choices=DIRECT_CASES);a=ap.parse_args();print(stage(a.root,a.label,a.build_output,a.content,a.controller,a.handoff_case))

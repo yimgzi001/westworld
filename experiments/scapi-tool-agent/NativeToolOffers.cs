@@ -14,7 +14,7 @@ public static class NativeToolOffers {
   "act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
   "act_Dig","act_Place","act_MeleeAttack","act_Craft","act_Jump","act_Sleep","act_WakeUp"
  };
- public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate){
+ public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null){
   ArgumentNullException.ThrowIfNull(native);ArgumentNullException.ThrowIfNull(recentResults);
   if(native.Count>128||recentResults.Count>32)throw new ArgumentException("Bounded native context required");
   if(!Enum.IsDefined(purpose))throw new ArgumentOutOfRangeException(nameof(purpose));
@@ -75,8 +75,16 @@ public static class NativeToolOffers {
   bool navKnown=navigationStatus.HasValue&&ToolResultProjection.ValidNavigationStatus(navigationStatus.Value);
   bool navBusy=navKnown&&navigationStatus!.Value.GetProperty("busy").GetBoolean();
   bool deferred=purpose==OfferPurpose.AfterPrecedingSuccess;
-  if(deferred&&(!navBusy||navigationStatus!.Value.GetProperty("status").GetString()!="running"))
-   throw new ArgumentException("Deferred offers require an actual running predecessor navigation status",nameof(navigationStatus));
+  bool nativeDeferred=false;
+  if(deferred&&(precedingBinding is not null||precedingState is not null)){
+   if(precedingBinding is null||precedingState is null||precedingBinding.Kind!=PrecedingExecutionKind.NativeMoveTo||
+    !new PrecedingExecutionTrack(precedingBinding).Observe(precedingState).Allowed||precedingState.Status!="running"||
+    !navKnown||navBusy)
+    throw new ArgumentException("Deferred native movement requires matching actual running binding and no competing navigation owner");
+   nativeDeferred=true;
+  }
+  if(deferred&&!nativeDeferred&&(!navBusy||navigationStatus!.Value.GetProperty("status").GetString()!="running"))
+   throw new ArgumentException("Deferred offers require actual running native movement or navigation evidence",nameof(navigationStatus));
   var result=new List<ToolOffer>();
   foreach(var tool in native.Where(t=>Profile.Contains(t.Name))){
    if(deferred&&tool.Name is ("cancel_action" or "cancel_task" or "host_cancel_navigation"))continue;

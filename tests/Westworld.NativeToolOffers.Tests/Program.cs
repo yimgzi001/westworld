@@ -209,3 +209,15 @@ bool EnumContains(ToolOffer offer,string key,int value)=>offer.Parameters.GetPro
 Check(EnumContains(retainedTransfer,"source_slot",99)&&EnumContains(retainedTransfer,"source_value",777),"retained storage slot and value remain available");
 Check(!EnumContains(squeezedTransfer,"source_slot",99)&&!EnumContains(squeezedTransfer,"source_value",777),"omitted storage slot and value absent from strict schema");
 Console.WriteLine("VISIBLE FACTS FINAL TOTAL "+checks);
+
+var directSession=Guid.NewGuid();var directActor=Guid.NewGuid();var directRun=Guid.NewGuid();
+var directBinding=PrecedingExecutionBinding.Create(directSession,directActor,17,directRun,PrecedingExecutionKind.NativeMoveTo,"act_MoveTo",J("{\"bearing\":0,\"distance\":4}"),"Explore");
+var directSample=new PrecedingExecutionSample(directSession,directActor,17,directRun,PrecedingExecutionKind.NativeMoveTo,"running",true,false,false,.2);
+var directDeferred=NativeToolOffers.Build(tools.Concat(navDefs).ToArray(),obs,inventory,[mapReceipt],navIdle,OfferPurpose.AfterPrecedingSuccess,directBinding,directSample);
+Check(directDeferred.Any(x=>x.Name=="act_Dig")&&directDeferred.Any(x=>x.Name=="host_navigate_local"),"native movement allows deferred ordinary and navigation candidates");
+Check(directDeferred.All(x=>x.Name is not("cancel_action" or "cancel_task" or "host_cancel_navigation")),"native deferred cannot cancel predecessor");
+Check(navIdle.GetProperty("status").GetString()=="idle","native deferred never forges navigation running");
+foreach(var bad in new[]{directSample with{RunId=Guid.NewGuid()},directSample with{ActorId=Guid.NewGuid()},directSample with{ReceiptSequence=18},directSample with{Status="succeeded"},directSample with{CancelRequested=true}}){bool denied=false;try{NativeToolOffers.Build(tools,obs,inventory,[],navIdle,OfferPurpose.AfterPrecedingSuccess,directBinding,bad);}catch(ArgumentException){denied=true;}Check(denied,"native deferred rejects mismatched or nonrunning evidence");}
+bool competing=false;try{NativeToolOffers.Build(tools,obs,inventory,[],navBusy,OfferPurpose.AfterPrecedingSuccess,directBinding,directSample);}catch(ArgumentException){competing=true;}Check(competing,"native deferred rejects competing navigation owner");
+Check(NativeToolOffers.Build(tools,obs,inventory,[],navBusy).All(x=>!x.Name.StartsWith("act_")),"immediate protections unchanged");
+Console.WriteLine("NATIVE DEFERRED TOTAL "+checks);

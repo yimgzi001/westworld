@@ -1,0 +1,192 @@
+{
+  "summary": {
+    "hostExit": 1,
+    "driverExit": 0,
+    "hostResult": {
+      "kind": "result",
+      "passed": false,
+      "reason": "handoff_test_budget",
+      "seconds": 60.0353777,
+      "updateFailures": 0
+    },
+    "eventCounts": {
+      "start": 1,
+      "goal_accepted": 1,
+      "path_origin_after_fixture": 1,
+      "tool_receipt": 1623,
+      "direct_fixture_dismount": 1,
+      "direct_fixture_prepared": 1,
+      "direct_fixture_ready": 1,
+      "model_prompt": 4,
+      "decision_request_started": 4,
+      "controller_request_published": 4,
+      "controller_response_received": 2,
+      "model_response": 2,
+      "tool_step_queued": 2,
+      "native_call_started": 2,
+      "predecessor_bound": 1,
+      "native_call_returned": 2,
+      "predecessor_physical_sample": 25,
+      "prefetch_setup_failure": 220,
+      "predecessor_settled": 1,
+      "native_terminal_observed": 2,
+      "controller_request_canceled": 2,
+      "model_failure": 1,
+      "stop_drained": 1,
+      "model_shutdown_audit": 1,
+      "final_audit": 1,
+      "result": 1
+    },
+    "prefetchTaken": 0,
+    "overlapSeconds": 0,
+    "pathMeters": 3.945709228515625,
+    "modelInFlightAtEnd": false,
+    "nativeTerminals": [
+      {
+        "kind": "native_terminal_observed",
+        "runId": "5366947f-442e-4049-8909-ca89752412b6",
+        "monotonicSeconds": 59651.220844243,
+        "sequence": 19,
+        "tool": "act_MoveTo",
+        "status": "succeeded",
+        "wallUtc": "2026-11-09T19:24:47.6930558+00:00",
+        "gameTime": 3.261175802559592,
+        "nativeCallToTerminalObservedSeconds": 2.1140880470047705,
+        "executionGameSeconds": 2.1290134247392416
+      },
+      {
+        "kind": "native_terminal_observed",
+        "runId": "8c242e57-5daa-40bf-97d5-6116bc72dcfe",
+        "monotonicSeconds": 59651.907501181,
+        "sequence": 1595,
+        "tool": "act_Wait",
+        "status": "succeeded",
+        "wallUtc": "2026-11-09T19:24:48.3797122+00:00",
+        "gameTime": 3.949184882338159,
+        "nativeCallToTerminalObservedSeconds": 0.3499597780028125,
+        "executionGameSeconds": 0.35541301616467535
+      }
+    ],
+    "driverResultPresent": true,
+    "independentValidationPresent": true,
+    "checkpointStateAsRecorded": "failed",
+    "checkpointFinishedUtcAsRecorded": "2026-11-09T19:26:30.099358+00:00",
+    "finding": "timeout修正为4后原生MoveTo成功，但deferred菜单仅承认旧host导航，220次预取setup失败；预取0、独立验收fail。"
+  },
+  "logs": {
+    "tool-agent.jsonl": {
+      "bundle": "evidence-file-24119e56d9224ba0ad0f",
+      "originalSHA256": "5baf12db5f4a7907016b148796a7ce9f87e0d7c63e64b0930776742255a64bea",
+      "archivedTextSHA256": "2735c6a1a54db1b528ab4fba6379d0b6e1d3ffea582d38c88c86720813e3860c",
+      "pathRedactions": 6
+    },
+    "console.log": {
+      "bundle": "evidence-file-98a735d0994d9e29bed1",
+      "originalSHA256": "f0c536a3cf6df28373dcb21cb8b9668ff444c7544f5e37486db3e7b6c46cb5d1",
+      "archivedTextSHA256": "f5a08ba01f8527d4371503eb995edc5aff15ff21c7e3f505127a89779a7f1103",
+      "pathRedactions": 6
+    },
+    "exit.txt": {
+      "bundle": "evidence-file-b927b496cc6b8581e9ed",
+      "originalSHA256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "archivedTextSHA256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "pathRedactions": 0
+    },
+    "driver-exit.txt": {
+      "bundle": "evidence-file-06b169cbfe65ea576349",
+      "originalSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "archivedTextSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "pathRedactions": 0
+    },
+    "driver.log": {
+      "bundle": "evidence-file-4c17394d11bbac178603",
+      "originalSHA256": "b9a44cc186e0c774c18b5a2655b5a92a102b7c5be7e2b7b2b39e501f0be15f77",
+      "archivedTextSHA256": "b9a44cc186e0c774c18b5a2655b5a92a102b7c5be7e2b7b2b39e501f0be15f77",
+      "pathRedactions": 0
+    },
+    "run.sh": {
+      "bundle": "evidence-file-311e082e305f4ae5bb52",
+      "originalSHA256": "24d8a3c65d7e787bcd5418ae88a684121f427afab10e9a48d39057d35492223c",
+      "archivedTextSHA256": "c40318ef14f25d457016bbb50c2956fbedcb8a4426d689e625476453a03d9fcb",
+      "pathRedactions": 2
+    },
+    "init.js": {
+      "bundle": "evidence-file-40bf11bf1369f73b9807",
+      "originalSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "archivedTextSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "pathRedactions": 0
+    },
+    "stage.json": {
+      "bundle": "evidence-file-46869eb95b1540bcb063",
+      "originalSHA256": "00228771a3dbf4ff038e3287fdaf3cf73e945512ec4f382948a2611bcf17713d",
+      "archivedTextSHA256": "2421286882fae60807851ba1112247abef837a7bc0b779dc664d3320270f6ad3",
+      "pathRedactions": 1
+    },
+    "source-hashes.json": {
+      "bundle": "evidence-file-cff174f8647775abbe57",
+      "originalSHA256": "5dddffcc78264a447b2c76738f3cbe3980473a9c06606f4e8421f7b294969fc2",
+      "archivedTextSHA256": "5dddffcc78264a447b2c76738f3cbe3980473a9c06606f4e8421f7b294969fc2",
+      "pathRedactions": 0
+    },
+    "installed-hashes.json": {
+      "bundle": "evidence-file-5372bc12b4ce9800a1e6",
+      "originalSHA256": "1528a42d4933fc0eebe35355ee389c588b33a93c630a116f031c1b93e2c03c52",
+      "archivedTextSHA256": "1528a42d4933fc0eebe35355ee389c588b33a93c630a116f031c1b93e2c03c52",
+      "pathRedactions": 0
+    },
+    "direct-driver-started.json": {
+      "bundle": "evidence-file-b095d96dd883006fc3f1",
+      "originalSHA256": "faf5ad5084207513bf4899c00eeb9885fcca636a9defe8595b26ac29708eca23",
+      "archivedTextSHA256": "faf5ad5084207513bf4899c00eeb9885fcca636a9defe8595b26ac29708eca23",
+      "pathRedactions": 0
+    },
+    "direct-driver-result.json": {
+      "bundle": "evidence-file-78ca5ac4bf76f022432e",
+      "originalSHA256": "b6b01749a800bc4202570256f85e5e174fead6162e16efecc2bd3f148c548999",
+      "archivedTextSHA256": "b6b01749a800bc4202570256f85e5e174fead6162e16efecc2bd3f148c548999",
+      "pathRedactions": 0
+    },
+    "independent-validation.json": {
+      "bundle": "evidence-file-8967ec9cb1f335a95a5c",
+      "originalSHA256": "72d79d0ea742c611b2cf14492fb7705dcab91b33ef42deeb85c57371399510f4",
+      "archivedTextSHA256": "72d79d0ea742c611b2cf14492fb7705dcab91b33ef42deeb85c57371399510f4",
+      "pathRedactions": 0
+    }
+  },
+  "sourceSnapshot": "source-inventory-0ff0ff742531429df022",
+  "checkpoint": {
+    "bundle": "evidence-file-f52cac5a2c4c1e1b3899",
+    "originalSHA256": "76f91e6de7befc02b3131781ec81595575ebe5f253cc3e94f685359dfb534f14",
+    "archivedTextSHA256": "76f91e6de7befc02b3131781ec81595575ebe5f253cc3e94f685359dfb534f14",
+    "pathRedactions": 0
+  },
+  "verifiedCheckpointHashPaths": [
+    "work/direct29-early2/installed-hashes.json",
+    "work/direct29-early2/source-hashes.json",
+    "work/direct29-early2/direct-driver-result.json",
+    "work/direct29-early2/exit.txt",
+    "work/direct29-early2/independent-validation.json",
+    "work/direct29-early2/tool-agent.jsonl"
+  ],
+  "buildCorrespondence": {
+    "hostManifest": "work/preceding29/host-manifest.json",
+    "matchedFrozenHostSources": [
+      "experiments/scapi-tool-agent/Program.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.Prefetch.cs",
+      "experiments/scapi-tool-agent/PlanningPhaseContext.cs",
+      "experiments/scapi-tool-agent/PrecedingExecution.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.PrecedingExecution.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.DirectHandoffFixture.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.HandoffFixture.cs"
+    ],
+    "verifiedInstalledBinaryHashes": {
+      "ToolAgentGate.dll": "dbe1ec462c02ee36ef9e642327550e31aa65e43e48987571a36457aa5839cf61",
+      "Survivalcraft.dll": "1635fb73b8f7a53fbf284e394db646670c5c36a5d896becec95a1cdac053acbb",
+      "Westworld.Runtime.Core.dll": "a8dd50fa4b793b0e0e0c72f893accc9d2f8e23aeb19592d346d2b002e4618e80",
+      "Westworld.Scapi.Adapter.dll": "16be28aa8202b121651e016ff0b84437475c45ad6e5ed05c55cba1bfe2ced48e",
+      "Westworld.Decisions.Local.dll": "78d97963eb70a037c525f10c2dc6d72074e1bd29341ba32d87182cc9b9076f6e"
+    },
+    "limit": "宿主清单7份源码与产物哈希匹配；staging本身并不证明整个游戏二进制由所有冻结源码完整重建。"
+  },
+  "missingEvidence": []
+}

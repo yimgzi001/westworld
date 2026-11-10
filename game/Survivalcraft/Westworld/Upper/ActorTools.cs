@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Engine;
 using GameEntitySystem;
@@ -6,7 +7,9 @@ using GameEntitySystem;
 namespace Game.Westworld {
     public sealed record ActorToolDefinition(string Name, string Description, JsonElement Parameters);
     public sealed record ActorToolResult(bool Ok, JsonElement Data, string Error = null);
-    public sealed record ActorActionView(string Action, AtomicActionStatus Status, AtomicActionFailure Failure, int AffectedCount);
+    public sealed record ActorActionView(string Action, AtomicActionStatus Status, AtomicActionFailure Failure, int AffectedCount) {
+        public Guid RunId { get; init; }
+    }
     public sealed record ActorSocialView(AtomicSocialEventKind Kind, double GameTime, string Source, string Text,
         string OfferReference, int ItemValue, int Count) {
         public Guid? SpeechId { get; init; }
@@ -32,6 +35,8 @@ namespace Game.Westworld {
         readonly Dictionary<string, Guid> m_offers = new(StringComparer.Ordinal);
         readonly Queue<string> m_offerOrder = new();
         readonly string m_scope = Guid.NewGuid().ToString("N");
+        sealed class DirectRunIdentity { public readonly Guid Id = Guid.NewGuid(); }
+        static readonly ConditionalWeakTable<AtomicActionRun, DirectRunIdentity> m_directIdentities = new();
         AtomicActionRun m_direct;
         long m_offerSequence;
 
@@ -126,7 +131,9 @@ namespace Game.Westworld {
                 return null;
             }
             AtomicActionResult result = m_direct.Result;
-            return new ActorActionView(m_direct.Action.GetType().Name, result.Status, result.Failure, result.AffectedCount);
+            return new ActorActionView(m_direct.Action.GetType().Name, result.Status, result.Failure, result.AffectedCount) {
+                RunId = m_directIdentities.GetValue(m_direct, _ => new DirectRunIdentity()).Id
+            };
         }
 
         ActorObservation Observe(float lookDistance, float objectDistance, int limit, int blockLimit = 32) => m_memory.Capture(lookDistance, objectDistance, limit, blockLimit);

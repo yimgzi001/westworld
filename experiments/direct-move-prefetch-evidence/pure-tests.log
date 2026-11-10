@@ -1,0 +1,74 @@
+test_bounds_rejected (test_driver.DriverTests.test_bounds_rejected) ... ok
+test_duplicate_identity_rejected (test_driver.DriverTests.test_duplicate_identity_rejected) ... ok
+test_early_two_fixed_actions (test_driver.DriverTests.test_early_two_fixed_actions) ... ok
+test_existing_response_not_overwritten (test_driver.DriverTests.test_existing_response_not_overwritten) ... ok
+test_host_exit_during_delay_no_response (test_driver.DriverTests.test_host_exit_during_delay_no_response) ... ok
+test_late_delay (test_driver.DriverTests.test_late_delay) ... ok
+test_negative_deliberate_retired_response (test_driver.DriverTests.test_negative_deliberate_retired_response) ... ok
+test_no_reference_fabrication (test_driver.DriverTests.test_no_reference_fabrication) ... ok
+test_no_replay (test_driver.DriverTests.test_no_replay) ... ok
+test_no_requests_deadline (test_driver.DriverTests.test_no_requests_deadline) ... ok
+test_no_third_response (test_driver.DriverTests.test_no_third_response) ... ok
+test_positive_honors_cancel (test_driver.DriverTests.test_positive_honors_cancel) ... ok
+test_real_native_menu_rejects_old_timeout8 (test_driver.DriverTests.test_real_native_menu_rejects_old_timeout8) ... ok
+test_session_actor_identity_mismatch_rejected (test_driver.DriverTests.test_session_actor_identity_mismatch_rejected) ... ok
+test_stale_reference_only_from_public_offer (test_driver.DriverTests.test_stale_reference_only_from_public_offer) ... ok
+test_symlink_rejected (test_driver.DriverTests.test_symlink_rejected) ... ok
+test_unoffered_tool_rejected (test_driver.DriverTests.test_unoffered_tool_rejected) ... ok
+test_case_integrity_failure_finishes_checkpoint_without_fake_raw_logs (test_matrix.MatrixTests.test_case_integrity_failure_finishes_checkpoint_without_fake_raw_logs) ... ok
+test_failures_do_not_stop_five_case_iteration (test_matrix.MatrixTests.test_failures_do_not_stop_five_case_iteration) ... {"case": "direct_early", "status": "failed", "validationVerdict": "unknown"}
+{"case": "direct_late", "status": "failed", "validationVerdict": "unknown"}
+{"case": "direct_failure", "status": "failed", "validationVerdict": "unknown"}
+{"case": "direct_cancel", "status": "failed", "validationVerdict": "unknown"}
+{"case": "direct_replace", "status": "failed", "validationVerdict": "unknown"}
+ok
+test_manifest_modification_rejected (test_matrix.MatrixTests.test_manifest_modification_rejected) ... ok
+test_matrix_replay_refused (test_matrix.MatrixTests.test_matrix_replay_refused) ... {"case": "direct_early", "status": "passed", "validationVerdict": null}
+{"case": "direct_late", "status": "passed", "validationVerdict": null}
+{"case": "direct_failure", "status": "passed", "validationVerdict": null}
+{"case": "direct_cancel", "status": "passed", "validationVerdict": null}
+{"case": "direct_replace", "status": "passed", "validationVerdict": null}
+ok
+test_missing_build_rejects_before_creation (test_matrix.MatrixTests.test_missing_build_rejects_before_creation) ... ok
+test_preexisting_case_refuses_before_creation (test_matrix.MatrixTests.test_preexisting_case_refuses_before_creation) ... ok
+test_prepare_five_fresh_stages_and_checkpoints (test_matrix.MatrixTests.test_prepare_five_fresh_stages_and_checkpoints) ... ok
+test_repeated_prepare_refuses (test_matrix.MatrixTests.test_repeated_prepare_refuses) ... ok
+test_same_source_hashes_all_five_cases (test_matrix.MatrixTests.test_same_source_hashes_all_five_cases) ... ok
+test_uncertain_process_drain_stops_serial_safety (test_matrix.MatrixTests.test_uncertain_process_drain_stops_serial_safety) ... {"case": "direct_early", "status": "failed", "validationVerdict": null}
+ok
+test_unhandled_case_error_still_runs_remaining (test_matrix.MatrixTests.test_unhandled_case_error_still_runs_remaining) ... {"case": "direct_early", "status": "failed", "validationVerdict": null}
+{"case": "direct_late", "status": "failed", "validationVerdict": null}
+{"case": "direct_failure", "status": "failed", "validationVerdict": null}
+{"case": "direct_cancel", "status": "failed", "validationVerdict": null}
+{"case": "direct_replace", "status": "failed", "validationVerdict": null}
+ok
+test_used_case_not_overwritten (test_matrix.MatrixTests.test_used_case_not_overwritten) ... ok
+test_duplicate_successor_fails (test_validate.ValidationTests.test_duplicate_successor_fails) ... ok
+test_early_dispatch_fails (test_validate.ValidationTests.test_early_dispatch_fails) ... ok
+test_early_reply_cannot_count_as_late (test_validate.ValidationTests.test_early_reply_cannot_count_as_late) ... ok
+test_failed_result_is_failure (test_validate.ValidationTests.test_failed_result_is_failure) ... ok
+test_fake_reported_overlap_does_not_substitute_motion (test_validate.ValidationTests.test_fake_reported_overlap_does_not_substitute_motion) ... ok
+test_late_accepted_after_invalidation_fails (test_validate.ValidationTests.test_late_accepted_after_invalidation_fails) ... ok
+test_legacy_bounded_log_cannot_pass (test_validate.ValidationTests.test_legacy_bounded_log_cannot_pass) ... ok
+test_negative_cancel_not_late_injection_fails (test_validate.ValidationTests.test_negative_cancel_not_late_injection_fails) ... ok
+test_negative_missing_injection_unknown (test_validate.ValidationTests.test_negative_missing_injection_unknown) ... ok
+test_no_native_result_unknown (test_validate.ValidationTests.test_no_native_result_unknown) ... ok
+test_no_physical_samples_unknown (test_validate.ValidationTests.test_no_physical_samples_unknown) ... ok
+test_no_running_pair_in_short_interval_is_unknown_not_zero_motion (test_validate.ValidationTests.test_no_running_pair_in_short_interval_is_unknown_not_zero_motion) ... ok
+test_nonfinite_geometry_fails (test_validate.ValidationTests.test_nonfinite_geometry_fails) ... ok
+test_old_observation_fails (test_validate.ValidationTests.test_old_observation_fails) ... ok
+test_replace_same_identity_fails (test_validate.ValidationTests.test_replace_same_identity_fails) ... ok
+test_sampling_gap_unknown_not_action_failure (test_validate.ValidationTests.test_sampling_gap_unknown_not_action_failure) ... ok
+test_stale_reference_mismatch_fails (test_validate.ValidationTests.test_stale_reference_mismatch_fails) ... ok
+test_synthetic_early_pass (test_validate.ValidationTests.test_synthetic_early_pass) ... ok
+test_synthetic_late_pass (test_validate.ValidationTests.test_synthetic_late_pass) ... ok
+test_synthetic_negatives_pass (test_validate.ValidationTests.test_synthetic_negatives_pass) ... ok
+test_time_reversal_fails (test_validate.ValidationTests.test_time_reversal_fails) ... ok
+test_unbound_dispatch_unknown (test_validate.ValidationTests.test_unbound_dispatch_unknown) ... ok
+test_wrong_actor_sample_fails (test_validate.ValidationTests.test_wrong_actor_sample_fails) ... ok
+test_wrong_run_receipt_fails (test_validate.ValidationTests.test_wrong_run_receipt_fails) ... ok
+
+----------------------------------------------------------------------
+Ran 53 tests in 0.411s
+
+OK

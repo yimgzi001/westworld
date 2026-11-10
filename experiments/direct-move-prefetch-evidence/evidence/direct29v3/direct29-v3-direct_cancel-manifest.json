@@ -1,0 +1,229 @@
+{
+  "summary": {
+    "case": "direct_cancel",
+    "validationVerdict": "unknown",
+    "validationCheckCounts": {
+      "pass": 31,
+      "unknown": 1
+    },
+    "nonPassChecks": [
+      {
+        "check": "real_displacement_while_inference_pending",
+        "status": "unknown"
+      }
+    ],
+    "metrics": {
+      "eastwardDisplacementMetres": 0.5784759999999949,
+      "lateralDisplacementMetres": 0.0,
+      "netDisplacementMetres": 0.5784759999999949,
+      "sampleGapsOver150ms": 0,
+      "sampledInferenceMotionPairs": 0,
+      "sampledInferenceMotionSeconds": 0.0,
+      "sampledInferencePathMetres": 0.0,
+      "sampledPathMetres": 0.5645359999999897
+    },
+    "hostResult": {
+      "kind": "result",
+      "passed": true,
+      "reason": "direct_prefetch_fixture_verified",
+      "seconds": 7.4615678,
+      "updateFailures": 0
+    },
+    "hostExit": 0,
+    "driverExit": 0,
+    "eventCounts": {
+      "start": 1,
+      "goal_accepted": 1,
+      "path_origin_after_fixture": 1,
+      "tool_receipt": 534,
+      "direct_fixture_dismount": 1,
+      "direct_fixture_prepared": 1,
+      "direct_fixture_ready": 1,
+      "model_prompt": 1,
+      "decision_request_started": 1,
+      "controller_request_published": 2,
+      "controller_response_received": 1,
+      "model_response": 1,
+      "tool_step_queued": 1,
+      "native_call_started": 1,
+      "predecessor_bound": 1,
+      "native_call_returned": 1,
+      "predecessor_physical_sample": 22,
+      "prefetch_requested": 1,
+      "direct_fixture_injection": 1,
+      "prefetch_invalidated": 2,
+      "controller_request_canceled": 1,
+      "prefetch_failure": 1,
+      "direct_fixture_result": 1,
+      "stop_drained": 1,
+      "model_shutdown_audit": 1,
+      "final_audit": 1,
+      "result": 1
+    },
+    "prefetchTaken": 0,
+    "modelInFlightAtEnd": false,
+    "hostReportedOverlapSeconds": 0.10165122999751475,
+    "hostReportedOverlapPath": 0.18820953369140625
+  },
+  "logs": {
+    "tool-agent.jsonl": {
+      "bundle": "evidence-file-2e83b31570cbc1c10c64",
+      "originalSHA256": "ab00fd3132f0c13468b0ac832179bff9edfda4d650689a19fa97915c3dd75f95",
+      "archivedTextSHA256": "c084232ece51a8e352b7b1062f84df035c67efaf332c4283fe57501805b58826",
+      "pathRedactions": 3,
+      "frozenSource": false
+    },
+    "console.log": {
+      "bundle": "evidence-file-e3caaa4a08e912c98a0e",
+      "originalSHA256": "c8deca4ae74cad7cb3952301cc7292036fec8eae902db5cb6abcfa8e8a15e5ea",
+      "archivedTextSHA256": "ecf2a7c824816ad65ff7cfad96ffa69ce73f31ff20152d7458eb0618860886db",
+      "pathRedactions": 3,
+      "frozenSource": false
+    },
+    "exit.txt": {
+      "bundle": "evidence-file-06b169cbfe65ea576349",
+      "originalSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "archivedTextSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "driver-exit.txt": {
+      "bundle": "evidence-file-06b169cbfe65ea576349",
+      "originalSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "archivedTextSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "driver.log": {
+      "bundle": "evidence-file-56e77d25aa7e34247f57",
+      "originalSHA256": "7fb80007a21ab3e7aee3e039547266e928f6b1b5ee4f4d585fb20a27b150a132",
+      "archivedTextSHA256": "7fb80007a21ab3e7aee3e039547266e928f6b1b5ee4f4d585fb20a27b150a132",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "run.sh": {
+      "bundle": "evidence-file-871d62e74f2fc5b6df2a",
+      "originalSHA256": "4283b2240f3551be5b0d60573805b211c7ee95729fd9cbcba606ae190367ff31",
+      "archivedTextSHA256": "df8e5c7f0893e98f699eda11fb9c3231c07bbb8f2ba177c40c65b18d6f3e93b3",
+      "pathRedactions": 2,
+      "frozenSource": false
+    },
+    "init.js": {
+      "bundle": "evidence-file-40bf11bf1369f73b9807",
+      "originalSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "archivedTextSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "stage.json": {
+      "bundle": "evidence-file-069418c723336c42ff19",
+      "originalSHA256": "198258a8fa952d1af331a4ad42b5ea4a23c4d66c3a5419167f71ef8cdefefea1",
+      "archivedTextSHA256": "26cf113e8569813a0366bbf1c62b12c67558f4ca749a449318f51d7075d92553",
+      "pathRedactions": 1,
+      "frozenSource": false
+    },
+    "source-hashes.json": {
+      "bundle": "evidence-file-1e1647e25cd287aa9395",
+      "originalSHA256": "9ed9b29b39d527c6f365b96625175fb3c869422b1fb1a6d05d1c83b34ff03f53",
+      "archivedTextSHA256": "9ed9b29b39d527c6f365b96625175fb3c869422b1fb1a6d05d1c83b34ff03f53",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "installed-hashes.json": {
+      "bundle": "evidence-file-579d99dc5ec36012037f",
+      "originalSHA256": "a72eb84e52f042f8a60ce8e2872adb47c2bb976caeafd6d906b1ae7faa64358a",
+      "archivedTextSHA256": "a72eb84e52f042f8a60ce8e2872adb47c2bb976caeafd6d906b1ae7faa64358a",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "direct-driver-started.json": {
+      "bundle": "evidence-file-0e413d3b4019818ce508",
+      "originalSHA256": "1804c5fcbe92ef4443ba78413e04a8e91ddee99c2a1800fe2eef98e69df6b030",
+      "archivedTextSHA256": "1804c5fcbe92ef4443ba78413e04a8e91ddee99c2a1800fe2eef98e69df6b030",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "direct-driver-result.json": {
+      "bundle": "evidence-file-bf627dc415d9063d24d8",
+      "originalSHA256": "b089cc21103b489307dbf02fad51ed41ee6a43641096d6e8fb70dcb5fef4f98e",
+      "archivedTextSHA256": "b089cc21103b489307dbf02fad51ed41ee6a43641096d6e8fb70dcb5fef4f98e",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "validation.json": {
+      "bundle": "evidence-file-d8946b9f1d91041bc4bb",
+      "originalSHA256": "6fb4b3bbd5371e059d9b09599ad0b267990d92687211738328c9a89030a47de7",
+      "archivedTextSHA256": "6fb4b3bbd5371e059d9b09599ad0b267990d92687211738328c9a89030a47de7",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "validation-process.log": {
+      "bundle": "evidence-file-c937d0b8c700ed28d49e",
+      "originalSHA256": "cb40b80129261aa0d264d09d40af1e60c55f5d0bdadac218cee5bee78be552cc",
+      "archivedTextSHA256": "cb40b80129261aa0d264d09d40af1e60c55f5d0bdadac218cee5bee78be552cc",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "matrix-case-started.json": {
+      "bundle": "evidence-file-dd65fb613d2f8329d68b",
+      "originalSHA256": "c897d8aba3641dc735a7207ad48d48271106703e11c14829f13bd481ed2c308a",
+      "archivedTextSHA256": "c897d8aba3641dc735a7207ad48d48271106703e11c14829f13bd481ed2c308a",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "matrix-case-result.json": {
+      "bundle": "evidence-file-a7dea61e42deb9403627",
+      "originalSHA256": "b38df9da42faf28701d2ff441f7c018c870fb5242246f295cbb2b8aaa88e7d7e",
+      "archivedTextSHA256": "b38df9da42faf28701d2ff441f7c018c870fb5242246f295cbb2b8aaa88e7d7e",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "matrix-launch.log": {
+      "bundle": "evidence-file-12ae32cb1ec02d01eda3",
+      "originalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedTextSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pathRedactions": 0,
+      "frozenSource": false
+    }
+  },
+  "sourceSnapshot": "source-inventory-b8a0f000ecf0ef88f758",
+  "checkpoint": {
+    "bundle": "evidence-file-c76a09a2c22c7059c779",
+    "originalSHA256": "f69695aefd215c33840adb738c798df78da92c5f81160ff078e6082c885798a5",
+    "archivedTextSHA256": "f69695aefd215c33840adb738c798df78da92c5f81160ff078e6082c885798a5",
+    "pathRedactions": 0,
+    "frozenSource": false
+  },
+  "verifiedCheckpointHashPaths": [
+    "work/direct29-v3-direct_cancel/installed-hashes.json",
+    "work/direct29-v3-direct_cancel/run.sh",
+    "work/direct29-v3-direct_cancel/source-hashes.json",
+    "work/direct29-v3-matrix/bundle-hashes.json",
+    "work/direct29-v3-matrix/frozen/matrix_runner.py",
+    "work/direct29-v3-matrix/frozen/recovery.py",
+    "work/direct29-v3-matrix/matrix.json",
+    "work/direct29-v3-direct_cancel/matrix-case-result.json",
+    "work/direct29-v3-direct_cancel/validation.json"
+  ],
+  "buildCorrespondence": {
+    "hostManifest": "work/preceding29/host-manifest03.json",
+    "matchedFrozenHostSources": [
+      "experiments/scapi-tool-agent/Program.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.Prefetch.cs",
+      "experiments/scapi-tool-agent/PlanningPhaseContext.cs",
+      "experiments/scapi-tool-agent/PrecedingExecution.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.PrecedingExecution.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.DirectHandoffFixture.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.HandoffFixture.cs",
+      "experiments/scapi-tool-agent/NativeToolOffers.cs"
+    ],
+    "verifiedInstalledBinaryHashes": {
+      "ToolAgentGate.dll": "d4253c45cf045eef40f32949879fcc36a45af6e20c0fa3b34bd7399319ca9a53",
+      "Survivalcraft.dll": "1635fb73b8f7a53fbf284e394db646670c5c36a5d896becec95a1cdac053acbb",
+      "Westworld.Runtime.Core.dll": "a8dd50fa4b793b0e0e0c72f893accc9d2f8e23aeb19592d346d2b002e4618e80",
+      "Westworld.Scapi.Adapter.dll": "16be28aa8202b121651e016ff0b84437475c45ad6e5ed05c55cba1bfe2ced48e",
+      "Westworld.Decisions.Local.dll": "78d97963eb70a037c525f10c2dc6d72074e1bd29341ba32d87182cc9b9076f6e"
+    },
+    "limit": "8份宿主源码与宿主产物匹配；不声称整个游戏按全部冻结源码重新构建。"
+  }
+}

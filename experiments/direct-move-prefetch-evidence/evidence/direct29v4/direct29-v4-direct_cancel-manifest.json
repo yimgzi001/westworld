@@ -1,0 +1,225 @@
+{
+  "summary": {
+    "case": "direct_cancel",
+    "validationVerdict": "pass",
+    "validationCheckCounts": {
+      "pass": 32
+    },
+    "nonPassChecks": [],
+    "metrics": {
+      "eastwardDisplacementMetres": 1.2116099999999932,
+      "lateralDisplacementMetres": 0.0,
+      "netDisplacementMetres": 1.2116099999999932,
+      "sampleGapsOver150ms": 0,
+      "sampledInferenceMotionPairs": 3,
+      "sampledInferenceMotionSeconds": 0.3120212689973414,
+      "sampledInferencePathMetres": 0.6311600000000084,
+      "sampledPathMetres": 1.19404999999999
+    },
+    "hostResult": {
+      "kind": "result",
+      "passed": true,
+      "reason": "direct_prefetch_fixture_verified",
+      "seconds": 8.0538347,
+      "updateFailures": 0
+    },
+    "hostExit": 0,
+    "driverExit": 0,
+    "eventCounts": {
+      "start": 1,
+      "goal_accepted": 1,
+      "path_origin_after_fixture": 1,
+      "tool_receipt": 595,
+      "direct_fixture_dismount": 1,
+      "direct_fixture_prepared": 1,
+      "direct_fixture_ready": 1,
+      "model_prompt": 1,
+      "decision_request_started": 1,
+      "controller_request_published": 2,
+      "controller_response_received": 1,
+      "model_response": 1,
+      "tool_step_queued": 1,
+      "native_call_started": 1,
+      "predecessor_bound": 1,
+      "native_call_returned": 1,
+      "predecessor_physical_sample": 22,
+      "prefetch_requested": 1,
+      "direct_fixture_injection": 1,
+      "prefetch_invalidated": 2,
+      "controller_request_canceled": 1,
+      "prefetch_failure": 1,
+      "native_terminal_observed": 1,
+      "prefetch_preceding_terminal": 1,
+      "direct_fixture_result": 1,
+      "stop_drained": 1,
+      "model_shutdown_audit": 1,
+      "final_audit": 1,
+      "result": 1
+    },
+    "prefetchTaken": 0,
+    "modelInFlightAtEnd": false,
+    "hostReportedOverlapSeconds": 0.4014224810016458,
+    "hostReportedOverlapPath": 0.8077468872070312
+  },
+  "logs": {
+    "tool-agent.jsonl": {
+      "bundle": "evidence-file-b36b834c97f9637f83c1",
+      "originalSHA256": "bc31a559a243a8e18ddf5d65e6828ab8aeea7dc56f5058c35efebc9ed01ca833",
+      "archivedTextSHA256": "11f6b9b4a2bd6983c90c8f41becf9d3b2dc1c65308fc03d89e4c51a3ff96a8d3",
+      "pathRedactions": 3,
+      "frozenSource": false
+    },
+    "console.log": {
+      "bundle": "evidence-file-d8a1ba024653787ad840",
+      "originalSHA256": "3399a16f1aa3f796f67c94a2e1d8407161270953a278c47a6ee83f57302a6b7b",
+      "archivedTextSHA256": "a022f15643a8d500b0aa899eceaef353ed1b18fd781431777a944c94fc32dca2",
+      "pathRedactions": 3,
+      "frozenSource": false
+    },
+    "exit.txt": {
+      "bundle": "evidence-file-06b169cbfe65ea576349",
+      "originalSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "archivedTextSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "driver-exit.txt": {
+      "bundle": "evidence-file-06b169cbfe65ea576349",
+      "originalSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "archivedTextSHA256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "driver.log": {
+      "bundle": "evidence-file-4461f7dbd11a80d7277b",
+      "originalSHA256": "35381d7ae0ca25be4167a7709fc34f3a213ae1ae06564beaba581cb0c1299197",
+      "archivedTextSHA256": "35381d7ae0ca25be4167a7709fc34f3a213ae1ae06564beaba581cb0c1299197",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "run.sh": {
+      "bundle": "evidence-file-d8df78420cd531ff8e73",
+      "originalSHA256": "83492e01ceb0551b5cbe1213a7771538aac64f3a80e7cfb01ce5e8c117aa9717",
+      "archivedTextSHA256": "38066846655ac4569b82441de3a18d811f7c834e7eaeeb4d53c4140655561b74",
+      "pathRedactions": 2,
+      "frozenSource": false
+    },
+    "init.js": {
+      "bundle": "evidence-file-40bf11bf1369f73b9807",
+      "originalSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "archivedTextSHA256": "0f9c59c696e490f8e7261d74664b9234204e57139504bc9ece7aa3032771f9fa",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "stage.json": {
+      "bundle": "evidence-file-069418c723336c42ff19",
+      "originalSHA256": "198258a8fa952d1af331a4ad42b5ea4a23c4d66c3a5419167f71ef8cdefefea1",
+      "archivedTextSHA256": "26cf113e8569813a0366bbf1c62b12c67558f4ca749a449318f51d7075d92553",
+      "pathRedactions": 1,
+      "frozenSource": false
+    },
+    "source-hashes.json": {
+      "bundle": "evidence-file-d97bf20b02492257796a",
+      "originalSHA256": "5ddc3e941e74a2ab0d0656dd3f2ea926c1ffddbc012bb577f15255cac9316cac",
+      "archivedTextSHA256": "5ddc3e941e74a2ab0d0656dd3f2ea926c1ffddbc012bb577f15255cac9316cac",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "installed-hashes.json": {
+      "bundle": "evidence-file-4f34cb27e8557741aae9",
+      "originalSHA256": "7ecc9ab661f5dc5bd1442ed28d9c31b470bc82c4d2895b2826fb72d81e0b32e5",
+      "archivedTextSHA256": "7ecc9ab661f5dc5bd1442ed28d9c31b470bc82c4d2895b2826fb72d81e0b32e5",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "direct-driver-started.json": {
+      "bundle": "evidence-file-0e413d3b4019818ce508",
+      "originalSHA256": "1804c5fcbe92ef4443ba78413e04a8e91ddee99c2a1800fe2eef98e69df6b030",
+      "archivedTextSHA256": "1804c5fcbe92ef4443ba78413e04a8e91ddee99c2a1800fe2eef98e69df6b030",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "direct-driver-result.json": {
+      "bundle": "evidence-file-90b87e966cd38ba04ec8",
+      "originalSHA256": "ab8b99c37c5619a84802d9f219b790f4a391bcb4fb209016f2bd88b7e58f92db",
+      "archivedTextSHA256": "ab8b99c37c5619a84802d9f219b790f4a391bcb4fb209016f2bd88b7e58f92db",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "validation.json": {
+      "bundle": "evidence-file-1b371e66ae2765c721c5",
+      "originalSHA256": "41101458a837a124496e9c41b46d362e6a69f54c96fd48fc5bd26ed5538dc0df",
+      "archivedTextSHA256": "41101458a837a124496e9c41b46d362e6a69f54c96fd48fc5bd26ed5538dc0df",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "validation-process.log": {
+      "bundle": "evidence-file-b40c50325ccd9927a067",
+      "originalSHA256": "0fd9f98702a35f019d20b477ecf00dd68dae41ec1765b10b9520ee8cd15d67b6",
+      "archivedTextSHA256": "0fd9f98702a35f019d20b477ecf00dd68dae41ec1765b10b9520ee8cd15d67b6",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "matrix-case-started.json": {
+      "bundle": "evidence-file-b837915d1cf240809dd9",
+      "originalSHA256": "2e9cbe455047e37b2743c33c6f6cf36b0ffb438fdc2cc18c7fd4444797d77c13",
+      "archivedTextSHA256": "2e9cbe455047e37b2743c33c6f6cf36b0ffb438fdc2cc18c7fd4444797d77c13",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "matrix-case-result.json": {
+      "bundle": "evidence-file-a57d2a6f48029559c010",
+      "originalSHA256": "cc94aa4bc1272fb120c38838d87fc97b3bcb6314d16d4ceade97de90a843fd4d",
+      "archivedTextSHA256": "cc94aa4bc1272fb120c38838d87fc97b3bcb6314d16d4ceade97de90a843fd4d",
+      "pathRedactions": 0,
+      "frozenSource": false
+    },
+    "matrix-launch.log": {
+      "bundle": "evidence-file-12ae32cb1ec02d01eda3",
+      "originalSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archivedTextSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pathRedactions": 0,
+      "frozenSource": false
+    }
+  },
+  "sourceSnapshot": "source-inventory-39b58bb246b35b214838",
+  "checkpoint": {
+    "bundle": "evidence-file-fad80ee50237d51ddd60",
+    "originalSHA256": "3b330e78fb2396cbe1d5ec50130b60f0c545dde789d3ae48eb07e2ad3578255c",
+    "archivedTextSHA256": "3b330e78fb2396cbe1d5ec50130b60f0c545dde789d3ae48eb07e2ad3578255c",
+    "pathRedactions": 0,
+    "frozenSource": false
+  },
+  "verifiedCheckpointHashPaths": [
+    "work/direct29-v4-direct_cancel/installed-hashes.json",
+    "work/direct29-v4-direct_cancel/run.sh",
+    "work/direct29-v4-direct_cancel/source-hashes.json",
+    "work/direct29-v4-matrix/bundle-hashes.json",
+    "work/direct29-v4-matrix/frozen/matrix_runner.py",
+    "work/direct29-v4-matrix/frozen/recovery.py",
+    "work/direct29-v4-matrix/matrix.json",
+    "work/direct29-v4-direct_cancel/matrix-case-result.json",
+    "work/direct29-v4-direct_cancel/validation.json"
+  ],
+  "buildCorrespondence": {
+    "hostManifest": "work/preceding29/host-manifest04.json",
+    "matchedFrozenHostSources": [
+      "experiments/scapi-tool-agent/Program.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.Prefetch.cs",
+      "experiments/scapi-tool-agent/PlanningPhaseContext.cs",
+      "experiments/scapi-tool-agent/PrecedingExecution.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.PrecedingExecution.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.DirectHandoffFixture.cs",
+      "experiments/scapi-tool-agent/ToolAgentScenario.HandoffFixture.cs",
+      "experiments/scapi-tool-agent/NativeToolOffers.cs"
+    ],
+    "verifiedInstalledBinaryHashes": {
+      "ToolAgentGate.dll": "4b7dfbdf31fc1df5736aa1f2ad3006c92c6c503efa021d647c2027a1dc739cfd",
+      "Survivalcraft.dll": "1635fb73b8f7a53fbf284e394db646670c5c36a5d896becec95a1cdac053acbb",
+      "Westworld.Runtime.Core.dll": "a8dd50fa4b793b0e0e0c72f893accc9d2f8e23aeb19592d346d2b002e4618e80",
+      "Westworld.Scapi.Adapter.dll": "16be28aa8202b121651e016ff0b84437475c45ad6e5ed05c55cba1bfe2ced48e",
+      "Westworld.Decisions.Local.dll": "78d97963eb70a037c525f10c2dc6d72074e1bd29341ba32d87182cc9b9076f6e"
+    },
+    "limit": "8份宿主源码与宿主产物匹配；不声称整个游戏按全部冻结源码重新构建。"
+  }
+}
