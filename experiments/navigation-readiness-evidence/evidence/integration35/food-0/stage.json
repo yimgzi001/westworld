@@ -1,0 +1,17 @@
+{
+  "schema": "natural-resource-stage-v1",
+  "mode": "natural_food file natural34-b",
+  "controllerKind": "model",
+  "status": "staged_not_run",
+  "stagingOnly": true,
+  "automaticDriver": false,
+  "automaticApi": false,
+  "sourceBuildCorrespondence": "Hashes capture given binaries and current source separately; coordinator must verify source/build correspondence. Staging does not prove it.",
+  "buildOutput": "<CLOUD_REPO>/work/visible-facts-host-isolated/bin/ToolAgentGate/debug",
+  "sourceCount": 156,
+  "maximumDriverRequests": 8,
+  "maximumDriverSeconds": 180,
+  "seed": "natural34-b",
+  "fixture": "none; newly generated world; production host must independently confirm no injection",
+  "foodSuccessRequiresIndependentValidation": true
+}

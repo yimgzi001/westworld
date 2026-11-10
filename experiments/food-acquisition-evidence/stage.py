@@ -2,9 +2,9 @@
 """Stage a given existing build. Never build, launch a game/driver, or call an API."""
 import argparse,hashlib,json,pathlib,re,shlex,shutil
 REQUIRED=('ToolAgentGate.dll','Survivalcraft.dll','Westworld.Scapi.Adapter.dll','Westworld.Runtime.Core.dll','Westworld.Decisions.Local.dll','ToolAgentGate.runtimeconfig.json','ToolAgentGate.deps.json','runtimes/linux-x64/native/libglfw.so.3','runtimes/linux-x64/native/libnfd.so')
-SOURCE_FOLDERS=('runtime','game/Survivalcraft/Westworld','experiments/scapi-tool-agent','experiments/food-acquisition-evidence','experiments/openai-tool-controller','experiments/direct-move-prefetch-evidence','experiments/integration-matrix')
+SOURCE_FOLDERS=('runtime','game/Survivalcraft/Westworld','experiments/scapi-tool-agent','experiments/food-acquisition-evidence','experiments/openai-tool-controller','experiments/direct-move-prefetch-evidence','experiments/integration-matrix','experiments/navigation-readiness-evidence')
 SOURCE_FILES=('game/Survivalcraft/Component/ComponentPickableGathererPlayer.cs','experiments/navigation-continuity/driver.py')
-DIRECT_CASES=('direct_early','direct_late','direct_failure','direct_cancel','direct_replace','direct_stale_reference','direct_model','direct_tail_failure')
+DIRECT_CASES=('direct_early','direct_late','direct_failure','direct_cancel','direct_replace','direct_stale_reference','direct_model','direct_tail_failure','direct_readiness')
 def safe(path):
  p=pathlib.Path(path).absolute()
  if any(x.is_symlink() for x in (p,*p.parents)):raise ValueError('symlink')

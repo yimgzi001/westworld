@@ -56,7 +56,7 @@ public sealed class NativeToolSession {
   public bool Busy=>bounded.Busy;
   public bool OwnerQuarantined=>bounded.OwnerQuarantined;
   public Guid RequestId=>bounded.Snapshot.RequestId;
-  public JsonElement ReadStatus(){var s=bounded.Snapshot;return JsonSerializer.SerializeToElement(new{request_id=s.RequestId,status=s.Status.ToString().ToLowerInvariant(),reason=s.Reason,busy=s.Busy,owner_quarantined=bounded.OwnerQuarantined,segments=s.Segments,path=s.Path,remaining=s.RequestId==Guid.Empty?(double?)null:s.Remaining});}
+  public JsonElement ReadStatus(){var s=bounded.Snapshot;return JsonSerializer.SerializeToElement(new{request_id=s.RequestId,status=s.Status.ToString().ToLowerInvariant(),reason=s.Reason,busy=s.Busy,owner_quarantined=bounded.OwnerQuarantined,segments=s.Segments,path=s.Path,remaining=s.RequestId==Guid.Empty?(double?)null:s.Remaining,readiness=s.Readiness,start_failure_readiness=s.StartFailureReadiness,elapsed_seconds=s.ElapsedSeconds,budget_seconds=s.BudgetSeconds,completion_meaning=s.CompletionMeaning});}
   public void Start(Guid request,double bearing,double distance,double maxSeconds)=>bounded.Start(request,bearing,distance,maxSeconds);
   public void Cancel()=>bounded.Cancel("host_cancel_navigation");
  }

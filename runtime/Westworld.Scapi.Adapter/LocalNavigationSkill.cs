@@ -40,14 +40,13 @@ public sealed class LocalNavigationSkill {
  /// <summary>Read-only identity check; does not grant action ownership.</summary>
  public bool Matches(ComponentPlayer candidate,AtomicActions candidateActions)=>ReferenceEquals(player,candidate)&&ReferenceEquals(actions,candidateActions);
  public bool Matches(ComponentPlayer candidate,LocalNavigationSkillLease candidateLease)=>ReferenceEquals(player,candidate)&&ReferenceEquals(lease,candidateLease);
+ public NavigationReadiness ReadReadiness(){Owner();var b=player.ComponentBody;var v=b.Velocity;return NavigationReadiness.Evaluate(b.StandingOnValue.HasValue,b.ParentBody is not null,b.ImmersionFactor,v.Y,v.XZ.Length(),player.ComponentHealth.Health);}
  public void Start(Guid requestId,Position requestedDirectionPoint) {
   Owner();if(Status!=LocalNavigationStatus.Idle&&!Terminal)throw new InvalidOperationException("Skill still owns action/settling");
   if(requestId==Guid.Empty||!Finite(requestedDirectionPoint))throw new ArgumentException("Invalid request");
   if(lease.ClockFaulted)throw new InvalidOperationException("Clock fault: new observation session required");
-  var body=player.ComponentBody;var velocity=body.Velocity;
-  if(!body.StandingOnValue.HasValue||body.ParentBody is not null||body.ImmersionFactor>.1
-    ||Math.Abs(velocity.Y)>.1||velocity.XZ.Length()>.1||player.ComponentHealth.Health<=0)
-   throw new InvalidOperationException("Stable living ground actor required before new segment");
+  var readiness=ReadReadiness();
+  if(!readiness.Ready)throw new NavigationNotReadyException(readiness);
   if(!lease.TryAcquire(requestId,GameTime))throw new InvalidOperationException("Native owner busy, quarantined or clock invalid");
   RequestId=requestId;bias=requestedDirectionPoint;started=Stopwatch.GetTimestamp();lastGameTime=GameTime;
   previous=player.ComponentBody.Position;ActualHorizontalPath=0;look=new(16);corridorLook=new(4);alignedCell=null;preparations=0;cancelled=false;

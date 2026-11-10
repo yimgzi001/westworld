@@ -1,0 +1,12 @@
+{
+  "schema": "n35-readiness-driver-v1",
+  "case": "direct_readiness",
+  "nonModelControlledFixture": true,
+  "maximumRequests": 4,
+  "maximumSeconds": 65,
+  "navigationArguments": {
+    "bearing": 90,
+    "distance": 1,
+    "max_seconds": 4
+  }
+}

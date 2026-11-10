@@ -1,0 +1,14 @@
+{
+  "schema": "food-acquisition-stage-v1",
+  "mode": "handoff file direct_readiness",
+  "controllerKind": "deterministic",
+  "status": "staged_not_run",
+  "stagingOnly": true,
+  "automaticDriver": false,
+  "automaticApi": false,
+  "sourceBuildCorrespondence": "Hashes capture given binaries and current source separately; coordinator must verify source/build correspondence. Staging does not prove it.",
+  "buildOutput": "<CLOUD_REPO>/work/visible-facts-host-isolated/bin/ToolAgentGate/debug",
+  "sourceCount": 150,
+  "maximumDriverRequests": 4,
+  "maximumDriverSeconds": 180
+}

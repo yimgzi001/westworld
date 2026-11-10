@@ -45,6 +45,7 @@ internal sealed partial class ToolAgentScenario {
   }
  }
  bool EndDirectHandoffFixture(){
+  if(ToolAgentGate.HandoffCase=="direct_readiness")return EndReadinessFixture();
   if(IsDirectModelFixture){
    var delta=p.ComponentBody.Position-origin;
    bool endpoint=DirectModelEndpoint.Reached(delta.X,delta.Y,delta.Z,p.ComponentBody.Velocity.Length(),p.ComponentHealth.Health,

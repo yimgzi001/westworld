@@ -15,12 +15,18 @@ namespace Game.Westworld {
 }
 namespace Westworld.Scapi.Adapter {
  public enum BoundedNavigationStatus {Idle,Running,Stopping,Arrived,Failed,Cancelled}
- public sealed record BoundedNavigationSnapshot(Guid RequestId,BoundedNavigationStatus Status,string Reason,bool Busy,int Segments,double Path,double Remaining);
+ public sealed record BoundedNavigationSnapshot(Guid RequestId,BoundedNavigationStatus Status,string Reason,bool Busy,int Segments,double Path,double Remaining) {
+ public NavigationReadiness? Readiness {get;init;}
+ public NavigationReadiness? StartFailureReadiness {get;init;}
+ public double ElapsedSeconds {get;init;}
+ public double BudgetSeconds {get;init;}
+ public string CompletionMeaning {get;init;}=NavigationCompletionSemantics.Navigation;
+}
  public sealed class BoundedLocalNavigation(Game.ComponentPlayer player,Game.Westworld.AtomicActions owner){
   public bool OwnerQuarantined{get;set;}
   Guid request;public bool Busy{get;private set;}public int Starts,Cancels;BoundedNavigationStatus status;
   public bool Matches(Game.ComponentPlayer p,Game.Westworld.AtomicActions a)=>ReferenceEquals(player,p)&&ReferenceEquals(owner,a);
-  public BoundedNavigationSnapshot Snapshot=>new(request,status,"fixture",Busy,0,0,999);
+  public BoundedNavigationSnapshot Snapshot=>new(request,status,"fixture",Busy,0,0,999){Readiness=NavigationReadiness.Evaluate(true,false,0,0,0,1),StartFailureReadiness=NavigationReadiness.Evaluate(false,false,0,3.57,0,1),ElapsedSeconds=2,BudgetSeconds=4};
   public void Start(Guid r,double b,double d,double s){request=r;Starts++;Busy=true;status=BoundedNavigationStatus.Running;}
   public void Cancel(string why){Cancels++;status=BoundedNavigationStatus.Stopping;}
  }
@@ -31,6 +37,14 @@ static class NativeChecks {
   R(()=>session.AttachNavigation(new(new Game.ComponentPlayer(),owner),owner));R(()=>session.AttachNavigation(nav,new()));
   session.AttachNavigation(nav,owner);R(()=>session.AttachNavigation(nav,owner));R(()=>new Westworld.Scapi.Adapter.NativeToolSession(Guid.NewGuid(),p,tools));
   C(session.GetTools().Count==9);C(session.Call("host_navigation_status",new{}).Data.GetProperty("remaining").ValueKind==JsonValueKind.Null);
+  var diagnostics=session.Call("host_navigation_status",new{}).Data;
+  C(diagnostics.GetProperty("readiness").GetProperty("Ready").GetBoolean());
+  C(!diagnostics.GetProperty("start_failure_readiness").GetProperty("Ready").GetBoolean());
+  C(diagnostics.GetProperty("start_failure_readiness").GetProperty("Blockers").EnumerateArray().Any(x=>x.GetString()=="not_grounded"));
+  C(diagnostics.GetProperty("start_failure_readiness").GetProperty("VerticalVelocity").GetDouble()==3.57);
+  C(diagnostics.GetProperty("elapsed_seconds").GetDouble()==2);
+  C(diagnostics.GetProperty("budget_seconds").GetDouble()==4);
+  C(diagnostics.GetProperty("completion_meaning").GetString()==Westworld.Scapi.Adapter.NavigationCompletionSemantics.Navigation);
   owner.IsActionRunning=true;C(session.Call("host_navigate_local",new{bearing=90,distance=3}).Data.GetProperty("status").GetString()=="rejected"&&nav.Starts==0);owner.IsActionRunning=false;
   foreach(var status in new string?[]{null,"unknown","running","waiting","blocked"}){tools.TaskStatus=status;C(session.Call("host_navigate_local",new{bearing=90,distance=3}).Data.GetProperty("status").GetString()=="rejected"&&nav.Starts==0);}
   tools.TaskStatus="idle";tools.TaskReadFails=true;C(session.Call("host_navigate_local",new{bearing=90,distance=3}).Data.GetProperty("status").GetString()=="rejected");tools.TaskReadFails=false;

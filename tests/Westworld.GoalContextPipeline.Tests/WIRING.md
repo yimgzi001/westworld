@@ -1,0 +1,13 @@
+# 35 宿主接线
+
+- 原Snapshot仍只调用一次observe，记录该快照单调时间。普通、预取、逐步复验共用Prompt。
+- CompactInventory先完成既有itemFacts读取，再投影GoalFacts，不新增observe/read_inventory/read_item或模型调用。
+- 原始goal保留在facts.goal；goalExecution.progress保留稳定goalId、当前模型子目标、快照身份/时间、全部item状态、criterion状态。重复criterion观察时间/解释文本不重复发送，经验ID保留在item；不按策略删items。
+- verifiedHarvestSources仅取已实际同run成功Dig且存在真实来源绑定的源。新公开经验ID按本人已证实获取的value独立分配，不发送sourceId、origin坐标、目标实体/他人数据。未取到的隐藏drop不会成为items。
+- 自动拾取即使晚于旧动作反馈，也在下一次实际库存快照与持久账本交叉后体现。outcomeFeedback的旧delta原样保留，不倒填历史。
+- 本人当前物品Nutrition由既有已公开ItemFacts缓存提供，无可用值则unknown。食物criterion采用new_edible_source_*，any-resource不能冒充可食目标。
+- 请求事实采用现有rounds，准备本请求前的已扣数/剩余数，不假报本请求已发送；prepared_not_sent与validation_only_no_new_request区分。准备态deadline未知null，preparedRequestUpperBoundSeconds来自权威RequestWindow；逐步复验只用冻结acceptedCandidateDeadline。取消总数没有统一可信计数时null；不退款。Token统计未接入则null/UsageComplete=false，不写0。
+- 原native terminal.navigation承接readiness worker的真实自身体感/启动失败快照与成功语义，不额外观察。没有自动Wait、Eat、换路或重试。
+- 流水线输入预算13600/15600为compaction元数据留余量，最终14000/16000硬限仍在。若全部必要facts本身超限，仍明确失败，不默默丢事实。
+
+readiness专属受控case只在handoff/direct_readiness保留host_navigation_status菜单，并使用专属非模型测试目标；不改变自然运行策略。人工平地/原生下船准备不能称自然世界能力。

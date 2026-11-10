@@ -58,6 +58,15 @@ class StageTests(unittest.TestCase):
    self.assertEqual(m['maximumDriverRequests'],4);self.assertEqual(m['maximumDriverSeconds'],180)
    self.assertIn('ToolAgentGate.dll handoff file direct_model >console.log',(dest/'run.sh').read_text())
    self.assertNotIn('controller.py',(dest/'run.sh').read_text())
+ def test_direct_tail_failure_explicit_case_and_integration_frozen(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root,out,content=self.setup(tmp)
+   source=root/'experiments/integration-matrix/tail_driver.py';source.parent.mkdir(parents=True);source.write_text('# synthetic frozen driver')
+   dest=stage.stage(root,'tail34',out,content,'deterministic','direct_tail_failure')
+   self.assertIn('ToolAgentGate.dll handoff file direct_tail_failure >console.log',(dest/'run.sh').read_text())
+   relative='experiments/integration-matrix/tail_driver.py'
+   self.assertEqual((dest/'sources'/relative).read_text(),source.read_text())
+   self.assertIn(relative,json.loads((dest/'source-hashes.json').read_text()))
  def test_unknown_case_no_stage(self):
   with tempfile.TemporaryDirectory() as tmp:
    root,out,content=self.setup(tmp)

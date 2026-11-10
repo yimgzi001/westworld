@@ -1,0 +1,7 @@
+{
+  "schema": "n35-readiness-validation-v1",
+  "verdict": "pass",
+  "failures": [],
+  "unknown": [],
+  "scope": "Artificial non-model Jump/input-pulse and default navigation readiness gate only."
+}

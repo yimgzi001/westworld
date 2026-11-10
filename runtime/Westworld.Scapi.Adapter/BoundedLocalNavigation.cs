@@ -5,7 +5,13 @@ using Westworld.Runtime.Core;
 namespace Westworld.Scapi.Adapter;
 
 public enum BoundedNavigationStatus { Idle, Running, Stopping, Arrived, Failed, Cancelled }
-public sealed record BoundedNavigationSnapshot(Guid RequestId,BoundedNavigationStatus Status,string Reason,bool Busy,int Segments,double Path,double Remaining);
+public sealed record BoundedNavigationSnapshot(Guid RequestId,BoundedNavigationStatus Status,string Reason,bool Busy,int Segments,double Path,double Remaining) {
+ public NavigationReadiness? Readiness {get;init;}
+ public NavigationReadiness? StartFailureReadiness {get;init;}
+ public double ElapsedSeconds {get;init;}
+ public double BudgetSeconds {get;init;}
+ public string CompletionMeaning {get;init;}=NavigationCompletionSemantics.Navigation;
+}
 /// <summary>Pure budget rules. Distance is an endpoint objective, never permission to cross unknown cells.</summary>
 public static class BoundedNavigationRules {
  public static void Validate(double bearing,double distance,double seconds){if(!double.IsFinite(bearing)||bearing<0||bearing>=360||!double.IsFinite(distance)||distance<1||distance>4||!double.IsFinite(seconds)||seconds<1||seconds>12)throw new ArgumentOutOfRangeException("Finite bearing[0,360), distance[1,4], seconds[1,12] required");}
@@ -21,6 +27,7 @@ public static class BoundedNavigationRules {
 /// including between segment leases. Uses the supplied sole native owner; never calls a model.
 /// Cancellation remains Busy until the native skill settles or quarantines. No world lookup.</summary>
 public sealed class BoundedLocalNavigation {
+ NavigationReadiness? startFailureReadiness;
  readonly Guid telemetryOwnerId=Guid.NewGuid();
  readonly ComponentPlayer player;readonly LocalNavigationSkill skill;readonly LocalNavigationSkillLease lease;readonly Action<object> audit;
  readonly int thread=Environment.CurrentManagedThreadId;long started;double budget,path;int segments;Position target=new(0,0,0);Guid request,segmentRequest;string reason="idle";BoundedNavigationStatus status;BoundedNavigationStatus stoppingResult;bool counted,ownershipLost;
@@ -29,12 +36,12 @@ public sealed class BoundedLocalNavigation {
  public bool OwnerQuarantined=>ownershipLost||lease.Quarantined||lease.ClockFaulted;
  public bool Busy=>status is BoundedNavigationStatus.Running or BoundedNavigationStatus.Stopping;
  public bool Terminal=>status is BoundedNavigationStatus.Arrived or BoundedNavigationStatus.Failed or BoundedNavigationStatus.Cancelled;
- public BoundedNavigationSnapshot Snapshot=>new(request,status,reason,Busy,segments,path+(Busy&&!counted?skill.ActualHorizontalPath:0),Remaining);
+ public BoundedNavigationSnapshot Snapshot=>new(request,status,reason,Busy,segments,path+(Busy&&!counted?skill.ActualHorizontalPath:0) ,Remaining){Readiness=skill.ReadReadiness(),StartFailureReadiness=startFailureReadiness,ElapsedSeconds=request==Guid.Empty?0:Stopwatch.GetElapsedTime(started).TotalSeconds,BudgetSeconds=budget};
  double Remaining{get{var b=player.ComponentBody.Position;return Math.Sqrt(Math.Pow(b.X-target.X,2)+Math.Pow(b.Z-target.Z,2));}}
  void Owner(){if(Environment.CurrentManagedThreadId!=thread)throw new InvalidOperationException("Game thread required");}
  public void Start(Guid requestId,double bearing,double distance,double maxSeconds=12){Owner();if(Busy||(!skill.Terminal&&skill.Status!=LocalNavigationStatus.Idle))throw new InvalidOperationException("Navigation owner busy");BoundedNavigationRules.Validate(bearing,distance,maxSeconds);if(requestId==Guid.Empty||OwnerQuarantined||lease.ClockFaulted)throw new InvalidOperationException("Invalid request or quarantined owner");
-  var p=player.ComponentBody.Position;double radians=bearing*Math.PI/180;target=new(p.X+Math.Sin(radians)*distance,p.Y,p.Z+Math.Cos(radians)*distance);request=requestId;budget=maxSeconds;started=Stopwatch.GetTimestamp();segments=0;path=0;status=BoundedNavigationStatus.Running;reason="started";Begin();}
- void Begin(){counted=true;segmentRequest=Guid.NewGuid();try{skill.Start(segmentRequest,target);counted=false;segments++;audit(new{kind="bounded_navigation_segment",request,segments,target,elapsedSeconds=Stopwatch.GetElapsedTime(started).TotalSeconds,monotonicTicks=Stopwatch.GetTimestamp(),monotonicFrequency=Stopwatch.Frequency});}catch(Exception e){reason="segment_start_"+e.GetType().Name;if(skill.RequestId==segmentRequest&&!skill.Terminal&&skill.Status!=LocalNavigationStatus.Idle){counted=false;stoppingResult=BoundedNavigationStatus.Failed;status=BoundedNavigationStatus.Stopping;skill.Cancel(reason);}else status=BoundedNavigationStatus.Failed;}}
+  var p=player.ComponentBody.Position;double radians=bearing*Math.PI/180;target=new(p.X+Math.Sin(radians)*distance,p.Y,p.Z+Math.Cos(radians)*distance);request=requestId;budget=maxSeconds;started=Stopwatch.GetTimestamp();segments=0;path=0;startFailureReadiness=null;status=BoundedNavigationStatus.Running;reason="started";Begin();}
+ void Begin(){counted=true;segmentRequest=Guid.NewGuid();try{skill.Start(segmentRequest,target);counted=false;segments++;audit(new{kind="bounded_navigation_segment",request,segments,target,elapsedSeconds=Stopwatch.GetElapsedTime(started).TotalSeconds,monotonicTicks=Stopwatch.GetTimestamp(),monotonicFrequency=Stopwatch.Frequency});}catch(Exception e){startFailureReadiness=(e as NavigationNotReadyException)?.Readiness;reason=startFailureReadiness is null?"segment_start_"+e.GetType().Name:"body_not_ready";if(skill.RequestId==segmentRequest&&!skill.Terminal&&skill.Status!=LocalNavigationStatus.Idle){counted=false;stoppingResult=BoundedNavigationStatus.Failed;status=BoundedNavigationStatus.Stopping;skill.Cancel(reason);}else status=BoundedNavigationStatus.Failed;}}
  public void Cancel(string why="cancel_requested"){Owner();if(!Busy)return;if(skill.RequestId!=segmentRequest){ownershipLost=true;status=BoundedNavigationStatus.Failed;reason="request_ownership_lost";throw new InvalidOperationException("Navigation request ownership lost");}reason=why;stoppingResult=BoundedNavigationStatus.Cancelled;status=BoundedNavigationStatus.Stopping;skill.Cancel(why);}
  public void Update(){Owner();if(!Busy){if(request!=Guid.Empty)Sample();return;}try{if(skill.RequestId!=segmentRequest){ownershipLost=true;status=BoundedNavigationStatus.Failed;reason="request_ownership_lost";return;}skill.Update();if(skill.Terminal&&!counted){path+=skill.ActualHorizontalPath;counted=true;}
   if(status==BoundedNavigationStatus.Stopping){if(skill.Terminal||skill.Status==LocalNavigationStatus.Idle){status=lease.Quarantined?BoundedNavigationStatus.Failed:stoppingResult;audit(new{kind="bounded_navigation_terminal",snapshot=Snapshot,lease.Quarantined,elapsedSeconds=Stopwatch.GetElapsedTime(started).TotalSeconds,monotonicTicks=Stopwatch.GetTimestamp(),monotonicFrequency=Stopwatch.Frequency});}return;}

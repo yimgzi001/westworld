@@ -1,0 +1,11 @@
+{
+  "mode": "supported_authorized_exec_driver_plus_cloud_gui_host",
+  "driverSession": 49135,
+  "model": "gpt-6.1-terra",
+  "reasoningEffort": "none",
+  "maxRequests": 8,
+  "totalSeconds": 180,
+  "freshStage": true,
+  "replay": false,
+  "keyPersisted": false
+}
