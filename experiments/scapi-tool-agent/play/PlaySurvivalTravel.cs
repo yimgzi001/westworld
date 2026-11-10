@@ -20,6 +20,7 @@ internal sealed class PlaySurvivalTravel
     private readonly Func<LocalObservationWindow> readDryWindow;
     private readonly Func<Position, int>? visits;
     private readonly PlaySurvivalFood.Food? foodTarget;
+    private readonly Vector3? shelterTarget;
     private readonly Action<object> log;
     private Vector2 direction;
     private Vector3 legOrigin;
@@ -37,7 +38,7 @@ internal sealed class PlaySurvivalTravel
     public PlaySurvivalTravel(ComponentPlayer player, AtomicActions owner, float bearing, float distance,
         string seek, bool evading, double gameTime, Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe,
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
-        PlaySurvivalFood.Food? foodTarget = null)
+        PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null)
     {
         this.player = player;
         this.owner = owner;
@@ -47,6 +48,7 @@ internal sealed class PlaySurvivalTravel
         this.readDryWindow = readDryWindow;
         this.visits = visits;
         this.foodTarget = foodTarget;
+        this.shelterTarget = shelterTarget;
         this.log = log;
         Evading = evading;
         Origin = player.ComponentBody.Position;
@@ -134,10 +136,20 @@ internal sealed class PlaySurvivalTravel
                 if (offset.LengthSquared() > 0.1f) direction = Vector2.Normalize(offset);
             }
         }
-        if (seek == "shelter" && dry && player.ComponentSleep.CanSleep(out _))
+        if (seek == "shelter" && dry)
         {
-            Finish("succeeded", "native_sleep_site_ready");
-            return;
+            bool canSleep = player.ComponentSleep.CanSleep(out _);
+            if (canSleep || PlayEarthShelter.At(body) is not null)
+            {
+                Finish("succeeded", canSleep ? "native_sleep_site_ready" : "soft_earth_shelter_site");
+                return;
+            }
+            if (shelterTarget is { } earth)
+            {
+                approach = earth;
+                var offset = (earth - body.Position).XZ;
+                if (offset.LengthSquared() > 0.1f) direction = Vector2.Normalize(offset);
+            }
         }
         if (legs >= 8 || traveled >= distance - 0.3f)
         {
@@ -151,6 +163,7 @@ internal sealed class PlaySurvivalTravel
             AdvanceOnLand(body, blocked, remaining, gameTime);
             return;
         }
+        if (BoatBody is null && body.ImmersionDepth < 0.04f) return;
         dryLeg = false;
         var boat = BoatBody;
         if (!dry && seek == "dry_land" && PlaySurvivalSenses.VisibleShore(observation, body, boat) is { } visible)

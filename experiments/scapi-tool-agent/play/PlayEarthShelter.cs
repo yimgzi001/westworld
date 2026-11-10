@@ -25,7 +25,7 @@ internal sealed class PlayEarthShelter
     private AtomicActionRun? action;
     private Phase phase = Phase.Center;
     private double settleUntil;
-    private int wall, level;
+    private int wall, level, digRetries;
     private bool opened;
 
     public PlayEarthShelter(ComponentPlayer player, AtomicActions owner, Site site, bool leaving,
@@ -69,9 +69,18 @@ internal sealed class PlayEarthShelter
             action = null;
             if (run.Result.Status != AtomicActionStatus.Succeeded)
             {
+                // 自动拾取上一格土可能改变空手槽位。原生取消后重新观察，再尝试同一阶段。
+                if (run.Action is Dig && run.Result.Failure == AtomicActionFailure.TargetChanged && digRetries++ < 2)
+                {
+                    phase = leaving ? Phase.SurveyRoof : Phase.Settle;
+                    settleUntil = gameTime + 0.25;
+                    log(new { kind = "play_shelter_dig_retry", actor = player.PlayerData.Name, leaving, digRetries, gameTime });
+                    return;
+                }
                 Finish("failed", $"{run.Action.GetType().Name}_{run.Result.Failure}");
                 return;
             }
+            if (run.Action is Dig) digRetries = 0;
             log(new { kind = "play_shelter_native", actor = player.PlayerData.Name,
                 action = run.Action.GetType().Name, leaving, gameTime });
             if (phase == Phase.Settle && run.Action is Dig or Place) settleUntil = gameTime + 0.25;

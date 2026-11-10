@@ -28,9 +28,9 @@ public sealed partial class NativeActorSession:IUpdateable,IDisposable {
  static Position PositionOf(ComponentPlayer p){var v=p.ComponentBody.Position;return new(v.X,v.Y,v.Z);}
  static double Distance(Position a,Position b)=>Math.Sqrt((a.X-b.X)*(a.X-b.X)+(a.Z-b.Z)*(a.Z-b.Z));
  public void Bind(Guid id,ComponentPlayer player){Owner();if(!player.PlayerData.IsExternalActor||player.Project!=project||!player.Entity.IsAddedToProject||actors.Values.Contains(player))throw new InvalidOperationException("Invalid native binding");Registry.Add(id,"player:"+player.PlayerData.PlayerIndex,PositionOf(player));actors.Add(id,player);}
- public ActorObservation Observe(Guid session,Guid actorId){
+ public ActorObservation Observe(Guid session,Guid actorId,bool allDirections=false){
   var p=Actor(session,actorId);var origin=PositionOf(p);var eye=p.ComponentCreatureModel.EyePosition;var forward=Vector3.Normalize(p.ComponentCreatureModel.EyeRotation.GetForwardVector());
-  var scan=Game.Westworld.SharedVoxelScanner.Scan(terrain,p.ComponentBody.Position,eye,forward,observationAbove);
+  var scan=Game.Westworld.SharedVoxelScanner.Scan(terrain,p.ComponentBody.Position,eye,forward,observationAbove,allDirections:allDirections);
   var cells=scan.Cells.Select(c=>new CellObservation(c.X,c.Y,c.Z,c.Value.HasValue?"known":"unknown",c.Value)).ToList();
   // Old observations may be retired; action tickets are never evicted or replayed.
   foreach(var id in observations.Where(kv=>clock.Elapsed.TotalSeconds-kv.Value.Time>3).Select(kv=>kv.Key).ToArray())observations.Remove(id);

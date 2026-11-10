@@ -1,106 +1,106 @@
 #nullable enable
 
-using System.Text.Json;
 using Engine;
 using Game;
 using Game.Westworld;
 
-internal sealed class PlaySurvivalSurvey
+internal static class PlaySurvivalSurvey
 {
-    private static readonly float[] Bearings = [0, 90, 180, -90];
-    private readonly ComponentPlayer player;
-    private readonly AtomicActions actions;
-    private readonly Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe;
-    private readonly Vector2 forward;
-    private readonly double deadline;
-    private readonly List<Sector> sectors = new();
-    private AtomicActionRun? turn;
+    private const int Directions = 8;
+    private const float SectorWidth = 360f / Directions;
 
-    internal sealed record Sighting(string Name, Vector3 Point, float Distance);
-    internal sealed record Sector(Vector2 Direction, string[] Terrain, PlaySurvivalFood.Food[] Food, Sighting[] Animals);
-    internal sealed record Sweep(Vector3 Origin, double CompletedAt, Sector[] Sectors)
+    internal sealed record Sector(Vector2 Direction, PanoramicBlock[] Blocks, PlaySurvivalFood.Food[] Food,
+        NearbyEntityView[] Animals, NearbyPickableView[] Items);
+
+    internal sealed record Sweep(Vector3 Origin, double CompletedAt, ActorPanorama Panorama, Sector[] Sectors, SubsystemTerrain NativeTerrain)
     {
-        public object Snapshot(Vector2 facing, double gameTime) => new
+        public object Snapshot(Vector3 at, Vector2 facing, double gameTime) => new
         {
+            mode = "panorama",
+            radius = Panorama.Radius,
             secondsAgo = Math.Round(gameTime - CompletedAt, 1),
+            Panorama.UnloadedColumns,
+            visibleBlocks = Panorama.Blocks.Count,
+            visibleAnimals = Panorama.Objects.Entities.Count,
+            visibleItems = Panorama.Objects.Pickables.Count,
             sectors = Sectors.Select(sector => new
             {
-                bearing = Math.Round(Vector2.Angle(facing, sector.Direction) * 180 / Math.PI),
-                terrain = sector.Terrain,
-                food = sector.Food.Select(item => Describe(new(item.Name, item.Point, item.Distance))).ToArray(),
-                animals = sector.Animals.Select(Describe).ToArray()
+                bearing = Bearing(facing, sector.Direction),
+                terrain = sector.Blocks.GroupBy(block => Terrain.ExtractContents(block.Value))
+                    .OrderByDescending(group => group.Count()).Take(4).Select(group =>
+                    {
+                        var nearest = group.MinBy(block => block.Distance)!;
+                        return new { name = BlocksManager.Blocks[group.Key].GetDisplayName(NativeTerrain, nearest.Value),
+                            count = group.Count(), distance = Math.Round(nearest.Distance, 1) };
+                    }).ToArray(),
+                dryGround = sector.Blocks.Where(block => block.BareTop && IsDryGround(block.Value) && block.Cell.Y >= at.Y - 2)
+                    .OrderBy(block => block.Distance).Take(1).Select(block => Describe("dry_ground", block.Point, at, facing)).FirstOrDefault(),
+                softEarth = sector.Blocks.Where(IsSoftEarth).MinBy(block => (block.Point - at).LengthSquared()) is { } earth
+                    ? Describe("soft_earth", earth.Point, at, facing) : null,
+                food = sector.Food.OrderBy(food => food.Distance).Take(4)
+                    .Select(food => Describe(food.Name, food.Point, at, facing)).ToArray(),
+                animals = sector.Animals.Where(animal => !string.IsNullOrWhiteSpace(animal.Name)).Take(4)
+                    .Select(animal => Describe(animal.Name, animal.Position, at, facing)).ToArray(),
+                itemTypes = sector.Items.GroupBy(item => item.Value).Take(2).Select(group =>
+                {
+                    var nearest = group.First();
+                    return Describe(BlocksManager.Blocks[Terrain.ExtractContents(nearest.Value)].GetDisplayName(NativeTerrain, nearest.Value),
+                        nearest.Position, at, facing);
+                }).ToArray(),
+                foodCount = sector.Food.Length,
+                animalCount = sector.Animals.Length,
+                itemCount = sector.Items.Length
             }).ToArray()
         };
 
-        private static object Describe(Sighting sighting) => new
+        public Vector3? EarthInDirection(Vector3 origin, Vector2 direction)
         {
-            name = sighting.Name, distance = Math.Round(sighting.Distance, 1),
-            x = Math.Round(sighting.Point.X, 1), y = Math.Round(sighting.Point.Y, 1), z = Math.Round(sighting.Point.Z, 1)
-        };
-    }
-
-    public PlaySurvivalSurvey(ComponentPlayer player, AtomicActions actions, double gameTime,
-        Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe)
-    {
-        this.player = player;
-        this.actions = actions;
-        this.observe = observe;
-        Origin = player.ComponentBody.Position;
-        forward = player.ComponentBody.Matrix.Forward.XZ;
-        deadline = gameTime + 7;
-    }
-
-    private Vector3 Origin { get; }
-    public bool Done { get; private set; }
-    public Sweep? Result { get; private set; }
-
-    public void Update(double gameTime)
-    {
-        var body = player.ComponentBody;
-        if (gameTime >= deadline || body.ImmersionDepth > 0.04f || !body.StandingOnValue.HasValue
-            || (body.Position - Origin).LengthSquared() > 0.36f || player.ComponentSleep.IsSleeping)
-        {
-            Stop();
-            return;
-        }
-        if (turn is not null)
-        {
-            if (turn.Result.Status == AtomicActionStatus.Running) return;
-            if (turn.Result.Status != AtomicActionStatus.Succeeded)
+            var earth = Panorama.Blocks.Where(IsSoftEarth).Where(block =>
             {
-                Stop();
-                return;
-            }
-            if (sectors.Count == Bearings.Length)
-            {
-                Result = new(Origin, gameTime, sectors.ToArray());
-                Done = true;
-                return;
-            }
-            sectors.Add(Capture(body.Matrix.Forward.XZ));
+                var offset = block.Point - origin;
+                return MathF.Abs(offset.Y) <= 3f && offset.XZ.LengthSquared() > 0.25f
+                    && Vector2.Dot(Vector2.Normalize(offset.XZ), direction) >= 0.55f;
+            }).MinBy(block => (block.Point - origin).LengthSquared());
+            return earth is null ? null : new Vector3(earth.Cell.X + 0.5f, earth.Cell.Y + 1f, earth.Cell.Z + 0.5f);
         }
 
-        // 只合并四次实际转头得到的局部观察，最后回到初始朝向。
-        var direction = PlaySurvivalTravel.Rotate(forward, Bearings[sectors.Count % Bearings.Length]);
-        turn = actions.Start(new FaceTowards(Origin + 4 * new Vector3(direction.X, 0, direction.Y), 2, -12));
+        private static object Describe(string name, Vector3 point, Vector3 at, Vector2 facing)
+        {
+            var delta = point - at;
+            return new { name, bearing = Bearing(facing, delta.XZ), distance = Math.Round(delta.Length(), 1),
+                x = Math.Round(point.X, 1), y = Math.Round(point.Y, 1), z = Math.Round(point.Z, 1) };
+        }
+
+        private static bool IsDryGround(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)]
+            is GrassBlock or DirtBlock or SandBlock or GravelBlock or GraniteBlock or SandstoneBlock or BasaltBlock;
+
+        private static bool IsSoftEarth(PanoramicBlock block) => block.BareTop
+            && BlocksManager.Blocks[Terrain.ExtractContents(block.Value)] is GrassBlock or DirtBlock;
     }
 
-    private Sector Capture(Vector2 direction)
+    public static Sweep? Capture(ComponentPlayer player, AtomicActions.ActorQueries queries, double gameTime)
     {
-        var (observation, food) = observe();
-        var terrain = observation.GetProperty("visibleBlocks").EnumerateArray()
-            .Select(block => block.TryGetProperty("name", out var name) ? name.GetString() : null)
-            .OfType<string>().Distinct().Take(5).ToArray();
-        var animals = observation.GetProperty("entities").EnumerateArray().Where(entity =>
-                entity.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String)
-            .Take(4).Select(entity => new Sighting(entity.GetProperty("name").GetString()!,
-                PlaySurvivalFood.ReadPosition(entity.GetProperty("position")), entity.GetProperty("distance").GetSingle())).ToArray();
-        return new(direction, terrain, food.Where(item => !item.Underwater).OrderBy(item => item.Distance).Take(4).ToArray(), animals);
+        var panorama = queries.ReadPanorama();
+        if (panorama is null) return null;
+        var origin = player.ComponentBody.Position;
+        var facing = player.ComponentBody.Matrix.Forward.XZ;
+        int SectorOf(Vector3 point)
+        {
+            var offset = (point - origin).XZ;
+            double angle = offset.LengthSquared() < 0.0001f ? 0 : Vector2.Angle(facing, offset) * 180 / Math.PI;
+            return ((int)Math.Floor((angle + SectorWidth * 0.5f) / SectorWidth) + Directions) % Directions;
+        }
+
+        // 八个方向来自同一次原生读数。地形、动物和拾取物的全量留在游戏线程，模型收到按方向压缩的摘要。
+        var terrain = panorama.Blocks.ToLookup(block => SectorOf(block.Point));
+        var food = PlaySurvivalFood.VisibleIn(panorama).Where(item => !item.Underwater).ToLookup(item => SectorOf(item.Point));
+        var animals = panorama.Objects.Entities.ToLookup(item => SectorOf(item.Position));
+        var items = panorama.Objects.Pickables.ToLookup(item => SectorOf(item.Position));
+        return new(origin, gameTime, panorama, Enumerable.Range(0, Directions).Select(index => new Sector(
+            PlaySurvivalTravel.Rotate(facing, index * SectorWidth), terrain[index].ToArray(), food[index].ToArray(),
+            animals[index].ToArray(), items[index].ToArray())).ToArray(), player.Project.FindSubsystem<SubsystemTerrain>(true));
     }
 
-    public void Stop()
-    {
-        if (turn?.Result.Status == AtomicActionStatus.Running) actions.Cancel(turn);
-        Done = true;
-    }
+    private static double Bearing(Vector2 facing, Vector2 direction) => direction.LengthSquared() < 0.0001f
+        ? 0 : Math.Round(Vector2.Angle(facing, direction) * 180 / Math.PI);
 }

@@ -3,10 +3,10 @@ static class Gate {
  static readonly string Root=AppContext.BaseDirectory;static readonly Stopwatch Wall=Stopwatch.StartNew();static string mode;static bool created,done,passed;static Runner runner;
  public static void Log(object o){var s=JsonSerializer.Serialize(o);Console.WriteLine(s);File.AppendAllText(Path.Combine(Root,"step.jsonl"),s+"\n");}
  [STAThread]
- static int Main(string[] args){if(args.Length!=1||args[0] is not("up" or "down" or "continuous" or "forage" or "shelter")||!Root.Contains(Path.DirectorySeparatorChar+"work"+Path.DirectorySeparatorChar)||Directory.Exists(Path.Combine(Root,"doc")))return 2;mode=args[0];Log(new{kind="start",mode,fixture=true,models=0});Window.Created+=()=>Window.Frame+=Frame;try{IsolatedGameSettings.PrepareWindows(Root);Game.Program.EntryPoint();}catch(Exception e){Log(new{kind="fatal",error=e.ToString()});return 1;}return passed?0:1;}
+ static int Main(string[] args){if(args.Length!=1||args[0] is not("up" or "down" or "continuous" or "forage" or "shelter" or "shelter-retry")||!Root.Contains(Path.DirectorySeparatorChar+"work"+Path.DirectorySeparatorChar)||Directory.Exists(Path.Combine(Root,"doc")))return 2;mode=args[0];Log(new{kind="start",mode,fixture=true,models=0});Window.Created+=()=>Window.Frame+=Frame;try{IsolatedGameSettings.PrepareWindows(Root);Game.Program.EntryPoint();}catch(Exception e){Log(new{kind="fatal",error=e.ToString()});return 1;}return passed?0:1;}
  static void Frame(){if(done)return;try{
   if(Wall.Elapsed.TotalSeconds>60){Finish(false,"timeout");return;}
-  if(!created&&ScreensManager.CurrentScreen is MainMenuScreen&&!ScreensManager.IsAnimating){created=true;SettingsManager.VisibilityRange=32;var settings=new WorldSettings{Name="Observed step fixture",Seed="actors-cloud-20261109",GameMode=GameMode.Survival,OriginalSerializationVersion=VersionsManager.SerializationVersion};if(mode is "continuous" or "forage" or "shelter")settings.TerrainGenerationMode=TerrainGenerationMode.FlatContinent;var w=WorldsManager.CreateWorld(settings);ScreensManager.SwitchScreen("GameLoading",w,null);}
+  if(!created&&ScreensManager.CurrentScreen is MainMenuScreen&&!ScreensManager.IsAnimating){created=true;SettingsManager.VisibilityRange=32;var settings=new WorldSettings{Name="Observed step fixture",Seed="actors-cloud-20261109",GameMode=GameMode.Survival,OriginalSerializationVersion=VersionsManager.SerializationVersion};if(mode is "continuous" or "forage" or "shelter" or "shelter-retry")settings.TerrainGenerationMode=TerrainGenerationMode.FlatContinent;var w=WorldsManager.CreateWorld(settings);ScreensManager.SwitchScreen("GameLoading",w,null);}
   if(GameManager.Project is null)return;var u=GameManager.Project.FindSubsystem<SubsystemUpdate>(true);if(u.UpdateFailureCount!=0)throw new Exception(u.LastUpdateFailure);var players=GameManager.Project.FindSubsystem<SubsystemPlayers>(true);
   if(players.PlayersData.Count==0){players.AddPlayerData(new PlayerData(GameManager.Project){Name="StepActor",IsExternalActor=true});ScreensManager.SwitchScreen("Game");}
   if(runner==null&&players.ComponentPlayers.Count==1&&players.PlayersData[0].IsReadyForPlaying){runner=new Runner(players.ComponentPlayers[0],mode);u.AddUpdateable(runner);}
@@ -23,7 +23,7 @@ sealed partial class Runner:IUpdateable,IDisposable {
  readonly string mode;
  public Runner(ComponentPlayer p,string mode){this.p=p;this.mode=mode;up=mode!="down";continuous=mode=="continuous";terrain=p.Project.FindSubsystem<SubsystemTerrain>(true);senses=new(p.Project,Guid.NewGuid(),false,3);senses.Bind(actor,p);p.Project.FindSubsystem<SubsystemUpdate>(true).AddUpdateable(senses);memory=new(senses.SessionId,actor);actions=new(p.Entity);backend=new(terrain,p.Project.FindSubsystem<SubsystemSpawn>(true));interest=new(senses.Registry,backend,new(16,32));interest.Sync();terrain.TerrainUpdater.RemoveUpdateLocation(p.PlayerData.PlayerIndex);}
  public void Update(float dt){if(Done)return;elapsed+=dt;interest.Sync();try{
-  if(mode is "forage" or "shelter"){RunSurvivalSkill();return;}
+  if(mode is "forage" or "shelter" or "shelter-retry"){RunSurvivalSkill();return;}
   if(stage==0&&elapsed>3){var pos=p.ComponentBody.Position;int x=Terrain.ToCell(pos.X),y=Terrain.ToCell(pos.Y),z=Terrain.ToCell(pos.Z);int dy=up?1:-1;
    for(int a=x-4;a<=x+4;a++)for(int b=z-4;b<=z+4;b++)for(int c=y-3;c<=y+5;c++)terrain.ChangeCell(a,c,b,(Math.Abs(a-x)==4||Math.Abs(b-z)==4)&&c<=y+3?3:c<=(a>=x+1?y+dy-1:y-1)?3:0);
    p.ComponentBody.Position=new(x+(up?.5f:.74f),y,z+.5f);p.ComponentBody.Velocity=Vector3.Zero;
@@ -44,9 +44,9 @@ sealed partial class Runner:IUpdateable,IDisposable {
  }catch(Exception e){Done=true;Gate.Log(new{kind="scenario_error",error=e.ToString()});}}
  void RunContinuous(){
   double now=p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-  travel??=new PlaySurvivalTravel(p,actions,0,2.4f,"survey",false,now,
+  travel??=new PlaySurvivalTravel(p,actions,20,2.4f,"survey",false,now,
    ()=> (JsonSerializer.SerializeToElement(new{}),Array.Empty<PlaySurvivalFood.Food>()),
-   ()=>memory.Observe(senses.Observe(senses.SessionId,actor)),Gate.Log);
+   ()=>memory.Observe(senses.Observe(senses.SessionId,actor,allDirections:true)),Gate.Log);
   jumped|=p.ComponentLocomotion.LastJumpOrder>0;
   travel.Update(now);
   if(travel.Status is not {} status)return;
@@ -56,5 +56,5 @@ sealed partial class Runner:IUpdateable,IDisposable {
   Done=true;
   Gate.Log(new{kind="continuous_step_result",Passed,status,travel.Reason,travel.Legs,jumped,end=end.ToString()});
  }
- public void Dispose(){travel?.Stop();forageSurvey?.Stop();earthShelter?.Stop();if(run?.Result.Status==AtomicActionStatus.Running)actions.Cancel(run);p.Project.FindSubsystem<SubsystemUpdate>(true).RemoveUpdateable(this);interest.Release();backend.Dispose();p.Project.FindSubsystem<SubsystemUpdate>(true).RemoveUpdateable(senses);senses.Dispose();}
+ public void Dispose(){travel?.Stop();earthShelter?.Stop();if(run?.Result.Status==AtomicActionStatus.Running)actions.Cancel(run);p.Project.FindSubsystem<SubsystemUpdate>(true).RemoveUpdateable(this);interest.Release();backend.Dispose();p.Project.FindSubsystem<SubsystemUpdate>(true).RemoveUpdateable(senses);senses.Dispose();}
 }

@@ -214,24 +214,29 @@ namespace Game.Westworld {
             public NearbyView FindVisibleObjects(float maxDistance = 8f, int limit = 24) =>
                 FindVisibleObjects(out _, maxDistance, limit);
 
-            internal NearbyView FindVisibleObjects(out Entity[] visibleEntities, float maxDistance = 8f, int limit = 24) {
+            public NearbyView FindVisibleObjectsAround(float maxDistance = 32f) =>
+                FindVisibleObjects(out _, maxDistance, int.MaxValue - 1, panoramic: true);
+
+            internal NearbyView FindVisibleObjects(out Entity[] visibleEntities, float maxDistance = 8f, int limit = 24,
+                bool panoramic = false) {
                 visibleEntities = [];
                 if (!m_port.IsActorAvailable || !m_port.CanTargetWorld() || m_port.m_sleep?.IsSleeping == true) {
                     return new NearbyView([], []);
                 }
-                if (!float.IsFinite(maxDistance) || maxDistance <= 0f || maxDistance > 16f) {
+                if (!float.IsFinite(maxDistance) || maxDistance <= 0f || maxDistance > (panoramic ? 32f : 16f)) {
                     throw new ArgumentOutOfRangeException(nameof(maxDistance));
                 }
                 ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
-                ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
+                if (!panoramic) ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
 
                 ComponentCreatureModel model = m_port.WorldEyes;
                 Vector3 eye = model.EyePosition;
                 Vector3 forward = model.EyeRotation.GetForwardVector();
                 float reach = Math.Min(maxDistance, SettingsManager.VisibilityRange);
                 bool IsVisible(Vector3 point, float distance, bool withinReach = false) => distance < 0.0001f
-                    || ((withinReach || Vector3.Dot(forward, point - eye) >= 0.5f * distance)
-                        && !m_port.IsWorldRayOccluded(new Ray3(eye, (point - eye) / distance), distance));
+                    || ((panoramic || withinReach || Vector3.Dot(forward, point - eye) >= 0.5f * distance)
+                        && !m_port.IsWorldRayOccluded(new Ray3(eye, (point - eye) / distance), distance)
+                        && (!panoramic || PanoramaRayLoaded(m_port.WorldTerrain.Terrain, eye, point, reach)));
 
                 DynamicArray<ComponentBody> bodies = [];
                 m_port.m_actor.Project.FindSubsystem<SubsystemBodies>(true).FindBodiesAroundPoint(eye.XZ, reach, bodies);

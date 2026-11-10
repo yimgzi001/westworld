@@ -12,7 +12,7 @@ internal static class PlaySurvivalSenses
 
     public static Threat[] Threats(ComponentPlayer player, AtomicActions.ActorQueries queries)
     {
-        var visible = queries.FindVisibleObjects(16f, 24).Entities;
+        var visible = queries.FindVisibleObjectsAround(16f).Entities;
         if (visible.Count == 0) return [];
         var ids = visible.Select(entity => entity.EntityId).ToHashSet();
         // 类型补充只连接当前原生视锥返回的实体。视野外的动物不进入风险判断。

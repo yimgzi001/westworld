@@ -37,4 +37,15 @@ foreach(var c in scan.Cells){int? expected=null;VisibilityPoint? sample=null;for
  if(VoxelSurfaceGeometry.InView(eye,forward,f,c.X,c.Y,c.Z)&&VoxelSurfaceGeometry.LineOfSight(eye,f,(x,y,z)=>World(x,y,z)?.Opaque)){expected=World(c.X,c.Y,c.Z)?.Value;sample=expected.HasValue?f:null;break;}}
  if(expected!=c.Value||sample!=c.VisibleSample)throw new Exception("previous sensor equivalence");}
 Check(true,"all 324 cells match prior algorithm");
+var distant=new VisibilityPoint(30.5,66.6,.5);
+Check(!VoxelSurfaceGeometry.LineOfSight(eye,distant,(_,_,_)=>false),"原近距观察保持五格范围");
+Check(VoxelSurfaceGeometry.LineOfSight(eye,distant,(_,_,_)=>false,32),"全向观察能看到视距内的远处表面");
+Check(!VoxelSurfaceGeometry.LineOfSight(eye,distant,(x,_,_)=>x==18,32),"远处目标仍会被墙挡住");
+Check(!VoxelSurfaceGeometry.LineOfSight(eye,distant,(x,_,_)=>x==18?null:false,32),"远处射线不会穿过未加载区");
+Check(!VoxelSurfaceGeometry.LineOfSight(eye,new(33.5,66.6,.5),(_,_,_)=>false,32),"全向观察止于视距边界");
+var around=SharedVoxelScanner.Scan(body,eye,forward,Loaded,World,allDirections:true);
+Check(!scan.AllDirections&&around.AllDirections,"普通观察仍使用朝向");
+Check(around.Cells.Any(c=>c.X==-3&&c.Y==64&&c.Z==0&&c.Value==2),"走路的全向近距观察能看到身后地面");
+var walledAround=SharedVoxelScanner.Scan(body,eye,forward,Loaded,Wall,allDirections:true);
+Check(walledAround.Cells.All(c=>c.X<3||!c.Value.HasValue),"全向近距观察仍受墙遮挡");
 Console.WriteLine($"PASS {n}/{n} shared scanner pure contracts; no native game executed");

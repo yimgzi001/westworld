@@ -28,9 +28,16 @@ internal static class PlayDryRoutes
     {
         var origin = window.Position;
         Vector3 PositionOf(Position value) => new((float)value.X, (float)value.Y, (float)value.Z);
+        Leg StepLeg(ObservedStepRoute step) => new(new StepTo(PositionOf(step.Destination)), step.Evidence, step);
         double Score(Position target) => (target.X - origin.X) * direction.X + (target.Z - origin.Z) * direction.Y
             - Math.Min(0.35, 0.07 * (visits?.Invoke(target) ?? 0));
-        // 先复用有支撑和净空证据的连续路段，再尝试短步或一格台阶。
+        var steps = ObservedStepRoutes.Project(window, allowObservedSandAndGravel: true)
+            .Where(step => step.MaximumAge <= 1.25).ToArray();
+        var forwardStep = steps.Where(step => step.Kind == StepKind.Up
+                && Vector2.Dot(Vector2.Normalize((PositionOf(step.Destination) - PositionOf(origin)).XZ), direction) >= 0.9f)
+            .MaxBy(step => Score(step.Destination));
+        // 目标前方已经证实有一格台阶时，直接跳过去，避免绕去侧面的平地。
+        if (forwardStep is not null) return StepLeg(forwardStep);
         int maxLength = Math.Min(4, (int)MathF.Floor(remaining + 0.4f));
         if (maxLength >= 2)
         {
@@ -43,13 +50,10 @@ internal static class PlayDryRoutes
                 return new(new MoveAlongObservedRoute(route.Points.Select(PositionOf).ToArray(), LevelGaze: true), route.Evidence);
         }
         var flat = LocalRouteCandidates.Project(window, 1, RouteGroundPolicy.ObservedFullCube);
-        var steps = ObservedStepRoutes.Project(window, allowObservedSandAndGravel: true);
         var options = flat.Candidates.Where(candidate => flat.Provenance[candidate.EvidenceId].All(cell => cell.Age <= 1.75))
             .Select(candidate => (Score: Score(candidate.Destination), Route: new Leg(new MoveAlongObservedRoute(
                 [PositionOf(candidate.Destination)], 0.24f, 3f, LevelGaze: true), flat.Provenance[candidate.EvidenceId])))
-            .Concat(steps.Where(step => step.MaximumAge <= 1.25)
-                .Select(step => (Score: Score(step.Destination) - 0.04,
-                    Route: new Leg(new StepTo(PositionOf(step.Destination)), step.Evidence, step))))
+            .Concat(steps.Select(step => (Score: Score(step.Destination) - 0.04, Route: StepLeg(step))))
             .Where(option => option.Score > 0.12).OrderByDescending(option => option.Score).ToArray();
         if (options.Length > 0) return options[0].Route;
 

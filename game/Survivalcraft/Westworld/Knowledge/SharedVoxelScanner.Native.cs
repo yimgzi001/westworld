@@ -3,9 +3,9 @@ namespace Game.Westworld;
 
 public static partial class SharedVoxelScanner {
  public static VoxelScanSnapshot Scan(SubsystemTerrain terrain,Vector3 bodyOrigin,Vector3 eye,Vector3 forward,
-  int above=1,int maximumSamples=MaximumSamples,int maximumVoxelReads=MaximumVoxelReads){
+  int above=1,int maximumSamples=MaximumSamples,int maximumVoxelReads=MaximumVoxelReads,bool allDirections=false){
   ArgumentNullException.ThrowIfNull(terrain);
-  return Scan(Point(bodyOrigin),Point(eye),Point(forward),(a,b)=>Loaded(terrain,a,b),(x,y,z)=>Read(terrain,x,y,z),above,maximumSamples,maximumVoxelReads);
+  return Scan(Point(bodyOrigin),Point(eye),Point(forward),(a,b)=>Loaded(terrain,a,b),(x,y,z)=>Read(terrain,x,y,z),above,maximumSamples,maximumVoxelReads,allDirections);
  }
  public static ScannedVoxel ReobserveCell(SubsystemTerrain terrain,Vector3 bodyOrigin,Vector3 eye,Vector3 forward,
   int x,int y,int z,int above=1,int maximumSamples=6,int maximumVoxelReads=MaximumVoxelReads){

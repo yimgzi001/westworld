@@ -15,24 +15,30 @@ public static class VoxelSurfaceGeometry {
   return result.AsReadOnly();
  }
  public static bool InVoxel(VisibilityPoint p,int x,int y,int z)=>Finite(p)&&(int)Math.Floor(p.X)==x&&(int)Math.Floor(p.Y)==y&&(int)Math.Floor(p.Z)==z;
+ internal static bool InLocalRange(VisibilityPoint eye,VisibilityPoint sample,int x,int y,int z)=>
+  Finite(eye)&&InVoxel(sample,x,y,z)&&y>=0&&y<256
+  &&DistanceSquared(eye,new(x+.5,y+.5,z+.5))<=25&&DistanceSquared(eye,sample)<=25;
  public static bool InView(VisibilityPoint eye,VisibilityPoint forward,VisibilityPoint sample,int x,int y,int z){
-  if(!Finite(eye)||!double.IsFinite(forward.X)||!double.IsFinite(forward.Y)||!double.IsFinite(forward.Z)||!InVoxel(sample,x,y,z)||y<0||y>=256)return false;
-  // Preserve old center-radius eligibility; a nearer face cannot expand the observed grid/range.
-  if(DistanceSquared(eye,new(x+.5,y+.5,z+.5))>25||DistanceSquared(eye,sample)>25)return false;
+  if(!double.IsFinite(forward.X)||!double.IsFinite(forward.Y)||!double.IsFinite(forward.Z)||!InLocalRange(eye,sample,x,y,z))return false;
   double dx=sample.X-eye.X,dy=sample.Y-eye.Y,dz=sample.Z-eye.Z,ds=dx*dx+dy*dy+dz*dz;
   double fs=forward.X*forward.X+forward.Y*forward.Y+forward.Z*forward.Z;
   return fs>1e-12&&(ds<=1e-8||(dx*forward.X+dy*forward.Y+dz*forward.Z)/Math.Sqrt(ds*fs)>=.5);
  }
  /// <summary>Unknown intermediate cells block; target cell itself may be opaque and is not read here.</summary>
- public static bool LineOfSight(VisibilityPoint start,VisibilityPoint end,Func<int,int,int,bool?> opaque){
-  ArgumentNullException.ThrowIfNull(opaque);if(!Finite(start)||!Finite(end)||DistanceSquared(start,end)>25)return false;
+ public static bool LineOfSight(VisibilityPoint start,VisibilityPoint end,Func<int,int,int,bool?> opaque)=>
+  LineOfSight(start,end,opaque,5);
+
+ internal static bool LineOfSight(VisibilityPoint start,VisibilityPoint end,Func<int,int,int,bool?> opaque,double reach){
+  ArgumentNullException.ThrowIfNull(opaque);
+  if(!Finite(start)||!Finite(end)||!double.IsFinite(reach)||reach<=0||reach>32||DistanceSquared(start,end)>reach*reach)return false;
   int x=(int)Math.Floor(start.X),y=(int)Math.Floor(start.Y),z=(int)Math.Floor(start.Z),tx=(int)Math.Floor(end.X),ty=(int)Math.Floor(end.Y),tz=(int)Math.Floor(end.Z);
   double vx=end.X-start.X,vy=end.Y-start.Y,vz=end.Z-start.Z;
   int sx=Math.Sign(vx),sy=Math.Sign(vy),sz=Math.Sign(vz);
   double Delta(double v)=>v==0?double.PositiveInfinity:Math.Abs(1/v);
   double First(double a,double v,int cell)=>v==0?double.PositiveInfinity:((v>0?cell+1:cell)-a)/v;
   double dx=Delta(vx),dy=Delta(vy),dz=Delta(vz),mx=First(start.X,vx,x),my=First(start.Y,vy,y),mz=First(start.Z,vz,z);
-  for(int i=0;i<32;i++){
+  int maxSteps=Math.Max(32,Math.Abs(tx-x)+Math.Abs(ty-y)+Math.Abs(tz-z)+1);
+  for(int i=0;i<maxSteps;i++){
    if(y<0||y>=256)return false;
    if(x==tx&&y==ty&&z==tz)return true;
    if(opaque(x,y,z)!=false)return false;

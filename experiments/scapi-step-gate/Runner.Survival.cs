@@ -7,15 +7,17 @@ using Westworld.Scapi.Adapter;
 sealed partial class Runner
 {
     private NativeToolSession? forageTools;
-    private PlaySurvivalSurvey? forageSurvey;
     private PlayEarthShelter? earthShelter;
     private PlayEarthShelter.Site? testSite;
     private Pickable? testEgg;
+    private Pickable? hiddenEgg;
+    private Point3 farMarker, hiddenMarker;
     private int eggValue;
     private bool sawLevelWalking;
     private long mealsBefore;
     private float vitalBefore;
     private double sleepDay;
+    private bool changedDigSlot;
 
     private void RunSurvivalSkill()
     {
@@ -37,8 +39,18 @@ sealed partial class Runner
             {
                 var eggType = ((EggBlock)BlocksManager.Blocks[118]).EggTypes.First(egg => egg.NutritionalValue > 0f);
                 eggValue = Terrain.MakeBlockValue(118, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, eggType.EggTypeIndex), true));
-                testEgg = p.Project.FindSubsystem<SubsystemPickables>(true).AddPickable(eggValue, 1,
+                var pickables = p.Project.FindSubsystem<SubsystemPickables>(true);
+                testEgg = pickables.AddPickable(eggValue, 1,
                     body.Position + new Vector3(0, 0.2f, 3.25f), Vector3.Zero, null);
+                hiddenEgg = pickables.AddPickable(eggValue, 1,
+                    body.Position + new Vector3(0, 0.2f, -4.25f), Vector3.Zero, null);
+                for (int x = cell.X - 2; x <= cell.X + 2; x++)
+                for (int y = cell.Y; y <= cell.Y + 3; y++)
+                    terrain.ChangeCell(x, y, cell.Z - 2, GraniteBlock.Index);
+                farMarker = new(cell.X + 12, cell.Y, cell.Z + 2);
+                hiddenMarker = new(cell.X, cell.Y, cell.Z - 4);
+                terrain.ChangeCell(farMarker.X, farMarker.Y, farMarker.Z, OakWoodBlock.Index);
+                terrain.ChangeCell(hiddenMarker.X, hiddenMarker.Y, hiddenMarker.Z, OakWoodBlock.Index);
                 forageTools = new(Guid.NewGuid(), p, new ActorTools(actions, true));
             }
             elapsed = 0;
@@ -57,21 +69,23 @@ sealed partial class Runner
         {
             if (ReadForage().Foods.Any(food => food.Value == eggValue))
                 throw new InvalidOperationException("测试鸟蛋应在初始朝向之外。");
-            forageSurvey = new(p, actions, now, ReadForage);
-            stage = 2;
-        }
-        if (stage == 2)
-        {
-            forageSurvey!.Update(now);
-            if (!forageSurvey.Done) return;
-            var sweep = forageSurvey.Result ?? throw new InvalidOperationException("原地环视没有完成。");
-            var food = sweep.Sectors.SelectMany(sector => sector.Food).First(item => item.Value == eggValue);
-            if (sweep.Sectors.Length != 4 || food.InReach || (body.Position - sweep.Origin).XZ.Length() > 0.1f)
-                throw new InvalidOperationException("环视期间移动了位置，或初始距离不符合测试条件。");
+            var position = body.Position;
+            var direction = p.ComponentCreatureModel.EyeRotation.GetForwardVector();
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            var sweep = PlaySurvivalSurvey.Capture(p, actions.Queries, now) ?? throw new InvalidOperationException("全向观察未返回。");
+            var food = sweep.Sectors.SelectMany(sector => sector.Food).Single(item => item.Value == eggValue);
+            bool samePose = position == body.Position && direction == p.ComponentCreatureModel.EyeRotation.GetForwardVector()
+                && now == p.Project.FindSubsystem<SubsystemTime>(true).GameTime && !actions.IsActionRunning;
+            bool hidden = sweep.Panorama.Objects.Pickables.All(item => (item.Position - hiddenEgg!.Position).LengthSquared() > 0.5f)
+                && sweep.Panorama.Blocks.All(block => block.Cell != hiddenMarker);
+            bool far = sweep.Panorama.Blocks.Any(block => block.Cell == farMarker && block.Distance > 10f);
+            if (sweep.Sectors.Length != 8 || food.InReach || !samePose || !hidden || !far)
+                throw new InvalidOperationException($"全向观察范围或遮挡不符合测试条件。原姿态 {samePose}，墙后隐藏 {hidden}，远处可见 {far}。");
             float bearing = Vector2.Angle(body.Matrix.Forward.XZ, (food.Point - body.Position).XZ) * (180f / MathF.PI);
             travel = new(p, actions, bearing, 4.2f, "food", false, now, ReadForage,
-                () => memory.Observe(senses.Observe(senses.SessionId, actor)), Gate.Log, foodTarget: food);
-            Gate.Log(new { kind = "forage_survey", sectors = sweep.Sectors.Length, food.Name, food.Distance, bearing });
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log, foodTarget: food);
+            Gate.Log(new { kind = "forage_survey", sectors = sweep.Sectors.Length, sweep.Panorama.Radius, food.Name, food.Distance,
+                bearing, samePose, hidden, far, durationMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds });
             stage = 3;
         }
         if (stage == 3)
@@ -127,6 +141,15 @@ sealed partial class Runner
         }
         if (stage == 2)
         {
+            if (mode == "shelter-retry" && !changedDigSlot && p.ComponentMiner.DigCellFace is { } face
+                && face.Y == testSite!.Surface - 2)
+            {
+                var inventory = p.ComponentMiner.Inventory;
+                int before = inventory.ActiveSlotIndex;
+                inventory.ActiveSlotIndex = (before + 1) % inventory.VisibleSlotsCount;
+                changedDigSlot = inventory.ActiveSlotIndex != before;
+                Gate.Log(new { kind = "shelter_fixture_dig_slot_change", changedDigSlot, now });
+            }
             earthShelter!.Update(now);
             if (earthShelter.Status is null) return;
             var roof = testSite!.Cell(testSite.Surface - 1);
@@ -163,7 +186,8 @@ sealed partial class Runner
         if (stage != 5) return;
         earthShelter!.Update(now);
         if (earthShelter.Status is null) return;
-        Passed = earthShelter.Status == "succeeded" && p.ComponentBody.Position.Y >= testSite!.Surface - 0.05f;
+        Passed = earthShelter.Status == "succeeded" && p.ComponentBody.Position.Y >= testSite!.Surface - 0.05f
+            && (mode != "shelter-retry" || changedDigSlot);
         Done = true;
         Gate.Log(new { kind = "shelter_exit", Passed, earthShelter.Status, earthShelter.Reason, floor = p.ComponentBody.Position.Y });
     }

@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Engine;
 using Game;
+using Game.Westworld;
 using Westworld.Decisions.Local;
 using Westworld.Scapi.Adapter;
 
@@ -79,22 +80,40 @@ internal static class PlaySurvivalFood
         observation.GetProperty("pickables").EnumerateArray()
             .Select(item => Describe(item, "value", "pickup")).OfType<Food>();
 
+    public static IEnumerable<Food> VisibleIn(ActorPanorama panorama)
+    {
+        foreach (var block in panorama.Blocks)
+            if (FoodCapabilities.Describe(block.Value)?.TerrainHarvest == true
+                && Describe(block.Value, "harvest", string.Empty, block.Distance, false, () => PointJson(block.Point)) is { } food)
+                yield return food;
+        foreach (var item in panorama.Objects.Pickables)
+            if (Describe(item.Value, "pickup", string.Empty, item.Distance, false, () => PointJson(item.Position)) is { } food)
+                yield return food;
+    }
+
+    private static JsonElement PointJson(Vector3 point) => JsonSerializer.SerializeToElement(new { x = point.X, y = point.Y, z = point.Z });
+
     private static Food? Describe(JsonElement entry, string valueProperty, string source)
     {
         if (entry.ValueKind != JsonValueKind.Object || !entry.TryGetProperty(valueProperty, out var raw)
             || raw.ValueKind != JsonValueKind.Number || !raw.TryGetInt32(out int value)
             || !entry.TryGetProperty("reference", out var target) || target.GetString() is not { } reference)
             return null;
+        float distance = entry.GetProperty("distance").GetSingle();
+        bool inReach = source == "pickup" ? entry.TryGetProperty("inReach", out var reach) && reach.ValueKind == JsonValueKind.True
+            : distance <= 3.1f;
+        return Describe(value, source, reference, distance, inReach, () => entry.GetProperty("position"));
+    }
+
+    private static Food? Describe(int value, string source, string reference, float distance, bool inReach, Func<JsonElement> position)
+    {
         var known = FoodCapabilities.Describe(value);
         if (source == "harvest" && known?.TerrainHarvest != true) return null;
         var block = BlocksManager.Blocks[Terrain.ExtractContents(value)];
         float nutrition = block.GetNutritionalValue(value);
         if (nutrition <= 0f) return null;
-        float distance = entry.GetProperty("distance").GetSingle();
-        bool inReach = source == "pickup" ? entry.TryGetProperty("inReach", out var reach) && reach.ValueKind == JsonValueKind.True
-            : distance <= 3.1f;
         return new(reference, known?.Name ?? block.GetDisplayName(null, value), source,
             distance, nutrition, block.GetSicknessProbability(value),
-            source == "harvest" && known?.Contents == SeaUrchinBlock.Index, inReach, value, entry.GetProperty("position"));
+            source == "harvest" && known?.Contents == SeaUrchinBlock.Index, inReach, value, position());
     }
 }

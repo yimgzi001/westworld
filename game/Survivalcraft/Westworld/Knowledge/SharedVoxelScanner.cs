@@ -10,9 +10,9 @@ public sealed class VoxelScanSnapshot {
  public IReadOnlyList<ScannedVoxel> Cells {get;}
  public VoxelScanStatistics Statistics {get;}
  public VisibilityPoint BodyOrigin {get;} public VisibilityPoint Eye {get;} public VisibilityPoint Forward {get;}
- public int Above {get;} public bool Complete=>!BudgetExhausted; public bool BudgetExhausted {get;}
- internal VoxelScanSnapshot(IEnumerable<ScannedVoxel> cells,VoxelScanStatistics stats,VisibilityPoint body,VisibilityPoint eye,VisibilityPoint forward,int above,bool exhausted){
-  Cells=Array.AsReadOnly(cells.ToArray());Statistics=stats;BodyOrigin=body;Eye=eye;Forward=forward;Above=above;BudgetExhausted=exhausted;
+ public int Above {get;} public bool AllDirections {get;} public bool Complete=>!BudgetExhausted; public bool BudgetExhausted {get;}
+ internal VoxelScanSnapshot(IEnumerable<ScannedVoxel> cells,VoxelScanStatistics stats,VisibilityPoint body,VisibilityPoint eye,VisibilityPoint forward,int above,bool exhausted,bool allDirections){
+  Cells=Array.AsReadOnly(cells.ToArray());Statistics=stats;BodyOrigin=body;Eye=eye;Forward=forward;Above=above;BudgetExhausted=exhausted;AllDirections=allDirections;
  }
 }
 /// <summary>Call on the game's simulation thread. No global/tick cache, actor refs, terrain loading,
@@ -21,17 +21,17 @@ public static partial class SharedVoxelScanner {
  public const int MaximumSamples=1944,MaximumVoxelReads=4096;
  public static VoxelScanSnapshot Scan(VisibilityPoint bodyOrigin,VisibilityPoint eye,VisibilityPoint forward,
   Func<VisibilityPoint,VisibilityPoint,bool> loadedRectangle,Func<int,int,int,VisibilityVoxel?> readVoxel,
-  int above=1,int maximumSamples=MaximumSamples,int maximumVoxelReads=MaximumVoxelReads)=>
-  Run(bodyOrigin,eye,forward,loadedRectangle,readVoxel,above,maximumSamples,maximumVoxelReads,null);
+  int above=1,int maximumSamples=MaximumSamples,int maximumVoxelReads=MaximumVoxelReads,bool allDirections=false)=>
+  Run(bodyOrigin,eye,forward,loadedRectangle,readVoxel,above,maximumSamples,maximumVoxelReads,null,allDirections);
  public static ScannedVoxel ReobserveCell(VisibilityPoint bodyOrigin,VisibilityPoint eye,VisibilityPoint forward,
   int x,int y,int z,Func<VisibilityPoint,VisibilityPoint,bool> loadedRectangle,Func<int,int,int,VisibilityVoxel?> readVoxel,
   int above=1,int maximumSamples=6,int maximumVoxelReads=MaximumVoxelReads){
-  var snapshot=Run(bodyOrigin,eye,forward,loadedRectangle,readVoxel,above,maximumSamples,maximumVoxelReads,(x,y,z));
+  var snapshot=Run(bodyOrigin,eye,forward,loadedRectangle,readVoxel,above,maximumSamples,maximumVoxelReads,(x,y,z),false);
   return snapshot.Cells[0];
  }
  static VoxelScanSnapshot Run(VisibilityPoint body,VisibilityPoint eye,VisibilityPoint forward,
   Func<VisibilityPoint,VisibilityPoint,bool> loadedRectangle,Func<int,int,int,VisibilityVoxel?> readVoxel,
-  int above,int maxSamples,int maxReads,(int X,int Y,int Z)? single){
+  int above,int maxSamples,int maxReads,(int X,int Y,int Z)? single,bool allDirections){
   ArgumentNullException.ThrowIfNull(loadedRectangle);ArgumentNullException.ThrowIfNull(readVoxel);
   if(above<1||above>3||maxSamples<1||maxSamples>MaximumSamples||maxReads<1||maxReads>MaximumVoxelReads)throw new ArgumentOutOfRangeException("scan budget/grid");
   if(!Finite(body)||!Finite(eye)||!double.IsFinite(forward.X)||!double.IsFinite(forward.Y)||!double.IsFinite(forward.Z))throw new ArgumentException("finite scan pose required");
@@ -51,7 +51,7 @@ public static partial class SharedVoxelScanner {
     if(samples>=maxSamples){exhausted=true;break;}samples++;
     // Preserve actual native float conversion before endpoint/FOV/LOS checks.
     var target=new VisibilityPoint((float)point.X,(float)point.Y,(float)point.Z);
-    if(!VoxelSurfaceGeometry.InView(eye,forward,target,x,y,z))continue;
+    if(!(allDirections?VoxelSurfaceGeometry.InLocalRange(eye,target,x,y,z):VoxelSurfaceGeometry.InView(eye,forward,target,x,y,z)))continue;
     rectangles++;if(!loadedRectangle(eye,target))continue;
     los++;if(!VoxelSurfaceGeometry.LineOfSight(eye,target,(cx,cy,cz)=>Read(cx,cy,cz)?.Opaque))continue;
     var observed=Read(x,y,z);
@@ -62,7 +62,7 @@ public static partial class SharedVoxelScanner {
   }
   if(single is {} one)Cell(one.X,one.Y,one.Z);
   else for(int x=bx-4;x<=bx+4;x++)for(int z=bz-4;z<=bz+4;z++)for(int y=by-2;y<=by+above;y++)Cell(x,y,z);
-  return new(output,new(output.Count,samples,los,reads,hits,known,rectangles),body,eye,forward,above,exhausted);
+  return new(output,new(output.Count,samples,los,reads,hits,known,rectangles),body,eye,forward,above,exhausted,allDirections);
  }
  static bool Finite(VisibilityPoint p)=>double.IsFinite(p.X)&&double.IsFinite(p.Y)&&double.IsFinite(p.Z)&&Math.Abs(p.X)<1e7&&Math.Abs(p.Z)<1e7&&p.Y>=0&&p.Y<=256;
 }
