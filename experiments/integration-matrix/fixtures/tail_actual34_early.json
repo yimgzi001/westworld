@@ -1,0 +1,485 @@
+{
+  "case": "tail_early",
+  "sourceLogSha256": "3c9206a04ffe919482761cafcfa32728a50ed6b63c5a681a146941698b4d4093",
+  "sourceDriverSha256": "c8e258c60e4517857277c3ac9ec9cfe99ccc8c3a80aacece5c77d076e6c1a6e1",
+  "extraction": "Actual native log subset; unrelated receipts deduplicated by tool/run/status; prompt/schema/inventory removed; no generated events. Frozen original unknown remains unchanged.",
+  "rows": [
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "action_status",
+        "Sequence": 3,
+        "State": "returned",
+        "Data": null
+      },
+      "originalLogLine": 9
+    },
+    {
+      "kind": "native_call_started",
+      "decisionId": "89f353da-621f-487d-ab7e-97f5c57406df",
+      "candidateRequestId": null,
+      "controller": "file",
+      "step": {
+        "Tool": "act_MoveTo",
+        "Arguments": {
+          "bearing": 0,
+          "distance": 4,
+          "range": 0.25,
+          "timeout": 4
+        }
+      },
+      "wallUtc": "2026-11-10T03:56:04.2687407+00:00",
+      "gameTime": 1.116606216877699,
+      "decisionRequestedAt": 90327.570395557,
+      "decisionRepliedAt": 90327.756285107,
+      "requestToNativeCallSeconds": 0.22613593499409035,
+      "replyObservedToNativeCallSeconds": 0.040246385004138574,
+      "goalToFirstNativeCallSeconds": 1.3063801090029301,
+      "monotonicSeconds": 90327.796531492,
+      "originalLogLine": 32
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "act_MoveTo",
+        "Sequence": 19,
+        "State": "returned",
+        "Data": {
+          "action": "MoveTo",
+          "status": "running",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "04efa08b-c75a-41cf-a221-1d7759dfbe93"
+        }
+      },
+      "originalLogLine": 33
+    },
+    {
+      "kind": "native_call_returned",
+      "sequence": 19,
+      "tool": "act_MoveTo",
+      "state": "returned",
+      "data": {
+        "action": "MoveTo",
+        "status": "running",
+        "failure": "none",
+        "affectedCount": 0,
+        "runId": "04efa08b-c75a-41cf-a221-1d7759dfbe93"
+      },
+      "wallUtc": "2026-11-10T03:56:04.2896453+00:00",
+      "gameTime": 1.116606216877699,
+      "originalLogLine": 35
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "action_status",
+        "Sequence": 20,
+        "State": "returned",
+        "Data": {
+          "action": "MoveTo",
+          "status": "running",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "04efa08b-c75a-41cf-a221-1d7759dfbe93"
+        }
+      },
+      "originalLogLine": 36
+    },
+    {
+      "kind": "continuation_step_bound",
+      "planId": "db3e87ff-3ccb-4798-b657-f471939da245",
+      "index": 0,
+      "sequence": 19,
+      "runId": "04efa08b-c75a-41cf-a221-1d7759dfbe93",
+      "tool": "act_MoveTo",
+      "monotonicSeconds": 90327.906380866,
+      "originalLogLine": 59
+    },
+    {
+      "kind": "continuation_bound",
+      "planId": "db3e87ff-3ccb-4798-b657-f471939da245",
+      "planRevision": 0,
+      "stepCount": 2,
+      "firstReceipt": 19,
+      "deadline": 90372.899124605,
+      "steps": [
+        {
+          "Tool": "act_MoveTo",
+          "Arguments": {
+            "bearing": 0,
+            "distance": 4,
+            "range": 0.25,
+            "timeout": 4
+          }
+        },
+        {
+          "Tool": "act_FaceTowards",
+          "Arguments": {
+            "bearing": 90,
+            "timeout": 4
+          }
+        }
+      ],
+      "monotonicSeconds": 90327.908534215,
+      "originalLogLine": 60
+    },
+    {
+      "kind": "prefetch_requested",
+      "lease": {
+        "RequestId": "ef4c10ec-440c-438b-8461-cfa176e4d731",
+        "SessionId": "5cf6fa97-f4c4-462c-9e7c-196406a3163a",
+        "ActorId": "d81c6e2d-6657-4c86-b712-6005d1386336",
+        "ControllerEpoch": "c117e502-1ec4-4cae-981d-1ca2ebb90db6",
+        "PlanRevision": 0,
+        "PlanningObservationId": "3abb00f5-01f0-4c6c-b981-44bbb80981f4",
+        "PrecedingReceiptSequence": 19
+      },
+      "precedingRunId": "04efa08b-c75a-41cf-a221-1d7759dfbe93",
+      "monotonicSeconds": 90327.899124605,
+      "originalLogLine": 68
+    },
+    {
+      "kind": "prefetch_response",
+      "requestId": "ef4c10ec-440c-438b-8461-cfa176e4d731",
+      "accepted": true,
+      "monotonicSeconds": 90328.234466933,
+      "originalLogLine": 162
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "action_status",
+        "Sequence": 509,
+        "State": "returned",
+        "Data": {
+          "action": "MoveTo",
+          "status": "succeeded",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "04efa08b-c75a-41cf-a221-1d7759dfbe93"
+        }
+      },
+      "originalLogLine": 549
+    },
+    {
+      "kind": "continuation_step_terminal",
+      "planId": "db3e87ff-3ccb-4798-b657-f471939da245",
+      "index": 0,
+      "sequence": 19,
+      "runId": "04efa08b-c75a-41cf-a221-1d7759dfbe93",
+      "status": "succeeded",
+      "accepted": true,
+      "reason": "step_completed",
+      "monotonicSeconds": 90330.158141956,
+      "originalLogLine": 701
+    },
+    {
+      "kind": "native_call_started",
+      "decisionId": "89f353da-621f-487d-ab7e-97f5c57406df",
+      "candidateRequestId": null,
+      "controller": "file",
+      "step": {
+        "Tool": "act_FaceTowards",
+        "Arguments": {
+          "bearing": 90,
+          "timeout": 4
+        }
+      },
+      "wallUtc": "2026-11-10T03:56:06.6534771+00:00",
+      "gameTime": 3.5076567835640162,
+      "decisionRequestedAt": 90327.570395557,
+      "decisionRepliedAt": 90327.756285107,
+      "requestToNativeCallSeconds": 2.610871897995821,
+      "replyObservedToNativeCallSeconds": 2.4249823480058694,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 90330.181267455,
+      "originalLogLine": 712
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "act_FaceTowards",
+        "Sequence": 663,
+        "State": "returned",
+        "Data": {
+          "action": "FaceTowards",
+          "status": "running",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "7d06f188-65e5-48b1-ad61-41b233b9668d"
+        }
+      },
+      "originalLogLine": 713
+    },
+    {
+      "kind": "continuation_step_bound",
+      "planId": "db3e87ff-3ccb-4798-b657-f471939da245",
+      "index": 1,
+      "sequence": 663,
+      "runId": "7d06f188-65e5-48b1-ad61-41b233b9668d",
+      "tool": "act_FaceTowards",
+      "monotonicSeconds": 90330.182964475,
+      "originalLogLine": 714
+    },
+    {
+      "kind": "native_call_returned",
+      "sequence": 663,
+      "tool": "act_FaceTowards",
+      "state": "returned",
+      "data": {
+        "action": "FaceTowards",
+        "status": "running",
+        "failure": "none",
+        "affectedCount": 0,
+        "runId": "7d06f188-65e5-48b1-ad61-41b233b9668d"
+      },
+      "wallUtc": "2026-11-10T03:56:06.6552059+00:00",
+      "gameTime": 3.5076567835640162,
+      "originalLogLine": 715
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "action_status",
+        "Sequence": 664,
+        "State": "returned",
+        "Data": {
+          "action": "FaceTowards",
+          "status": "running",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "7d06f188-65e5-48b1-ad61-41b233b9668d"
+        }
+      },
+      "originalLogLine": 716
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "action_status",
+        "Sequence": 665,
+        "State": "returned",
+        "Data": {
+          "action": "FaceTowards",
+          "status": "succeeded",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "7d06f188-65e5-48b1-ad61-41b233b9668d"
+        }
+      },
+      "originalLogLine": 717
+    },
+    {
+      "kind": "continuation_step_terminal",
+      "planId": "db3e87ff-3ccb-4798-b657-f471939da245",
+      "index": 1,
+      "sequence": 663,
+      "runId": "7d06f188-65e5-48b1-ad61-41b233b9668d",
+      "status": "succeeded",
+      "accepted": true,
+      "reason": "step_completed",
+      "monotonicSeconds": 90330.538755149,
+      "originalLogLine": 719
+    },
+    {
+      "kind": "continuation_tail_settled",
+      "planId": "db3e87ff-3ccb-4798-b657-f471939da245",
+      "firstReceipt": 19,
+      "lastReceipt": 663,
+      "lastRunId": "7d06f188-65e5-48b1-ad61-41b233b9668d",
+      "monotonicSeconds": 90330.564746843,
+      "originalLogLine": 722
+    },
+    {
+      "kind": "prefetch_handoff_taken",
+      "requestId": "ef4c10ec-440c-438b-8461-cfa176e4d731",
+      "precedingNavigation": "04efa08b-c75a-41cf-a221-1d7759dfbe93",
+      "precedingRunId": "04efa08b-c75a-41cf-a221-1d7759dfbe93",
+      "precedingKind": null,
+      "validationObservationId": "35126df9-2739-434f-8723-b29534a59a78",
+      "monotonicSeconds": 90330.593611171,
+      "overlapSeconds": 0.3326943209976889,
+      "overlapPath": 0.656494140625,
+      "prefetchTaken": 1,
+      "originalLogLine": 731
+    },
+    {
+      "kind": "native_call_started",
+      "decisionId": "ef4c10ec-440c-438b-8461-cfa176e4d731",
+      "candidateRequestId": "ef4c10ec-440c-438b-8461-cfa176e4d731",
+      "controller": "file",
+      "step": {
+        "Tool": "act_Wait",
+        "Arguments": {
+          "duration": 0.2
+        }
+      },
+      "wallUtc": "2026-11-10T03:56:07.0792555+00:00",
+      "gameTime": 3.9334865314885974,
+      "decisionRequestedAt": 90327.928987941,
+      "decisionRepliedAt": 90328.234466933,
+      "requestToNativeCallSeconds": 2.6780580449994886,
+      "replyObservedToNativeCallSeconds": 2.3725790530006634,
+      "goalToFirstNativeCallSeconds": null,
+      "monotonicSeconds": 90330.607045986,
+      "originalLogLine": 740
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "act_Wait",
+        "Sequence": 684,
+        "State": "returned",
+        "Data": {
+          "action": "Wait",
+          "status": "running",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "e78eb2c0-2b73-4d88-9aa7-ce78f55f33b4"
+        }
+      },
+      "originalLogLine": 741
+    },
+    {
+      "kind": "native_call_returned",
+      "sequence": 684,
+      "tool": "act_Wait",
+      "state": "returned",
+      "data": {
+        "action": "Wait",
+        "status": "running",
+        "failure": "none",
+        "affectedCount": 0,
+        "runId": "e78eb2c0-2b73-4d88-9aa7-ce78f55f33b4"
+      },
+      "wallUtc": "2026-11-10T03:56:07.0802895+00:00",
+      "gameTime": 3.9334865314885974,
+      "originalLogLine": 742
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "action_status",
+        "Sequence": 685,
+        "State": "returned",
+        "Data": {
+          "action": "Wait",
+          "status": "running",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "e78eb2c0-2b73-4d88-9aa7-ce78f55f33b4"
+        }
+      },
+      "originalLogLine": 743
+    },
+    {
+      "kind": "tool_receipt",
+      "receipt": {
+        "Tool": "action_status",
+        "Sequence": 686,
+        "State": "returned",
+        "Data": {
+          "action": "Wait",
+          "status": "succeeded",
+          "failure": "none",
+          "affectedCount": 0,
+          "runId": "e78eb2c0-2b73-4d88-9aa7-ce78f55f33b4"
+        }
+      },
+      "originalLogLine": 744
+    },
+    {
+      "kind": "stop_drained",
+      "reason": "direct_prefetch_fixture_verified",
+      "navigation": {
+        "RequestId": "00000000-0000-0000-0000-000000000000",
+        "Status": 0,
+        "Reason": "idle",
+        "Busy": false,
+        "Segments": 0,
+        "Path": 0,
+        "Remaining": 139.3688451711144
+      },
+      "direct": {
+        "action": "Wait",
+        "status": "succeeded",
+        "failure": "none",
+        "affectedCount": 0,
+        "runId": "e78eb2c0-2b73-4d88-9aa7-ce78f55f33b4"
+      },
+      "task": {
+        "version": 0,
+        "status": "idle",
+        "completedSteps": 0,
+        "totalSteps": 0,
+        "failure": "none",
+        "steps": [],
+        "taskId": "00000000-0000-0000-0000-000000000000"
+      },
+      "modelCompleted": true,
+      "originalLogLine": 753
+    },
+    {
+      "kind": "final_audit",
+      "modelInFlight": false,
+      "originalLogLine": 760
+    },
+    {
+      "kind": "result",
+      "passed": true,
+      "reason": "direct_prefetch_fixture_verified",
+      "seconds": 8.7125348,
+      "updateFailures": 0,
+      "originalLogLine": 761
+    }
+  ],
+  "driver": {
+    "schema": "direct-move-driver-v1",
+    "case": "direct_early",
+    "artificialFixture": true,
+    "receivedRequests": 2,
+    "responses": 2,
+    "elapsedSeconds": 5.93750045899651,
+    "events": [
+      {
+        "sessionId": "5cf6fa97-f4c4-462c-9e7c-196406a3163a",
+        "actorId": "d81c6e2d-6657-4c86-b712-6005d1386336",
+        "observationId": "a3c3b792-0272-45eb-8db1-db152bd2c3d4",
+        "requestId": "89f353da-621f-487d-ab7e-97f5c57406df",
+        "ordinal": 1,
+        "tool": "act_MoveTo",
+        "arguments": {
+          "bearing": 0,
+          "distance": 4,
+          "range": 0.25,
+          "timeout": 4
+        },
+        "observedMonotonicSeconds": 90327.601624865,
+        "canceledBeforeWrite": false,
+        "deliberatelyRetiredDelivery": false,
+        "delivered": true,
+        "writtenMonotonicSeconds": 90327.603569339,
+        "responseSha256": "6b7c67067cefc3310812988217a760df24a10b1a037a8c32d5cfec738c010485"
+      },
+      {
+        "sessionId": "5cf6fa97-f4c4-462c-9e7c-196406a3163a",
+        "actorId": "d81c6e2d-6657-4c86-b712-6005d1386336",
+        "observationId": "3abb00f5-01f0-4c6c-b981-44bbb80981f4",
+        "requestId": "ef4c10ec-440c-438b-8461-cfa176e4d731",
+        "ordinal": 2,
+        "tool": "act_Wait",
+        "arguments": {
+          "duration": 0.2
+        },
+        "observedMonotonicSeconds": 90328.158096708,
+        "canceledBeforeWrite": false,
+        "deliberatelyRetiredDelivery": false,
+        "delivered": true,
+        "writtenMonotonicSeconds": 90328.160254354,
+        "responseSha256": "e9f0fe3ae9dbfd572bbc04d2e2729fbd81aba2e6fb5255fc924d5649548d65de"
+      }
+    ],
+    "reason": "request_limit"
+  }
+}

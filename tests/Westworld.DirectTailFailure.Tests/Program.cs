@@ -1,0 +1,5 @@
+int n=0;void C(bool ok,string label){if(!ok)throw new Exception(label);n++;}
+var run=Guid.NewGuid();var good=new DirectTailFailureFact(1,2,"act_FaceTowards",run,run,41,true,"failed",true,0,false,false,0,true,true);
+C(DirectTailFailureEvidence.Verified(good),"actual failed tail accepted");C(DirectTailFailureEvidence.Verified(good with{ActualStatus="cancelled"}),"actual cancelled tail accepted");
+foreach(var bad in new[]{good with{CompletedSteps=0},good with{CompletedSteps=2},good with{TotalSteps=1},good with{TailTool="act_MoveTo"},good with{ActualRun=Guid.NewGuid()},good with{ExpectedRun=Guid.Empty},good with{ExpectedReceipt=0},good with{Returned=false},good with{ActualStatus="succeeded"},good with{ActualStatus="running"},good with{ActualStatus="wall_budget_exhausted"},good with{CandidateInvalidated=false},good with{CandidateTaken=1},good with{HandoffOccupied=true},good with{ModelInFlight=true},good with{QueuedSteps=1},good with{NativeIdle=false},good with{PhysicallySettled=false}})C(!DirectTailFailureEvidence.Verified(bad),"invalid failure acceptance refused");
+Console.WriteLine($"DirectTailFailure {n}/{n} passed");

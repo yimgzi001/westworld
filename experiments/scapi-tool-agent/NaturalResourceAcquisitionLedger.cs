@@ -8,6 +8,7 @@ public sealed class NaturalResourceAcquisitionLedger {
  // Block identity excludes lighting only; content and all data bits remain intact.
  public static int ObservedBlockIdentity(int rawValue)=>rawValue & ~15360;
  readonly Guid world,actor;readonly long failures;readonly Dictionary<int,int> baseline,inventory,consumed=[];
+ readonly Dictionary<int,int> initialConsumed=[];
  readonly Dictionary<Guid,(ResourceTarget Target,double Time)> observed=[];
  readonly Dictionary<Guid,ResourceOrigin> origins=[];readonly Dictionary<Guid,ResourceSourceState> sources=[];
  readonly Dictionary<Guid,object> events=[];double last;bool unknown;string reason="awaiting_origin";
@@ -31,6 +32,10 @@ public sealed class NaturalResourceAcquisitionLedger {
   int before=inventory.GetValueOrDefault(f.Value);long gain=(long)f.SourceBefore-f.SourceAfter;
   if(f.Value!=s.Value||f.SourceBefore!=s.Remaining||f.SourceAfter<0||gain<=0||f.InventoryBefore!=before||f.InventoryAfter is not int after||(long)after-before!=gain||f.Method is not("automatic" or "explicit")){Fault("transfer_not_conserved");return;}
   events.Add(f.EventId,f);sources[f.SourceId]=s with{Remaining=f.SourceAfter,Acquired=checked(s.Acquired+(int)gain)};inventory[f.Value]=after;reason="partially_or_fully_acquired";
+ }
+ // Known initial supplies may be eaten for survival; never counted as new-source consumption.
+ public void ConsumeInitial(Guid eventId,int value,int before,int after,bool nativeFoodEvent,double now){var f=(eventId,value,before,after,nativeFoodEvent,now,"initial");if(Replay(eventId,f))return;if(!Time(now))return;
+  if(!nativeFoodEvent||baseline.GetValueOrDefault(value)-initialConsumed.GetValueOrDefault(value)<=0||before!=inventory.GetValueOrDefault(value)||after<0||before-after!=1){Fault("initial_consumption_not_conserved");return;}events.Add(eventId,f);inventory[value]=after;initialConsumed[value]=initialConsumed.GetValueOrDefault(value)+1;reason="initial_supplies_consumed_not_new_source";
  }
  // Separate optional consumption evidence; does not assign a fungible item to one source.
  public void Consume(Guid eventId,int value,int count,int before,int after,bool nativeFoodEvent,double now){var f=(eventId,value,count,before,after,nativeFoodEvent,now);if(Replay(eventId,f))return;if(!Time(now))return;

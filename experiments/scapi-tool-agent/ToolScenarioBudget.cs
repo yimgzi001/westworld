@@ -4,7 +4,7 @@ public sealed record ToolScenarioBudget(int MaxRequests,double WallSeconds,doubl
  public static bool TerminalStatus(string status,bool task)=>task?status is "idle" or "succeeded" or "failed" or "cancelled" or "skipped":status is "succeeded" or "failed" or "cancelled";
  public static bool DirectReceiptTerminal(bool returned,bool typedNull,string status,bool nativeRunning)=>returned&&!nativeRunning&&(typedNull||TerminalStatus(status,false));
  public static double RemainingDrain(double stopped,double now)=>double.IsFinite(stopped)&&double.IsFinite(now)?Math.Max(0,DrainSeconds-Math.Max(0,now-stopped)):0;
- public static ToolScenarioBudget For(string mode)=>mode=="food_drop"?new(4,180,45):mode=="natural"?new(8,180,45):new(12,595,120);
+ public static ToolScenarioBudget For(string mode)=>mode=="food_drop"?new(4,180,45):mode is "natural" or "natural_food"?new(8,180,45):new(12,595,120);
  public double Remaining(double elapsed)=>Math.Max(0,WallSeconds-elapsed);
  public double RequestWindow(double elapsed,bool prefetch=false)=>Math.Min(Remaining(elapsed),prefetch?Math.Min(45,RequestSeconds):RequestSeconds);
  public bool CanRequest(int issued,double elapsed)=>issued>=0&&issued<MaxRequests&&RequestWindow(elapsed)>0;

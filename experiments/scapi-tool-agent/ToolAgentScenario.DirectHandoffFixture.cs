@@ -67,8 +67,14 @@ internal sealed partial class ToolAgentScenario {
   if(!safe)return true;
   bool terminal=status.State=="returned"&&Status(status.Data) is "succeeded" or "cancelled" or "failed";
   bool expected=positive?prefetchTaken==1&&overlapSeconds>0&&overlapPath>.01&&Status(status.Data)=="succeeded":prefetchTaken==0&&terminal&&invalidatedReason is not null;
+  DirectTailFailureFact tailFailure=null;
+  if(ToolAgentGate.HandoffCase=="direct_tail_failure"){
+   Guid actualRun=Guid.Empty;if(status.Data.ValueKind==JsonValueKind.Object&&status.Data.TryGetProperty("runId",out var runValue))runValue.TryGetGuid(out actualRun);
+   tailFailure=new(continuation?.CompletedSteps??-1,continuation?.StepCount??-1,continuationTool,continuationRun,actualRun,continuationReceipt?.Sequence??0,status.State=="returned",Status(status.Data),invalidatedReason is not null&&continuation?.InvalidatedReason is not null,prefetchTaken,handoff.Occupied,inference is not null,steps.Count,!actions.IsActionRunning&&!navigation.Busy,ContinuationPhysicalIdle());
+   expected=DirectTailFailureEvidence.Verified(tailFailure);
+  }
   Passed=safe&&expected;
-  ToolAgentGate.Log(new{kind="direct_fixture_result",scenario=ToolAgentGate.HandoffCase,Passed,safe,expected,fixtureInjected,retiredLateFile=retired,prefetchTaken,prefetchAccepted,invalidatedReason,overlapSeconds,overlapPath,actualFinal=status.Data,path,netDisplacement=(p.ComponentBody.Position-origin).XZ.Length(),note="Artificial lifecycle fixture; independent validator must verify the specific failure/cancel/replacement mechanism and dispatch identities."});
+  ToolAgentGate.Log(new{kind="direct_fixture_result",scenario=ToolAgentGate.HandoffCase,Passed,safe,expected,tailFailure,fixtureInjected,retiredLateFile=retired,prefetchTaken,prefetchAccepted,invalidatedReason,overlapSeconds,overlapPath,actualFinal=status.Data,path,netDisplacement=(p.ComponentBody.Position-origin).XZ.Length(),note="Artificial lifecycle fixture; independent validator must verify the specific failure/cancel/replacement mechanism and dispatch identities."});
   RequestStop(Passed?"direct_prefetch_fixture_verified":"direct_prefetch_fixture_failed");return true;
  }
  void FinishDirectHandoffFixture(){if(!IsDirectFixture)return;var t=p.Project.FindSubsystem<SubsystemTerrain>(true);foreach(var c in directOriginalCells)t.ChangeCell(c.Key.X,c.Key.Y,c.Key.Z,c.Value);if(directFixtureDrop is not null&&!directFixtureDrop.ToRemove)directFixtureDrop.ToRemove=true;}
