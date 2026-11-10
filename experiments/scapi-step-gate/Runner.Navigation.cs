@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Engine;
 using Game;
+using Game.Westworld;
 
 sealed partial class Runner
 {
@@ -17,6 +18,7 @@ sealed partial class Runner
         bool cliff = mode == "navigate-drop";
         bool turn = mode == "navigate-turn";
         bool edge = mode == "navigate-edge";
+        bool inset = mode == "navigate-inset";
         if (stage == 0)
         {
             if (elapsed < 3) return;
@@ -36,7 +38,7 @@ sealed partial class Runner
             }
             if (turn)
                 for (int y = cell.Y; y < cell.Y + 2; y++) terrain.ChangeCell(cell.X + 6, y, cell.Z, GraniteBlock.Index);
-            body.Position = new(cell.X + (edge ? 0.231f : 0.5f), cell.Y, cell.Z + 0.5f);
+            body.Position = new(cell.X + (edge ? 0.231f : inset ? 0.474f : 0.5f), cell.Y, cell.Z + (inset ? 0.451f : 0.5f));
             body.Velocity = Vector3.Zero;
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
             elapsed = 0;
@@ -44,6 +46,11 @@ sealed partial class Runner
             return;
         }
         if (elapsed < 1) return;
+        if (inset)
+        {
+            RunShortAlignment(body);
+            return;
+        }
         if (edge && travel is null && (!PlaySurvivalSenses.OnDryGround(body) || body.BoundingBox.Min.X >= navigationOrigin.X))
             throw new InvalidOperationException("夹具需要已站稳且向低一格侧稍微悬出。");
         travel ??= new(p, actions, turn ? 20 : 0, 18, "survey", false, now,
@@ -67,6 +74,27 @@ sealed partial class Runner
         Gate.Log(new { kind = "rolling_navigation_result", Passed, cliff, turn, edge, insetAtStart, travel.Status, travel.Reason, travel.Legs,
             continuations, slowestContinuation = float.IsFinite(slowestContinuation) ? (float?)slowestContinuation : null,
             biggestContinuousTurn, stationaryLooks, jumped, moved, error, end = body.Position.ToString() });
+    }
+
+    private void RunShortAlignment(ComponentBody body)
+    {
+        const float range = 0.04f;
+        var center = new Vector3(navigationOrigin.X + 0.5f, navigationOrigin.Y, navigationOrigin.Z + 0.5f);
+        float distance = Vector3.Distance(body.Position, center);
+        if (run is null)
+        {
+            if (!PlaySurvivalSenses.OnDryGround(body) || distance is <= 0.05f or >= 0.1f)
+                throw new InvalidOperationException("夹具需要站在离支撑格中心 0.05 到 0.10 格的位置。");
+            run = actions.Start(new MoveTo(center, range, 3f));
+            Gate.Log(new { kind = "short_alignment_started", distance, range });
+            return;
+        }
+        if (run.Result.Status == AtomicActionStatus.Running) return;
+
+        Passed = run.Result.Status == AtomicActionStatus.Succeeded && distance <= range && PlaySurvivalSenses.OnDryGround(body);
+        Done = true;
+        Gate.Log(new { kind = "short_alignment_result", Passed, distance, range,
+            status = run.Result.Status.ToString(), failure = run.Result.Failure.ToString() });
     }
 
     private void TrackNavigation(object value)

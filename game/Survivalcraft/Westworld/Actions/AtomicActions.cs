@@ -155,6 +155,8 @@ namespace Game.Westworld {
         AtomicActionRun StartDirectMove(MoveTo move, double deadline) {
             float closest = Vector3.Distance(m_body.Position, move.Destination);
             double lastProgress = m_time.GameTime;
+            // 对齐动作的到达范围可能小于默认走路死区，允许继续挪到目标范围内。
+            float walkThresholdSquared = Math.Min(0.01f, move.Range * move.Range);
             return StartRunning(move, () => {
                 if (!CanUseLocomotion || m_locomotion.LadderValue.HasValue) {
                     return Failed(AtomicActionFailure.MovementInterrupted);
@@ -178,7 +180,7 @@ namespace Game.Westworld {
                 if (m_locomotion.SwimSpeed > 0f && m_body.ImmersionFactor > 0.5f) {
                     m_locomotion.SwimOrder = 0.6f * offset / distance;
                 }
-                else if (offset.XZ.LengthSquared() > 0.01f) {
+                else if (offset.XZ.LengthSquared() > walkThresholdSquared) {
                     Vector2 direction = Vector2.Normalize(offset.XZ);
                     Vector2 forward = m_body.Matrix.Forward.XZ;
                     Vector2 right = m_body.Matrix.Right.XZ;
