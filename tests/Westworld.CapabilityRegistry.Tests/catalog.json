@@ -1,0 +1,432 @@
+[
+  {
+    "Name": "act_MoveTo",
+    "Family": "action",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_FaceTowards",
+    "Family": "action",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_SetPosture",
+    "Family": "action",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Jump",
+    "Family": "action",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_ClimbTo",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Mount",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Dismount",
+    "Family": "action",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Steer",
+    "Family": "action",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Wait",
+    "Family": "action",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Eat",
+    "Family": "action",
+    "Parameters": [
+      "OwnedItem",
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Sleep",
+    "Family": "action",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_WakeUp",
+    "Family": "action",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_PickUp",
+    "Family": "action",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Drop",
+    "Family": "action",
+    "Parameters": [
+      "Scalar",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_SelectItem",
+    "Family": "action",
+    "Parameters": [
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_TransferItems",
+    "Family": "action",
+    "Parameters": [
+      "StorageSlot",
+      "LiveTarget",
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Equip",
+    "Family": "action",
+    "Parameters": [
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Unequip",
+    "Family": "action",
+    "Parameters": [
+      "Scalar",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Dig",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Place",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Interact",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_UseItem",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_ConfigureBlock",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "TypedSettings"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_ConfigureItem",
+    "Family": "action",
+    "Parameters": [
+      "TypedSettings",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_MeleeAttack",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_UseAimedItem",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "Scalar",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Craft",
+    "Family": "action",
+    "Parameters": [
+      "StorageSlot",
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_BuildFurniture",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "TypedSettings",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_Speak",
+    "Family": "action",
+    "Parameters": [
+      "Scalar",
+      "LiveTarget"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_OfferItem",
+    "Family": "action",
+    "Parameters": [
+      "LiveTarget",
+      "Scalar",
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "act_RespondToOffer",
+    "Family": "action",
+    "Parameters": [
+      "SocialOffer",
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "observe",
+    "Family": "query_or_task",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_self",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_environment",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_inventory",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_equipment",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_storage",
+    "Family": "query_or_task",
+    "Parameters": [
+      "StorageSlot"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_sign",
+    "Family": "query_or_task",
+    "Parameters": [
+      "LiveTarget"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_block_settings",
+    "Family": "query_or_task",
+    "Parameters": [
+      "LiveTarget"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_item_settings",
+    "Family": "query_or_task",
+    "Parameters": [
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_map",
+    "Family": "query_or_task",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_social",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "read_item",
+    "Family": "query_or_task",
+    "Parameters": [
+      "OwnedItem"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "find_items",
+    "Family": "query_or_task",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "find_creatures",
+    "Family": "query_or_task",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "find_recipes",
+    "Family": "query_or_task",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "action_status",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "cancel_action",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "task_status",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "cancel_task",
+    "Family": "query_or_task",
+    "Parameters": [],
+    "CatalogExists": true
+  },
+  {
+    "Name": "submit_plan",
+    "Family": "query_or_task",
+    "Parameters": [
+      "NestedPlan"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "plan_craft",
+    "Family": "query_or_task",
+    "Parameters": [
+      "StorageSlot",
+      "Recipe",
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "host_navigate_local",
+    "Family": "host_navigation",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "host_navigation_status",
+    "Family": "host_navigation",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  },
+  {
+    "Name": "host_cancel_navigation",
+    "Family": "host_navigation",
+    "Parameters": [
+      "Scalar"
+    ],
+    "CatalogExists": true
+  }
+]

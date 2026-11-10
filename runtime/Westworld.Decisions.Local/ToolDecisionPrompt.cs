@@ -6,7 +6,8 @@ namespace Westworld.Decisions.Local;
 public sealed record ToolParameterBranch(IReadOnlyList<string> Required,IReadOnlyList<string> Forbidden,IReadOnlyDictionary<string,JsonElement>? IntegerConstraints=null);
 public sealed record ToolOffer(string Name,string Description,JsonElement Parameters,
  IReadOnlyDictionary<string,IReadOnlyList<string>>? ReferenceValues=null,
- IReadOnlyList<ToolParameterBranch>? ParameterBranches=null);
+ IReadOnlyList<ToolParameterBranch>? ParameterBranches=null,
+ IReadOnlyList<JsonElement>? AssociatedParameterSchemas=null);
 public sealed record ToolDecisionStep(string Tool,JsonElement Arguments);
 public sealed record ToolDecisionPlan(Guid SessionId,Guid ActorId,Guid ObservationId,string Goal,IReadOnlyList<ToolDecisionStep> Steps);
 
@@ -79,6 +80,10 @@ public sealed class ToolDecisionPrompt {
     }
     if(variants.Count==0)throw new ArgumentException("No available parameter branch");
     effective=new JsonObject{["oneOf"]=variants};
+   }
+   if(offer.AssociatedParameterSchemas is not null){
+    if(offer.ParameterBranches is not null)throw new ArgumentException("Use one association mechanism");
+    effective=JsonNode.Parse(Capability39.TypedAssociationSchema.Build(JsonSerializer.SerializeToElement(node),offer.AssociatedParameterSchemas).GetRawText())!;
    }
    var schema=JsonSerializer.SerializeToElement(effective);ValidateSchema(schema,0);schemas.Add(offer.Name,schema);
    signatures.Add(offer.Name+Compact(schema)+" // "+offer.Description);

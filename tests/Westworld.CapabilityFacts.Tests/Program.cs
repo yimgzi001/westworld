@@ -1,0 +1,32 @@
+using System.Text.Json;
+using Capability39.SocialTasks;
+using Capability39;
+using Westworld.Decisions.Local;
+int n=0;void Check(bool x,string m){if(!x)throw new Exception(m);n++;}
+void Reject(Action a,string m){try{a();throw new Exception("accepted:"+m);}catch(ArgumentException){n++;}}
+JsonElement J(string s)=>JsonDocument.Parse(s).RootElement.Clone();
+var scope=new SocialCaptureId(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid());
+CapabilityRead R(string t,string d,string a="{}")=>new(scope,t,J(a),J(d));
+var empty=CapabilityFacts.Build(scope,[]);Check(empty.Body.Locomotion==null,"unknown support");Check(empty.Body.Inventory==null,"unknown inventory");Check(empty.Social==null,"unknown time");Check(empty.Missing.Contains("actor_capabilities_unknown"),"missing reason");
+var reads=new[]{R("observe","""{"gameTime":20,"self":{"isMounted":false},"visibleBlocks":[{"reference":"b"}],"entities":[{"reference":"e"}],"pickables":[{"reference":"p"}]}"""),R("read_inventory","""{"slots":[{"slot":2,"value":17,"count":3},{"slot":3,"value":18,"count":1}]}"""),R("read_equipment","""[{"slot":"Head","layer":0,"value":200},{"slot":"Head","layer":1,"value":201}]"""),R("read_map","""{"entries":[{"reference":"old"}]}"""),R("read_block_settings","""{"type":"BatteryBlock","settings":{"voltage":3}}""","""{"target":"b"}"""),R("read_item_settings","""{"type":"SwitchBlock","settings":{"voltage":3}}""","""{"slot":2,"value":17}"""),R("read_storage","""{"crafting":{"recipe":{"resultValue":30,"resultCount":4},"materialBatches":3}}""","""{"storage":"work"}"""),R("read_social","""[{"kind":"ItemOffered","gameTime":18,"offerReference":"offer_1","source":"e"},{"kind":"HeardSpeech","gameTime":19,"text":"hello"}]""")};
+string[] tools=["act_MoveTo","act_FaceTowards","act_SetPosture","act_Jump","act_ClimbTo","act_Mount","act_Dismount","act_Steer","act_Equip","act_Unequip","read_social","act_RespondToOffer"];
+var f=CapabilityFacts.Build(scope,reads,tools,true);
+Check(f.Body.Locomotion==true,"capability snapshot");Check(f.Body.Rider==true,"rider");Check(f.Body.Mounted==false,"actual mounted");Check(f.Body.Clothing==true,"clothing");Check(f.Body.Inventory![0].Value==17&&f.Body.Inventory[0].Slot==2,"paired inventory");Check(f.Body.Equipment!.Length==2,"layers retained");Check(f.Body.RememberedLocations.SequenceEqual(new[]{"old"}),"historical separate");Check(!f.Body.LiveBlocks.Contains("old"),"historical not target");Check(f.Production.Targets.Count==2,"drops not entity target");Check(f.Body.LiveLocations.Contains("p"),"drop location");Check(f.Production.Settings.Count==2,"typed settings");Check(f.Production.Crafts.Single().AvailableCount==12,"native output count");Check(f.Social!.Inbox.Single().Reference=="offer_1","actual received offer");Check(f.Social.Inbox.Single().RecipientActor==scope.Actor,"owned inbox");Check(f.Social.Visible.Single().Reference=="e","visible other");Check(f.ActorSupport["act_Speak"]==false,"absent complete capability false");
+Reject(()=>CapabilityFacts.Build(scope,[reads[0] with{Scope=scope with{Capture=Guid.NewGuid()}}]),"stale");
+Reject(()=>CapabilityFacts.Build(scope,[reads[0],reads[0]]),"duplicate snapshot");
+Reject(()=>CapabilityFacts.Build(scope,[reads[0],reads[1],R("read_item_settings","""{"type":"SwitchBlock"}""","""{"slot":2,"value":18}""")]),"cross paired settings");
+Reject(()=>CapabilityFacts.Build(scope,[reads[0],R("read_block_settings","""{"type":"BatteryBlock"}""","""{"target":"old"}""")]),"old target settings");
+Reject(()=>CapabilityFacts.Build(scope,[reads[0],R("read_social","""[{"kind":1,"gameTime":21,"offerReference":"offer_future"}]""")]),"future offer");
+Reject(()=>CapabilityFacts.Build(scope,[R("read_inventory","""{"slots":[{"slot":2,"value":17,"count":3},{"slot":2,"value":18,"count":1}]}""")]),"duplicate slots");
+var unknown=CapabilityFacts.Build(scope,[reads[0]],tools);Check(unknown.Social!.InventoryKnown==null,"inventory not empty");Check(unknown.Social.InboxKnown==null,"inbox not empty");
+var ignored=CapabilityFacts.Build(scope,[reads[0],reads[1] with{Success=false}],tools);Check(ignored.Body.Inventory==null,"failure excluded");
+var mixed=CapabilityFacts.Build(scope,[],["act_MoveTo"]);Check(mixed.Body.Locomotion==null,"mixed group unknown");
+var noEntities=CapabilityFacts.Build(scope,[R("observe","{\"gameTime\":0}")]);Check(noEntities.Social!.VisibleKnown==null,"missing entities not observed empty");
+var bodyOffers=BodyFamily.Project(mixed.Body);Check(bodyOffers.Single(x=>x.Descriptor.Name=="act_MoveTo").Offer!=null,"Move stays available without Climb support");Check(bodyOffers.Single(x=>x.Descriptor.Name=="act_ClimbTo").State.ActorSupported==false,"Climb separately unsupported");
+Check(f.Production.Crafts.Single().MinimumCount==4&&f.Production.Crafts.Single().CountMultiple==4,"recipe multiplicity retained");
+var nativeCraft=J("""{"type":"object","properties":{"workspace":{"type":"string"},"result_value":{"type":"integer"},"count":{"type":"integer"}},"required":["workspace","result_value","count"],"additionalProperties":false}""");
+var craft=ProductionFamily.Build("act_Craft",nativeCraft,true,f.Production.Scope,f.Production);
+var counts=craft.Offer!.AssociatedParameterSchemas!.Single().GetProperty("properties").GetProperty("count").GetProperty("enum").EnumerateArray().Select(x=>x.GetInt32()).ToArray();
+Check(counts.SequenceEqual(new[]{4,8,12}),"only native whole-batch output counts");
+_=new ToolDecisionPrompt(scope.Session,scope.Actor,scope.Capture,J("{}"),[craft.Offer]);Check(true,"raw unbounded native craft schema compiles");
+Console.WriteLine($"PASS {n} capability fact mapping assertions (pure DTO, no game/API)");

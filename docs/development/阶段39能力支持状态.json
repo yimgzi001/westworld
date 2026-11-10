@@ -1,0 +1,557 @@
+{
+  "stage": 39,
+  "count": 55,
+  "scope": "生产代码集成和纯测试；不代表55项原生实测通过",
+  "entries": [
+    {
+      "name": "act_MoveTo",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_FaceTowards",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_SetPosture",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Jump",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_ClimbTo",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Mount",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Dismount",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Steer",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Wait",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Eat",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Sleep",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_WakeUp",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_PickUp",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Drop",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_SelectItem",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_TransferItems",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Equip",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Unequip",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Dig",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Place",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Interact",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_UseItem",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_ConfigureBlock",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "partial",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "仅Battery/Button/Switch电压与AdjustableDelay延时有模板；Piston/TruthTable/MemoryBank/Sign/武器装填/家具命名等子类型仅目录",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_ConfigureItem",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "partial",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "仅Battery/Button/Switch电压与AdjustableDelay延时有模板；Piston/TruthTable/MemoryBank/Sign/武器装填/家具命名等子类型仅目录",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_MeleeAttack",
+      "family": "action",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_UseAimedItem",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Craft",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_BuildFurniture",
+      "family": "production_interaction",
+      "catalog": true,
+      "template": "partial",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "仅原生默认options；自定义options未适配",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_Speak",
+      "family": "social",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_OfferItem",
+      "family": "social",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "act_RespondToOffer",
+      "family": "social",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "observe",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_self",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_environment",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_inventory",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_equipment",
+      "family": "body_transport_equipment",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_storage",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_sign",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_block_settings",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_item_settings",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_map",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_social",
+      "family": "social",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "read_item",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "find_items",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "find_creatures",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "find_recipes",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "action_status",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "cancel_action",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "task_status",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "cancel_task",
+      "family": "query_or_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "submit_plan",
+      "family": "finite_task",
+      "catalog": true,
+      "template": "partial",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "大schema超过有界模板时明确不可用；更细分页待实现",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "plan_craft",
+      "family": "finite_task",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "host_navigate_local",
+      "family": "host_navigation",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "host_navigation_status",
+      "family": "host_navigation",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    },
+    {
+      "name": "host_cancel_navigation",
+      "family": "host_navigation",
+      "catalog": true,
+      "template": "implemented",
+      "currentExecutable": "runtime_only_not_preclaimed",
+      "conditions": "实际角色支持+明确选择+同捕获参数事实+原生前置条件；效果看真实收据",
+      "gaps": "",
+      "stage39NativeVerified": false
+    }
+  ]
+}

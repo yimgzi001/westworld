@@ -3,7 +3,7 @@ using Westworld.Runtime.Core;
 using Westworld.Decisions.Local;
 internal sealed partial class ToolAgentScenario {
  readonly ToolOutcomeFeedback outcomeFeedback=new();
- static bool TracksOutcome(string tool)=>tool.StartsWith("act_",StringComparison.Ordinal)||tool is "host_navigate_local" or "plan_craft";
+ static bool TracksOutcome(string tool)=>Capability39.CapabilityExecution.TracksOutcome(tool);
  ToolOutcomeSnapshot PublicOutcomeSnapshot(JsonElement observation,JsonElement inventory)=>new(gateway.SessionId,gateway.ActorId,observation.GetProperty("snapshotId").GetGuid(),inventory.Clone());
  void BeginOutcome(ToolDecisionStep step,JsonElement observation,JsonElement inventory){if(TracksOutcome(step.Tool))outcomeFeedback.Begin(PublicOutcomeSnapshot(observation,inventory),step.Tool,Goal);}
  void BindOutcome(ToolDecisionStep step,ToolReceipt receipt){if(!TracksOutcome(step.Tool))return;if(receipt.State=="returned")outcomeFeedback.Bind(receipt.Sequence);else outcomeFeedback.AbortDispatch("native_receipt_not_returned");}

@@ -14,7 +14,7 @@ public static class NativeToolOffers {
   "act_Dismount","act_MoveTo","act_FaceTowards","act_Wait","act_Eat","act_PickUp","act_SelectItem","act_TransferItems",
   "act_Dig","act_Place","act_MeleeAttack","act_Craft","act_Jump","act_Sleep","act_WakeUp"
  };
- public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null,Action<EatMenuCoverage>? reportEatCoverage=null,JsonElement? visibleEatInventory=null){
+ public static IReadOnlyList<ToolOffer> Build(IReadOnlyList<ActorToolDefinition> native,JsonElement observation,JsonElement inventory,IReadOnlyList<JsonElement> recentResults,JsonElement? navigationStatus=null,OfferPurpose purpose=OfferPurpose.Immediate,PrecedingExecutionBinding? precedingBinding=null,PrecedingExecutionSample? precedingState=null,Action<EatMenuCoverage>? reportEatCoverage=null,JsonElement? visibleEatInventory=null,bool includeDiscoveryQueries=false){
   ArgumentNullException.ThrowIfNull(native);ArgumentNullException.ThrowIfNull(recentResults);
   if(native.Count>128||recentResults.Count>32)throw new ArgumentException("Bounded native context required");
   if(!Enum.IsDefined(purpose))throw new ArgumentOutOfRangeException(nameof(purpose));
@@ -87,7 +87,7 @@ public static class NativeToolOffers {
    throw new ArgumentException("Deferred offers require actual running native movement or navigation evidence",nameof(navigationStatus));
   var result=new List<ToolOffer>();
   var eatCoverage=new EatMenuCoverage("unavailable",0,0,0,0,0);
-  foreach(var tool in native.Where(t=>Profile.Contains(t.Name))){
+  foreach(var tool in native.Where(t=>Profile.Contains(t.Name)||(includeDiscoveryQueries&&t.Name is "read_sign" or "read_block_settings" or "read_item_settings"))){
    // Dismount has no target argument. Never reinterpret block refs as mounts.
    if(tool.Name=="act_Dismount"&&!(observation.ValueKind==JsonValueKind.Object
     &&observation.TryGetProperty("self",out var self)&&self.ValueKind==JsonValueKind.Object
@@ -122,7 +122,7 @@ public static class NativeToolOffers {
     }
     if(type=="integer"){
      if(key=="limit"&&!needed)required.Add(key);
-     HashSet<int>? ints=key=="slot"?slots:key=="value"&&tool.Name.StartsWith("act_",StringComparison.Ordinal)?values:
+     HashSet<int>? ints=key=="slot"?slots:key=="value"&&(tool.Name.StartsWith("act_",StringComparison.Ordinal)||tool.Name=="read_item_settings")?values:
       key is "source_slot" or "destination_slot"?allSlots:key is "source_value" or "destination_value"?allValues:key=="food_value"?foodValues:null;
      if(ints is not null){if(ints.Count==0){if(needed){skip=true;break;}props.Remove(key);continue;}field["enum"]=JsonSerializer.SerializeToNode(ints.Order().Take(128));}
      else {field["minimum"]=key=="count"?Math.Max(1,field["minimum"]?.GetValue<int>()??1):key is "limit" or "block_limit"?1:0;field["maximum"]=key=="count"?Math.Min(64,field["maximum"]?.GetValue<int>()??64):key=="block_limit"?128:key=="limit"?4:key=="offset"?(tool.Name=="read_map"?128:4096):int.MaxValue;}
@@ -145,6 +145,7 @@ public static class NativeToolOffers {
     "act_MoveTo"=>new[]{new ToolParameterBranch(new[]{"destination"},new[]{"bearing","distance"}),new ToolParameterBranch(new[]{"bearing","distance"},new[]{"destination"})},
     "act_FaceTowards"=>new[]{new ToolParameterBranch(new[]{"destination"},new[]{"bearing","pitch"}),new ToolParameterBranch(new[]{"bearing"},new[]{"destination"})},
     "act_PickUp"=>new[]{new ToolParameterBranch(new[]{"target"},new[]{"food_value"}),new ToolParameterBranch(new[]{"food_value"},new[]{"target"})},_=>null};
+   if(tool.Name=="read_item_settings")branches=Array(inventory,"slots").Where(s=>s.TryGetProperty("count",out var c)&&c.GetInt32()>0).Select(s=>new ToolParameterBranch(new[]{"slot","value"},System.Array.Empty<string>(),new Dictionary<string,JsonElement>{["slot"]=JsonSerializer.SerializeToElement(new{@const=s.GetProperty("slot").GetInt32()}),["value"]=JsonSerializer.SerializeToElement(new{@const=s.GetProperty("value").GetInt32()})})).Take(32).ToArray();
    if(branches is not null){branches=branches.Where(b=>b.Required.All(props.ContainsKey)).ToArray();if(branches.Count==0)continue;}
    result.Add(new(tool.Name,Describe(tool),JsonSerializer.SerializeToElement(schema),bindings,branches));
   }

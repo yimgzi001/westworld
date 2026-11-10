@@ -1,0 +1,196 @@
+{
+  "stage": 39,
+  "nativeGameRun": false,
+  "modelApiRun": false,
+  "testSuites": 6,
+  "assertions": 432,
+  "counts": {
+    "registry": 127,
+    "menu": 87,
+    "facts": 36,
+    "body": 39,
+    "production": 93,
+    "social": 50
+  },
+  "hostBuild": {
+    "errors": 0,
+    "warnings": 39
+  },
+  "sourceFiles": {
+    "docs/development/阶段39能力支持状态.json": {
+      "gitBlob": "860f57f15b16a39226135a56992e2d4d5a7e927b",
+      "sha256": "b11ab775423b609431e7bcb7e01ce983aba97bc31100526942d7eab6a358799d",
+      "bytes": 20716
+    },
+    "docs/development/阶段39能力集成与验收.md": {
+      "gitBlob": "3b04cab3f253372dfcb95250fda032beb8a7754f",
+      "sha256": "6da7733db0c5ad7a279f6bbe3bb2876526a9dc251fea8a40d2736ce17b952237",
+      "bytes": 6091
+    },
+    "experiments/scapi-tool-agent/CapabilityFacts.cs": {
+      "gitBlob": "798a96f085227720b966cd0c1c0854bbb6424601",
+      "sha256": "77d9ee945ba4e914bb9db61a36d51ceb70cae7fd5d5611beca79a785ca9c53e8",
+      "bytes": 9820
+    },
+    "experiments/scapi-tool-agent/CapabilityMenu.cs": {
+      "gitBlob": "f37152f83cde9ea9e6bc0a0b72081111b0577b71",
+      "sha256": "cb3fc50eaaf74d2928b9df20c94d894c4005673dcf0b2d35f5915e367d9bb2e9",
+      "bytes": 8576
+    },
+    "experiments/scapi-tool-agent/NativeToolOffers.cs": {
+      "gitBlob": "17d1636a37b2f99c10a774ada87d2bc2a90469f9",
+      "sha256": "729164734ea70452c94f77962297595a7311d3bb32267a63891c5fdc5b1409ac",
+      "bytes": 16238
+    },
+    "experiments/scapi-tool-agent/Program.cs": {
+      "gitBlob": "9e7d5665e1edd24bb15c2cd3497eb408df3444cf",
+      "sha256": "935fce8fd3ed7f7333d37ba66b8870245844932dcdc5f4409a209ac6cc43bf0d",
+      "bytes": 40112
+    },
+    "experiments/scapi-tool-agent/ToolAgentGate.csproj": {
+      "gitBlob": "3d99f5a9c768d383ac8b2f1ef636a6c3f6179fd6",
+      "sha256": "304a09a2a1c187aeb4a7ebdd5ca04f54877bdcc1de36088f68ca72938c55c923",
+      "bytes": 503
+    },
+    "experiments/scapi-tool-agent/ToolAgentScenario.Capabilities.cs": {
+      "gitBlob": "79e20741cb5f4d793123f911d851f040c0847259",
+      "sha256": "823777faf2979df4da8f77ed6858d867c19ba51e78aeebdd028a5386da61a8aa",
+      "bytes": 10044
+    },
+    "experiments/scapi-tool-agent/ToolAgentScenario.OutcomeFeedback.cs": {
+      "gitBlob": "4ae1dd4d152fa1733d324de25dfb3b0bfa00519a",
+      "sha256": "c4ec320573ad588af939d693a0da40dceecadac208923eabc058872062b0eba4",
+      "bytes": 1903
+    },
+    "runtime/Westworld.Capabilities/BodyFamily.cs": {
+      "gitBlob": "696db7c19c26f45384b6d7595cc90a2cda2d1e55",
+      "sha256": "bf3d107ded89422a6d9201728f6c054682edf6ba0e7a467e62fef530e433ff4f",
+      "bytes": 8689
+    },
+    "runtime/Westworld.Capabilities/CapabilityCatalog.cs": {
+      "gitBlob": "34dd8eb44a33629d085f48615a17178788dd410e",
+      "sha256": "2d7005ad609eb3d0591ab5f7b35541af431ead4a9b4e0f3cda8d9f356fbab880",
+      "bytes": 4212
+    },
+    "runtime/Westworld.Capabilities/CapabilityExecution.cs": {
+      "gitBlob": "792eb49e4423a56372218595e36ef68e4e6e81e1",
+      "sha256": "c454e4bf7e963bacb17c3d738be1bf4549b9a121adbfbc6041eb35742bac5610",
+      "bytes": 3070
+    },
+    "runtime/Westworld.Capabilities/CapabilityRegistry.cs": {
+      "gitBlob": "0722eb7b862cd6b27d6c95c6420f5506b625b666",
+      "sha256": "a8bc362884f9a3810473726cc01f1255f9fcfe1cef2097dbed34323f32862eca",
+      "bytes": 5581
+    },
+    "runtime/Westworld.Capabilities/ProductionFamily.cs": {
+      "gitBlob": "23cf3c7cdd26c55eb022d88a7fae7ef813cda666",
+      "sha256": "5f696df671f17f7d4f3fc51ff41a216d8f5519ac01fa200ad206218c74e4bea9",
+      "bytes": 14564
+    },
+    "runtime/Westworld.Capabilities/README.md": {
+      "gitBlob": "44d7ecbe26a1f2ec1c4a58df4251448ebe17d703",
+      "sha256": "0c3af8d5549ad5263a1c94786d8e0219108a257cf9b776bd5802a5ab29d39bf6",
+      "bytes": 1509
+    },
+    "runtime/Westworld.Capabilities/SocialTaskFamily.cs": {
+      "gitBlob": "11a61725875100bb0067654ef240903b3bd13591",
+      "sha256": "802a19777ed30292982864ca3330322c4c20666230e47f1bba4ede1422c54983",
+      "bytes": 15252
+    },
+    "runtime/Westworld.Capabilities/Westworld.Capabilities.csproj": {
+      "gitBlob": "ba6110626ce0687e2b61804e9748ef8fe99b9f7a",
+      "sha256": "cb424c9633f3abf35e133e28d97e39dcf1d32d4ceac04c6653502ccca50ef8ce",
+      "bytes": 298
+    },
+    "runtime/Westworld.Decisions.Local/ToolDecisionPrompt.cs": {
+      "gitBlob": "9d5f050dd0ee644381f3ab0c934cf6f5d589a229",
+      "sha256": "c4ab67dff38c366037f49ba1d32217c3417ff9b99ba055ab982b6ad843a65cbf",
+      "bytes": 16311
+    },
+    "runtime/Westworld.Decisions.Local/TypedAssociationSchema.cs": {
+      "gitBlob": "b9a760f610a0a9588f23ea473a6101c73d08900f",
+      "sha256": "ffc103383c26ab7444e7cfda8ed64a81ace68aa9c42250c5c3e3cc419ae4c759",
+      "bytes": 5810
+    },
+    "tests/Westworld.BodyFamily.Tests/BodyFamily.Tests.csproj": {
+      "gitBlob": "27385a44d30c41176f9a9689bf2571a7a85afc9b",
+      "sha256": "80b9d07d3aead3a4aeb056773f4ded147efc9a9b9633ccd0bb016c9059030f44",
+      "bytes": 331
+    },
+    "tests/Westworld.BodyFamily.Tests/Program.cs": {
+      "gitBlob": "6a3737b9db4dc42ae73e72e2be8f1cf9e6098f1d",
+      "sha256": "32e9af82424dc9b33988b985f548b5effaacb8631e0040fb2a7f6152d7543a7b",
+      "bytes": 4726
+    },
+    "tests/Westworld.CapabilityFacts.Tests/Program.cs": {
+      "gitBlob": "c57874361f74ff3ba97aca0d96076f6883738872",
+      "sha256": "ff913b647ecd8d7b0dede83464ebcfa38ce1e5b0d84098a02535a3c0bcab8cb8",
+      "bytes": 5637
+    },
+    "tests/Westworld.CapabilityFacts.Tests/README.md": {
+      "gitBlob": "3bc8b1097c69e096b39ab17cb5a1056a98c7a1aa",
+      "sha256": "e114663b9a4eef2ed1da0e5acd89f49d154ceed2e7386294c967694c8da52703",
+      "bytes": 2306
+    },
+    "tests/Westworld.CapabilityFacts.Tests/Westworld.CapabilityFacts.Tests.csproj": {
+      "gitBlob": "ea424c3686bf164f15e1a2d79c1603002bc99699",
+      "sha256": "db5e96d98ca6f9926e4f8d3c83f65a3bf7142b0d90ff01ad1b4cf6ef1084eaca",
+      "bytes": 430
+    },
+    "tests/Westworld.CapabilityMenu.Tests/Program.cs": {
+      "gitBlob": "6bad0edf9264c4ab7738f28acb850006f670eb91",
+      "sha256": "27e0e561cd74ee3fca75d07c138e56a702b1225bd123f2e182d4e605709f0ae4",
+      "bytes": 4580
+    },
+    "tests/Westworld.CapabilityMenu.Tests/README.md": {
+      "gitBlob": "3f15ce875ca54b25064177684b1813d2414e89e2",
+      "sha256": "c551abb1dd4abb232b47a4f6ad11790928bd24d4e822b78ab0643b971e9c19a9",
+      "bytes": 2301
+    },
+    "tests/Westworld.CapabilityMenu.Tests/Westworld.CapabilityMenu.Tests.csproj": {
+      "gitBlob": "ff86b5d9eec9c000fc9da0cf9396f642528b9d54",
+      "sha256": "2c8051d3d9910438a40ebc7ebbbefe6ca842f9db20696402dfd9ceab920f9244",
+      "bytes": 428
+    },
+    "tests/Westworld.CapabilityRegistry.Tests/Program.cs": {
+      "gitBlob": "b067e07aea37d7890eeea6bfe3ac4dc61bc15c48",
+      "sha256": "1f2a1f3e7f031b6f6fc54536623360676893ff504f199864976d3e160a04fd67",
+      "bytes": 7870
+    },
+    "tests/Westworld.CapabilityRegistry.Tests/Westworld.CapabilityRegistry.Tests.csproj": {
+      "gitBlob": "d1e1f8914d728dc83ce8c07899d3839daedd6d46",
+      "sha256": "d25620c4623bd2780dbc1c96354a54a1bcefb6e616318a528f4ed1ad3a16e3e6",
+      "bytes": 398
+    },
+    "tests/Westworld.CapabilityRegistry.Tests/catalog.json": {
+      "gitBlob": "9d803f22810b92ed0311de6bd1e9e7cb4093c21d",
+      "sha256": "cd90178f03aa99da5c550bce5c68345fdd7833c7ce5bbaaa1fb7510ef49a0191",
+      "bytes": 7469
+    },
+    "tests/Westworld.ProductionFamily.Tests/ProductionFamily.Tests.csproj": {
+      "gitBlob": "27385a44d30c41176f9a9689bf2571a7a85afc9b",
+      "sha256": "80b9d07d3aead3a4aeb056773f4ded147efc9a9b9633ccd0bb016c9059030f44",
+      "bytes": 331
+    },
+    "tests/Westworld.ProductionFamily.Tests/Program.cs": {
+      "gitBlob": "5de6f30fb533b2d1262305b63ac4955e7193ef6c",
+      "sha256": "80bfb8d1283f50304333edd0e28a0441a0eaf8841c067d9e64f30ddc798d21c3",
+      "bytes": 7776
+    },
+    "tests/Westworld.SocialTaskFamily.Tests/Program.cs": {
+      "gitBlob": "5dd46828403e4ee0c6e10c79769b9184a0de9de4",
+      "sha256": "493d61611f7500dcb6486678931abcea7e84beefff7bc502352a3f6b056d2c00",
+      "bytes": 9466
+    },
+    "tests/Westworld.SocialTaskFamily.Tests/SocialTaskFamily.Tests.csproj": {
+      "gitBlob": "27385a44d30c41176f9a9689bf2571a7a85afc9b",
+      "sha256": "80b9d07d3aead3a4aeb056773f4ded147efc9a9b9633ccd0bb016c9059030f44",
+      "bytes": 331
+    }
+  },
+  "notVerified": [
+    "all_old_regressions",
+    "native_capability_matrix",
+    "autonomous_model_survival"
+  ]
+}
