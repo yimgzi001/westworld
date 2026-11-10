@@ -26,7 +26,7 @@ internal static class PlaySurvivalPanorama
                 terrain = sector.Blocks.GroupBy(block => Terrain.ExtractContents(block.Value))
                     .OrderByDescending(group => group.Count()).Take(2).Select(group =>
                         BlocksManager.Blocks[group.Key].GetDisplayName(NativeTerrain, group.First().Value)).ToArray(),
-                dryGround = !onDryGround && sector.Blocks.Where(block => block.BareTop && IsDryGround(block.Value) && block.Cell.Y >= at.Y - 2)
+                dryGround = !onDryGround && sector.Blocks.Where(block => block.BareTop && PlaySurvivalSenses.IsDryTerrain(block.Value) && block.Cell.Y >= at.Y - 2)
                     .MinBy(block => block.Distance) is { } land ? DescribeSpot(land.Point, at, facing) : null,
                 softEarth = sector.Blocks.Where(IsSoftEarth).MinBy(block => (block.Point - at).LengthSquared()) is { } earth
                     ? DescribeSpot(earth.Point, at, facing) : null,
@@ -52,7 +52,7 @@ internal static class PlaySurvivalPanorama
         public Vector3? EarthInDirection(Vector3 origin, Vector2 direction) => GroundInDirection(origin, direction, IsSoftEarth, 3f);
 
         public Vector3? ShoreInDirection(Vector3 origin, Vector2 direction) => GroundInDirection(origin, direction,
-            block => block.BareTop && IsDryGround(block.Value), 2f);
+            block => block.BareTop && PlaySurvivalSenses.IsDryTerrain(block.Value), 2f);
 
         public PlaySurvivalFood.Food? FoodInDirection(ComponentPlayer player, Vector2 direction, float distance)
         {
@@ -92,9 +92,6 @@ internal static class PlaySurvivalPanorama
 
         private static object[] DescribeFood(PlaySurvivalFood.Food food, Vector3 at, Vector2 facing) =>
             [.. Describe(food.Name, food.Point, at, facing), food.SicknessRisk, food.Nutrition];
-
-        private static bool IsDryGround(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)]
-            is GrassBlock or DirtBlock or SandBlock or GravelBlock or GraniteBlock or SandstoneBlock or BasaltBlock;
 
         private static bool IsSoftEarth(PanoramicBlock block) => block.BareTop
             && BlocksManager.Blocks[Terrain.ExtractContents(block.Value)] is GrassBlock or DirtBlock;

@@ -89,8 +89,8 @@ internal sealed class PlaySurvivalTravel
         var offset = distance * new Vector3(direction.X, 0, direction.Y);
         surveyTarget = Origin + offset;
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
-        var destinationOffset = foodTarget is not null ? foodTarget.Point - Origin : offset;
-        bool hasLandTarget = seek is "survey" or "camp" or "work" || foodTarget is not null;
+        var destinationOffset = foodTarget is not null ? foodTarget.Point - Origin : shelterTarget is { } target ? target - Origin : offset;
+        bool hasLandTarget = seek is "survey" or "camp" or "work" || foodTarget is not null || shelterTarget is not null;
         landDistanceLimit = escapeFrom is not null ? distance + (escapeClearance > 0f ? 12f : 6f)
             : hasLandTarget ? MathF.Abs(destinationOffset.X) + MathF.Abs(destinationOffset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
     }
@@ -465,7 +465,7 @@ internal sealed class PlaySurvivalTravel
         return PlayDryRoutes.Escape(window, threat, remaining, canAlign);
     }
 
-    private bool KeepsTarget => foodTarget is not null || seek == "work";
+    private bool KeepsTarget => foodTarget is not null || seek == "work" || seek == "shelter" && shelterTarget is not null;
 
     private static (int X, int Z) CellXZ(Vector3 point) => (Terrain.ToCell(point.X), Terrain.ToCell(point.Z));
 
@@ -510,15 +510,18 @@ internal sealed class PlaySurvivalTravel
 
     private MoveAlongObservedRoute LimitFinalFlat(MoveAlongObservedRoute route)
     {
-        if (seek is not ("survey" or "camp" or "work") || Evading || route.Points.Count != 1) return route;
+        if (seek is not ("survey" or "camp" or "work" or "shelter") || seek == "shelter" && shelterTarget is null || Evading)
+            return route;
         var body = player.ComponentBody;
-        var goalOffset = ((seek == "camp" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
-        var corridor = route.Points[0] - body.Position;
+        var goalOffset = ((seek is "camp" or "shelter" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;
+        var corridor = route.Points[^1] - body.Position;
         float length = corridor.XZ.Length();
         float along = Vector2.Dot(goalOffset, corridor.XZ) / length;
-        // 发起和连续接续都收短最后一段，落点仍留在原先已验证的走廊内。
-        return along >= 0.2f && along < length
-            ? route with { Points = [body.Position + along / length * corridor], FinalRange = 0.1f } : route;
+        if (along < 0.2f || along >= length) return route;
+        // 保留末段之前的原生走廊节点，末端投影仍在已验证的直线内。
+        var end = body.Position + along / length * corridor;
+        var points = route.Points.TakeWhile(point => (point - body.Position).XZ.Length() < along - 0.11f).Append(end).ToArray();
+        return route with { Points = points, FinalRange = 0.1f };
     }
 
     private (string? Reached, Vector3? Approach) ReadLandGoal(ComponentBody body)
@@ -548,7 +551,9 @@ internal sealed class PlaySurvivalTravel
         else if (seek == "shelter")
         {
             if (PlaySurvivalRest.HasSecureCover(player)) return ("enclosed_sleep_site_ready", null);
-            if (PlayEarthShelter.At(body) is not null) return ("soft_earth_shelter_site", null);
+            if (PlayEarthShelter.At(body) is { } earth && (shelterTarget is not { } targetPoint
+                || earth.X == Terrain.ToCell(targetPoint.X) && earth.Z == Terrain.ToCell(targetPoint.Z)
+                    && earth.Surface == Terrain.ToCell(targetPoint.Y))) return ("soft_earth_shelter_site", null);
             approach = shelterTarget;
         }
         else if (seek == "camp" && shelterTarget is { } camp)

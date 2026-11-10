@@ -54,6 +54,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `food-origin` 以开局零食物启动验收记录，通过原生拾取、存放老化和进食确认来源；加入一份未经拾取的同类食物后，核对来源不明的进食被排除。
 
+`shelter-site-choice` 从边缘只有一个出口的土台出发。确认选址考虑多向地面退路和原生睡眠的九列顶，角色到达选定的软土后完成原生挖坑与封顶。`production-project` 也放置一段缺乏合适站位的高处木材，验证这种木材不会进入靠近阶段。
+
 - `ObservedStepRoutes` 仅投影真实当前/≤3 秒历史观察的基底、身体、净空与落脚格。只支持一格、轴向、固定实心地面；不可见、未知、过高、空落点拒绝。
 - `StepTo` 是低层原生动作，不携带证据，**不能直接作为模型入口**。这里由 runner 强制校验逐帧包络与证据期限。未来集成必须保留这些约束。
 - 上台阶允许已观察落脚实心格的原生 SmoothRise 接触：仅开启原生功能，且脚高度差不超过 `min(MaxSmoothRiseHeight, 0.5)`。日志 `knownSupportContactUsed` 明示，不称全空气穿越。

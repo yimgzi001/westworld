@@ -49,6 +49,9 @@ internal static class PlaySurvivalSenses
     public static bool NeedsAvoidance(Threat animal, bool inWater) =>
         (!animal.Aquatic || inWater) && animal.Distance <= (animal.Predator ? animal.Aquatic ? 14f : 22f : 5f);
 
+    public static bool IsDryTerrain(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)] is GrassBlock
+        or DirtBlock or SandBlock or GravelBlock or GraniteBlock or SandstoneBlock or BasaltBlock;
+
     public static Shore? VisibleShore(JsonElement observation, ComponentBody body, ComponentBody? boat)
     {
         var surfaceBody = boat ?? body;
@@ -58,9 +61,7 @@ internal static class PlaySurvivalSenses
         var obstruction = blocks.Where(block => BlocksManager.Blocks[Terrain.ExtractContents(block.Value)]
             is FluidBlock || BlocksManager.Blocks[Terrain.ExtractContents(block.Value)].IsCollidable_(block.Value))
             .Select(block => block.Cell).ToHashSet();
-        return blocks.Where(block =>
-            BlocksManager.Blocks[Terrain.ExtractContents(block.Value)] is GrassBlock or DirtBlock or SandBlock
-                or GravelBlock or GraniteBlock or SandstoneBlock or BasaltBlock)
+        return blocks.Where(block => IsDryTerrain(block.Value))
             .Where(block => block.Cell.Y + 1 >= waterLevel - 0.12f && block.Cell.Y + 1 <= body.Position.Y + 1.5f
                 && !obstruction.Contains(new Point3(block.Cell.X, block.Cell.Y + 1, block.Cell.Z))
                 && !obstruction.Contains(new Point3(block.Cell.X, block.Cell.Y + 2, block.Cell.Z)))

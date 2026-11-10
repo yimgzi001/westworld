@@ -50,6 +50,8 @@ internal sealed class PlayableActor
     private (string Task, string? Stage, string Reason, double Time)? pausedSupply;
     private PlayEarthShelter.Site? earthSite;
     private PlayEarthShelter.Site? lastSleepSite;
+    private PlayEarthShelter.Site? nightShelterGoal;
+    private (PlayEarthShelter.Site Site, double Until)? failedNightSite;
     private (PlaySurvivalSenses.Threat Threat, double SeenAt)? blockedExit;
     private PlaySurvivalRest? drying;
     private NativeActorSession? travelSenses;
@@ -59,7 +61,7 @@ internal sealed class PlayableActor
     private double nextDecision, nextPoll, nextDangerScan, nextEvade, nextEscapeTurn, nextShelter, nextExit, nextProduction;
     private double? coldSince;
     private (Vector3 Origin, double Time, Vector3[] Frozen)? nearbyCold;
-    private bool retired, restedInEarth, shallowExit;
+    private bool retired, restedInEarth, shallowExit, leavingShelterLane;
     private int requests, shelterThreatRetreats;
     private string? goal;
     private object? outcome;
@@ -149,6 +151,7 @@ internal sealed class PlayableActor
                         log(new { kind = "play_shelter_exit_cooldown", actor = Name, attempts = shelterThreatRetreats, seconds = delay, gameTime });
                     }
                 }
+                if (work.Leaving && result == "succeeded" && TryDepartBlockedExit(gameTime)) return;
                 Report(work.Leaving ? PlaySurvivalIntents.LeaveShelter : PlaySurvivalIntents.BuildShelter,
                     result, work.Reason, gameTime);
                 FinishStep(result == "succeeded", work.Reason, gameTime);
@@ -196,6 +199,29 @@ internal sealed class PlayableActor
             if (route.Status is { } terminal)
             {
                 travel = null;
+                if (nightShelterGoal is { } nightGoal)
+                {
+                    nightShelterGoal = null;
+                    if (terminal != "succeeded") failedNightSite = (nightGoal, gameTime + 90);
+                    if (ThreatInRange(player.ComponentBody, false) is null && PlayEarthShelter.At(player.ComponentBody) is not null
+                        && !PlaySurvivalRest.HasSecureCover(player))
+                    {
+                        DispatchIntent(PlaySurvivalIntents.BuildShelter, [], queue, gameTime);
+                        return;
+                    }
+                    if (terminal != "succeeded") nextShelter = gameTime + 12;
+                    Report(PlaySurvivalIntents.BuildShelter, terminal, route.Reason, gameTime);
+                    FinishStep(terminal == "succeeded", route.Reason, gameTime);
+                    return;
+                }
+                if (leavingShelterLane)
+                {
+                    leavingShelterLane = false;
+                    Report(PlaySurvivalIntents.LeaveShelter, "succeeded",
+                        terminal == "succeeded" ? "surface_reached_and_cleared" : "surface_reached_departure_blocked", gameTime);
+                    FinishStep(true, null, gameTime);
+                    return;
+                }
                 if (route.Evading)
                 {
                     if (route.UsedEscapeTurn) nextEscapeTurn = gameTime + 12;
@@ -649,13 +675,7 @@ internal sealed class PlayableActor
             && TryEatOwned(queue, gameTime, safeOnly: foodLevel > 0.09f,
                 automaticReason: foodLevel > 0.24f ? "recover_in_shelter" : "hunger")) return false;
         if (survival && !inEarthShelter && gameTime >= nextShelter
-            && PlaySurvivalRest.NightCoverDue(player.Project.FindSubsystem<SubsystemTimeOfDay>(true))
-            && PlayEarthShelter.At(body) is not null && !PlaySurvivalRest.HasSecureCover(player))
-        {
-            log(new { kind = "play_survival_night_shelter", actor = Name, foodLevel, gameTime });
-            DispatchIntent(PlaySurvivalIntents.BuildShelter, [], queue, gameTime);
-            return false;
-        }
+            && TryNightShelter(queue, body, gameTime)) return false;
         if (survival && inEarthShelter && HandleBlockedExit(queue, body, gameTime)) return false;
         if (gameTime < nextExit && inEarthShelter && foodLevel >= 0.18f && PlaySurvivalRest.HasSecureCover(player))
         {
@@ -774,6 +794,51 @@ internal sealed class PlayableActor
         }
         log(new { kind = "play_shelter_blocked_exit_recheck", actor = Name, attempts = shelterThreatRetreats, gameTime });
         DispatchIntent(PlaySurvivalIntents.LeaveShelter, [], queue, gameTime);
+        return true;
+    }
+
+    private bool TryNightShelter(PlayDecisionQueue queue, ComponentBody body, double gameTime)
+    {
+        var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
+        if (!PlaySurvivalRest.NightCoverDue(calendar) || !PlaySurvivalSenses.OnDryGround(body)
+            || PlaySurvivalRest.HasSecureCover(player)) return false;
+        var standing = PlayEarthShelter.At(body);
+        bool beforeDusk = calendar.TimeOfDay >= calendar.DayStart && calendar.TimeOfDay < calendar.DuskStart;
+        var choice = PlayShelterSites.Choose(beforeDusk || standing is null ? owner.Queries.ReadPanorama(13f) : null,
+            body.Position, standing, end => PermitSurvivalLeg(end, gameTime)
+                && !(failedNightSite is { } failed && gameTime < failed.Until
+                    && failed.Site.X == Terrain.ToCell(end.X) && failed.Site.Z == Terrain.ToCell(end.Z)));
+        if (choice is null) return false;
+        log(new { kind = "play_survival_night_shelter", actor = Name, foodLevel = player.ComponentVitalStats.Food,
+            choice.Site, choice.Outlets, travelNeeded = choice.Site != standing, gameTime });
+        if (choice.Site == standing)
+        {
+            DispatchIntent(PlaySurvivalIntents.BuildShelter, [], queue, gameTime);
+            return true;
+        }
+        nightShelterGoal = choice.Site;
+        var point = choice.Site.Center(choice.Site.Surface);
+        var delta = (point - body.Position).XZ;
+        float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, delta));
+        travel = new(player, owner, bearing, delta.Length(), "shelter", false, gameTime, ObserveSurvival, ReadDryWindow, log,
+            survivalMemory.VisitsTo, shelterTarget: point, permitLandLeg: PermitSurvivalLeg);
+        return true;
+    }
+
+    private bool TryDepartBlockedExit(double gameTime)
+    {
+        if (blockedExit is not { } blocked || gameTime - blocked.SeenAt > 240) return false;
+        var body = player.ComponentBody;
+        var threat = new Vector2(blocked.Threat.X, blocked.Threat.Z);
+        var exit = PlayDryRoutes.Escape(ReadDryWindow(), threat, 6f, canAlign: false);
+        if (exit is null || !PermitSurvivalLeg(exit.End, gameTime)) return false;
+        var delta = (exit.End - body.Position).XZ;
+        if (delta.LengthSquared() < 0.64f) return false;
+        float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, delta));
+        leavingShelterLane = true;
+        log(new { kind = "play_shelter_surface_departure", actor = Name, target = exit.End.ToString(), gameTime });
+        travel = new(player, owner, bearing, delta.Length(), "work", false, gameTime, ObserveSurvival, ReadDryWindow, log,
+            survivalMemory.VisitsTo, permitLandLeg: PermitSurvivalLeg);
         return true;
     }
 
@@ -1270,6 +1335,8 @@ internal sealed class PlayableActor
     {
         planned.Clear();
         shallowExit = false;
+        leavingShelterLane = false;
+        nightShelterGoal = null;
         harvest = null;
         foodApproach = null;
         shelter?.Stop();

@@ -17,6 +17,8 @@ sealed partial class Runner
     private Point3[] resourceCells = [];
     private Vector3 productionOrigin;
     private bool projectInterrupted, projectApproachedMaterial;
+    private bool projectRejectedOverhead;
+    private Point3 overheadWood;
     private int projectTablePlacements;
 
     private void RunProduction()
@@ -48,6 +50,11 @@ sealed partial class Runner
             {
                 var item = resourceCells[i];
                 terrain.ChangeCell(item.X, item.Y, item.Z, i < resourceCells.Length - 1 ? OakWoodBlock.Index : GraniteBlock.Index);
+            }
+            if (project)
+            {
+                overheadWood = cell + new Point3(3, 3, 0);
+                terrain.ChangeCell(overheadWood.X, overheadWood.Y, overheadWood.Z, OakWoodBlock.Index);
             }
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             productionOrigin = body.Position;
@@ -92,6 +99,16 @@ sealed partial class Runner
             return;
         }
         if (elapsed < 1) return;
+        if (project && !projectRejectedOverhead)
+        {
+            var visible = actions.Queries.ReadPanorama(10f) ?? throw new InvalidOperationException("生产夹具缺少全向观察。");
+            var aboveOnly = visible.Blocks.Where(block => !PlaySurvivalProduction.IsMaterial(block.Value, PlaySurvivalProduction.Wood)
+                || block.Cell == overheadWood).ToArray();
+            projectRejectedOverhead = aboveOnly.Any(block => block.Cell == overheadWood)
+                && !PlaySurvivalProduction.CanAdvanceProject(p, PlaySurvivalProduction.SpearProject,
+                    visible with { Blocks = aboveOnly }, productionStations, null);
+            if (!projectRejectedOverhead) throw new InvalidOperationException("缺乏合适落脚高度的树干仍进入了木料路线。");
+        }
         if (production is null && approach && order[productionIndex] == PlaySurvivalProduction.Hunt)
         {
             var menu = PlaySurvivalProduction.Offer(p, actions.Queries.ReadPanorama(12f), productionStations, true);
@@ -135,11 +152,11 @@ sealed partial class Runner
                 && NativeAcquisitionAudit.InventoryCount(inventory, hunt ? RawBirdBlock.Index : RawMeatBlock.Index) == 0
             : productionStations.ContainsKey(CampfireBlock.Index) && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 1
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Workbench) == 1);
-        if (project) Passed &= projectInterrupted && projectApproachedMaterial && projectTablePlacements == 1
+        if (project) Passed &= projectInterrupted && projectApproachedMaterial && projectRejectedOverhead && projectTablePlacements == 1
             && p.ComponentHealth.Health >= 0.99f;
         Done = true;
         Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, ranged, approach, project, projectInterrupted,
-            projectApproachedMaterial, projectTablePlacements, moved, completed = productionIndex });
+            projectApproachedMaterial, projectRejectedOverhead, projectTablePlacements, moved, completed = productionIndex });
     }
 
     private void TrackProduction(object entry)
@@ -149,6 +166,8 @@ sealed partial class Runner
         switch (record.GetProperty("kind").GetString())
         {
             case "play_production_stage" when record.GetProperty("stage").GetString() is "approach_wood" or "approach_stone":
+                if (mode == "production-project" && record.GetProperty("material").GetString() == overheadWood.ToString())
+                    throw new InvalidOperationException("实际任务选择了高处无可用落脚点的树干。");
                 projectApproachedMaterial = true;
                 break;
             case "play_station_placed" when record.GetProperty("stationBlock").GetInt32() == CraftingTableBlock.Index:

@@ -32,6 +32,7 @@ sealed partial class Runner
     private float sightDistance;
     private readonly PlaySurvivalMemory predatorMemory = new();
     private float closestRememberedThreat = float.PositiveInfinity;
+    private PlayShelterSites.Choice? selectedShelter;
 
     private void RunThreatRange()
     {
@@ -205,6 +206,62 @@ sealed partial class Runner
             trial.Finish(now);
         }
         Done = true;
+    }
+
+    private void RunShelterSiteChoice()
+    {
+        var body = p.ComponentBody;
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        if (stage == 0)
+        {
+            if (elapsed < 3 || !DismountedForFixture(body)) return;
+            var origin = Terrain.ToCell(body.Position);
+            if (!(terrain.Terrain.GetChunkAtCell(origin.X + 12, origin.Z)?.State >= TerrainChunkState.InvalidVertices1)) return;
+            for (int x = origin.X - 4; x <= origin.X + 12; x++)
+            for (int z = origin.Z - 4; z <= origin.Z + 4; z++)
+            for (int y = origin.Y - 5; y <= origin.Y + 3; y++)
+            {
+                bool upper = x >= origin.X + 5 || x >= origin.X && z == origin.Z;
+                int surface = origin.Y - (upper ? 0 : 4);
+                terrain.ChangeCell(x, y, z, y < surface ? DirtBlock.Index : 0);
+            }
+            body.Position = new(origin.X + 0.5f, origin.Y, origin.Z + 0.5f);
+            body.Velocity = Vector3.Zero;
+            body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
+            elapsed = 0;
+            stage = 1;
+            return;
+        }
+        if (elapsed < 1) return;
+        if (stage == 1)
+        {
+            var standing = PlayEarthShelter.At(body) ?? throw new InvalidOperationException("夹具起点需要可挖的软土。");
+            selectedShelter = PlayShelterSites.Choose(actions.Queries.ReadPanorama(13f), body.Position, standing, _ => true);
+            if (selectedShelter is null || selectedShelter.Site.X < standing.X + 5 || selectedShelter.Outlets < 3)
+                throw new InvalidOperationException("未从已看到的地形选出多向可撤离的位置。");
+            var point = selectedShelter.Site.Center(selectedShelter.Site.Surface);
+            var offset = (point - body.Position).XZ;
+            float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
+            travel = new(p, actions, bearing, offset.Length(), "shelter", false, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []),
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log, shelterTarget: point);
+            Gate.Log(new { kind = "shelter_site_choice", standing, selectedShelter.Site, selectedShelter.Outlets });
+            stage = 2;
+        }
+        if (stage == 2)
+        {
+            travel!.Update(now);
+            if (travel.Status is null) return;
+            if (travel.Reason != "soft_earth_shelter_site" || PlayEarthShelter.At(body) != selectedShelter!.Site)
+                throw new InvalidOperationException($"没有到达选定地点。{travel.Reason}，当前位置 {body.Position}。");
+            earthShelter = new(p, actions, selectedShelter.Site, false, now, Gate.Log);
+            stage = 3;
+        }
+        earthShelter!.Update(now);
+        if (earthShelter.Status is null) return;
+        Passed = earthShelter.Status == "succeeded" && PlaySurvivalRest.HasSecureCover(p) && p.ComponentHealth.Health >= 0.99f;
+        Done = true;
+        Gate.Log(new { kind = "shelter_site_choice_result", Passed, earthShelter.Reason, health = p.ComponentHealth.Health });
     }
 
     private void RunCoast()
