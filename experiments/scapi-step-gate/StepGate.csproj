@@ -20,5 +20,6 @@
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.cs" Link="PlaySurvivalProduction.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Stations.cs" Link="PlaySurvivalProduction.Stations.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Cooking.cs" Link="PlaySurvivalProduction.Cooking.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Hunt.cs" Link="PlaySurvivalProduction.Hunt.cs" />
   </ItemGroup>
 </Project>

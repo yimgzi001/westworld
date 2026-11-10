@@ -34,7 +34,7 @@ internal sealed class PlaySurvivalTravel
     private long proofStarted;
     private int scans, legs;
     private float traveled;
-    private bool detourUsed, jumpUsed, dryLeg, aligned;
+    private bool detourUsed, jumpUsed, dryLeg, aligned, detouring;
     private SeatAim seatAim;
     private PlaySurvivalSenses.Shore? lastShore;
     private double shoreSeenAt;
@@ -136,6 +136,13 @@ internal sealed class PlaySurvivalTravel
         }
 
         bool dry = PlaySurvivalSenses.OnDryGround(body);
+        if (detouring)
+        {
+            bool moved = dry && previous?.Result.Status == AtomicActionStatus.Succeeded
+                && (body.Position - legOrigin).XZ.Length() >= 0.5f;
+            Finish(moved ? "succeeded" : "failed", moved ? "scout_detoured_to_open_ground" : "no_observed_dry_route");
+            return;
+        }
         if (seek == "dry_land" && dry)
         {
             Finish("succeeded", "dry_ground_reached");
@@ -323,12 +330,23 @@ internal sealed class PlaySurvivalTravel
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
         var route = DryRoute(window, remaining, !aligned);
+        if (route is null && seek == "survey" && !Evading && remaining >= 1f)
+        {
+            // 原方向封住时走完一段已确认的旁路，再交给模型评估新位置。
+            route = PlayDryRoutes.Detour(window, direction, remaining, visits);
+            if (route is not null)
+            {
+                detouring = true;
+                log(new { kind = "play_scout_detour", actor = player.PlayerData.Name, gameTime,
+                    target = route.End.ToString() });
+            }
+        }
         if (route is not null)
         {
             aligned = route.Action is MoveTo;
             legs++;
             AtomicAction action = route.Action;
-            if (action is MoveAlongObservedRoute flat)
+            if (!detouring && action is MoveAlongObservedRoute flat)
             {
                 var body = player.ComponentBody;
                 var goalOffset = ((seek == "camp" ? shelterTarget ?? surveyTarget : surveyTarget) - body.Position).XZ;

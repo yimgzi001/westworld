@@ -121,9 +121,12 @@ internal static class PlaySurvivalFood
                 && Describe(block.Value, "harvest", string.Empty, block.Distance, false, () => PointJson(block.Point)) is { } food)
                 yield return food;
         foreach (var item in panorama.Objects.Pickables)
-            if (Describe(item.Value, "pickup", string.Empty, item.Distance, false, () => PointJson(item.Position)) is { } food)
+            if (DescribeDrop(item) is { } food)
                 yield return food;
     }
+
+    public static Food? DescribeDrop(NearbyPickableView item) =>
+        Describe(item.Value, "pickup", string.Empty, item.Distance, false, () => PointJson(item.Position));
 
     private static JsonElement PointJson(Vector3 point) => JsonSerializer.SerializeToElement(new { x = point.X, y = point.Y, z = point.Z });
 

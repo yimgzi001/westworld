@@ -6,6 +6,7 @@ using Engine;
 using Game;
 using Game.Westworld;
 using Westworld.Decisions.Local;
+using Westworld.Runtime.Core;
 using Westworld.Scapi.Adapter;
 
 internal sealed partial class PlaySurvivalProduction
@@ -13,17 +14,19 @@ internal sealed partial class PlaySurvivalProduction
     public const string Tool = "prepare_survival_supplies";
     public const string Wood = "collect_wood", Stone = "collect_stone", Workbench = "craft_workbench", Fire = "craft_campfire";
     public const string Furnace = "craft_furnace", Cook = "cook_meat", Warm = "place_campfire";
+    public const string Spear = "craft_wooden_spear", Hunt = "hunt_food_bird";
     private static readonly JsonSerializerOptions RecipeJson = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    private enum Phase { Start, Dig, PickUp, PlaceStation, AimStation, Craft, Cook }
+    private enum Phase { Start, Dig, PickUp, PlaceStation, AimStation, Craft, Cook, Hunt }
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
     private readonly NativeToolSession tools;
     private readonly Dictionary<int, Point3> stations;
     private readonly Action<object> log;
+    private readonly Func<LocalObservationWindow> readDryWindow;
     private readonly double deadline;
     private readonly int before;
     private Phase phase;
@@ -32,16 +35,18 @@ internal sealed partial class PlaySurvivalProduction
     private Guid? craftTask;
     private int craftValue, craftBefore, craftCount;
     private int digRetries;
+    private readonly HashSet<Point3> missedMaterials = new();
     private double collectUntil, nextPoll;
 
     public PlaySurvivalProduction(ComponentPlayer player, AtomicActions owner, NativeToolSession tools, string task,
-        double gameTime, Action<object> log, Dictionary<int, Point3> stations)
+        double gameTime, Action<object> log, Dictionary<int, Point3> stations, Func<LocalObservationWindow> readDryWindow)
     {
         this.player = player;
         this.owner = owner;
         this.tools = tools;
         this.log = log;
         this.stations = stations;
+        this.readDryWindow = readDryWindow;
         Task = task;
         before = Stock(player, task);
         deadline = gameTime + 36;
@@ -67,11 +72,20 @@ internal sealed partial class PlaySurvivalProduction
             if ((woodNearby || hasBoards) && Stock(player, Workbench) == 0
                 && !stations.ContainsKey(CraftingTableBlock.Index)) available.Add(Workbench);
             if ((woodNearby || hasSticks) && Stock(player, Fire) == 0 && player.ComponentVitalStats.Temperature < 8f) available.Add(Fire);
+            if (panorama is { } sight && FindFoodBird(player, sight.Objects.Entities, 10f) is not null)
+            {
+                bool hasTable = Stock(player, Workbench) > 0 || SeenStation(sight, stations, CraftingTableBlock.Index) is not null;
+                int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
+                int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
+                if (Stock(player, Spear) == 0 && hasTable && boards >= boardsNeeded) available.Add(Spear);
+                if (HuntWeapon(player) >= 0 && Stock(player, Hunt) < 2
+                    && FindFoodBird(player, sight.Objects.Entities, HuntReach) is not null) available.Add(Hunt);
+            }
         }
         AddStationOffers(player, panorama, stations, available);
         if (available.Count == 0) return null;
-        return new(Tool, "Collect a reachable log or stone, make a workbench or campfire, build a furnace, or cook carried raw meat. "
-            + "The game uses actual materials, native recipes, and reachable placed stations.",
+        return new(Tool, "Collect a reachable log or stone, craft survival gear, or cook carried raw meat at a furnace. "
+            + "Hunt only reachable nonaggressive birds that provide meat. The game checks actual materials and native reach.",
             JsonSerializer.SerializeToElement(new
             {
                 type = "object",
@@ -85,8 +99,10 @@ internal sealed partial class PlaySurvivalProduction
         ? BlocksManager.Blocks[Terrain.ExtractContents(value)] is WoodBlock
         : Terrain.ExtractContents(value) == GraniteBlock.Index;
 
-    private static PanoramicBlock? FindMaterial(ActorPanorama? panorama, Vector3 position, string task) =>
+    private static PanoramicBlock? FindMaterial(ActorPanorama? panorama, Vector3 position, string task,
+        IReadOnlySet<Point3>? missed = null) =>
         panorama?.Blocks.Where(block => IsMaterial(block.Value, task) && block.Distance <= 2.9f
+                && missed?.Contains(block.Cell) != true
                 && block.Cell.Y >= Terrain.ToCell(position.Y) && block.Cell.Y <= Terrain.ToCell(position.Y) + 1
                 && (new Vector2(block.Cell.X + 0.5f, block.Cell.Z + 0.5f) - position.XZ).LengthSquared() <= 1.7f * 1.7f)
             .MinBy(block => block.Distance);
@@ -99,15 +115,20 @@ internal sealed partial class PlaySurvivalProduction
         Fire => Terrain.ExtractContents(value) == CampfireBlock.Index,
         Furnace => Terrain.ExtractContents(value) == FurnaceBlock.Index,
         Cook => IsCookedMeat(value),
+        Spear => IsSpear(value),
+        Hunt => PlaySurvivalFood.IsRawMeat(value),
         _ => false
     });
 
-    private static bool HasIngredient(ComponentPlayer player, string craftingId, int required)
+    private static bool HasIngredient(ComponentPlayer player, string craftingId, int required) =>
+        IngredientCount(player, craftingId) >= required;
+
+    private static int IngredientCount(ComponentPlayer player, string craftingId)
     {
         bool Matches(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)]?.GetCraftingId(value) == craftingId;
         var grid = player.Entity.FindComponent<ComponentCraftingTable>();
         int carried = Count(player.ComponentMiner.Inventory, Matches);
-        return carried + (grid is null ? 0 : Count(grid, Matches, grid.ResultSlotIndex)) >= required;
+        return carried + (grid is null ? 0 : Count(grid, Matches, grid.ResultSlotIndex));
     }
 
     private static int Count(IInventory inventory, Func<int, bool> matches, int? slotLimit = null) =>
@@ -117,7 +138,8 @@ internal sealed partial class PlaySurvivalProduction
     public void Update(double gameTime)
     {
         if (Status is not null) return;
-        if (gameTime >= deadline || !PlaySurvivalSenses.OnDryGround(player.ComponentBody) || player.ComponentSleep.IsSleeping)
+        if (gameTime >= deadline || player.ComponentSleep.IsSleeping
+            || huntApproach is null && !PlaySurvivalSenses.OnDryGround(player.ComponentBody))
         {
             Finish(false, "supply_task_interrupted");
             return;
@@ -128,6 +150,11 @@ internal sealed partial class PlaySurvivalProduction
             action = null;
             if (native.Result.Status != AtomicActionStatus.Succeeded)
             {
+                if (Task == Hunt && native.Action is PickUp && native.Result.Failure == AtomicActionFailure.OutOfReach)
+                {
+                    if (!TryApproachPreyDrop(gameTime)) Finish(false, "prey_meat_out_of_reach");
+                    return;
+                }
                 if (native.Action is Dig && native.Result.Failure == AtomicActionFailure.TargetChanged && digRetries++ == 0)
                 {
                     phase = Phase.Dig;
@@ -144,8 +171,9 @@ internal sealed partial class PlaySurvivalProduction
         {
             case Phase.Start:
                 if (Task is Workbench or Fire) { phase = Phase.Craft; break; }
-                if (Task is Furnace or Cook or Warm) { StartStation(); break; }
-                material = FindMaterial(owner.Queries.ReadPanorama(3.2f), player.ComponentBody.Position, Task);
+                if (Task is Furnace or Cook or Warm or Spear) { StartStation(); break; }
+                if (Task == Hunt) { StartHunt(gameTime); break; }
+                material = FindMaterial(owner.Queries.ReadPanorama(3.2f), player.ComponentBody.Position, Task, missedMaterials);
                 if (material is null) { Finish(false, "no_reachable_material"); break; }
                 action = owner.Start(new FaceTowards(material.Point, 3f));
                 phase = Phase.Dig;
@@ -155,7 +183,8 @@ internal sealed partial class PlaySurvivalProduction
                 if (focus is not { Kind: FocusKind.Block, Cell: Point3 cell, Face: int face, BlockValue: int value }
                     || cell != material!.Cell || !IsMaterial(value, Task))
                 {
-                    Finish(false, "material_no_longer_visible");
+                    if (missedMaterials.Add(material!.Cell) && missedMaterials.Count < 3) phase = Phase.Start;
+                    else Finish(false, "material_no_longer_visible");
                     break;
                 }
                 float seconds = player.ComponentMiner.CalculateDigTime(value, player.ComponentMiner.ActiveBlockValue);
@@ -182,6 +211,9 @@ internal sealed partial class PlaySurvivalProduction
                 break;
             case Phase.Cook:
                 AdvanceCook(gameTime);
+                break;
+            case Phase.Hunt:
+                AdvanceHunt(gameTime);
                 break;
         }
     }
@@ -210,18 +242,24 @@ internal sealed partial class PlaySurvivalProduction
         }
         if (Added > 0) { Finish(true, "native_recipe_completed"); return; }
 
-        int target = Task switch { Workbench => CraftingTableBlock.Index, Fire => CampfireBlock.Index, _ => FurnaceBlock.Index };
+        int target = Task switch
+        {
+            Workbench => CraftingTableBlock.Index, Fire => CampfireBlock.Index,
+            Spear => WoodenSpearBlock.Index, _ => FurnaceBlock.Index
+        };
         var observed = tools.Call("observe", new { block_limit = 1, limit = 1 });
         var refs = observed.State == "returned" ? NativeProductionTools.WorkspaceReferences(observed.Data) : default;
-        string? workspace = Task == Furnace ? refs.Visible : refs.Own;
-        var grid = Task == Furnace ? ObservedStation<ComponentCraftingTable>() : player.Entity.FindComponent<ComponentCraftingTable>();
+        bool usesWorkbench = Task is Furnace or Spear;
+        string? workspace = usesWorkbench ? refs.Visible : refs.Own;
+        var grid = usesWorkbench ? ObservedStation<ComponentCraftingTable>() : player.Entity.FindComponent<ComponentCraftingTable>();
         if (workspace is null || grid is null)
         {
             Finish(false, "crafting_station_unavailable");
             return;
         }
         if (TryCraft(workspace, grid, target) || Task == Fire && TryCraft(workspace, grid, StickBlock.Index)
-            || Task is Workbench or Fire && TryCraft(workspace, grid, PlanksBlock.Index)) return;
+            || Task == Spear && !HasIngredient(player, "stick", 2) && TryCraft(workspace, grid, StickBlock.Index)
+            || (Task is Workbench or Fire or Spear) && TryCraft(workspace, grid, PlanksBlock.Index)) return;
         Finish(false, "recipe_materials_unavailable");
     }
 
@@ -256,6 +294,7 @@ internal sealed partial class PlaySurvivalProduction
 
     public void Stop()
     {
+        StopHunt();
         if (action?.Result.Status == AtomicActionStatus.Running) owner.Cancel(action);
         action = null;
         if (craftTask.HasValue || tools.RequiresReconciliation.HasValue) tools.Call("cancel_task", new { });

@@ -8,6 +8,9 @@ sealed partial class Runner
         PlaySurvivalProduction.Wood, PlaySurvivalProduction.Fire, PlaySurvivalProduction.Stone, PlaySurvivalProduction.Warm];
     private static readonly string[] KitchenOrder = [PlaySurvivalProduction.Wood, PlaySurvivalProduction.Workbench,
         PlaySurvivalProduction.Stone, PlaySurvivalProduction.Furnace, PlaySurvivalProduction.Cook];
+    private static readonly string[] HuntOrder = [PlaySurvivalProduction.Wood, PlaySurvivalProduction.Workbench,
+        PlaySurvivalProduction.Wood, PlaySurvivalProduction.Wood, PlaySurvivalProduction.Spear, PlaySurvivalProduction.Hunt,
+        PlaySurvivalProduction.Stone, PlaySurvivalProduction.Furnace, PlaySurvivalProduction.Cook];
     private readonly Dictionary<int, Point3> productionStations = new();
     private PlaySurvivalProduction? production;
     private int productionIndex;
@@ -17,8 +20,9 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-        bool kitchen = mode == "production-kitchen";
-        var order = kitchen ? KitchenOrder : KitOrder;
+        bool hunt = mode == "production-hunt";
+        bool kitchen = hunt || mode == "production-kitchen";
+        var order = hunt ? HuntOrder : kitchen ? KitchenOrder : KitOrder;
         if (stage == 0)
         {
             if (elapsed < 3) return;
@@ -27,7 +31,9 @@ sealed partial class Runner
             for (int z = cell.Z - 3; z <= cell.Z + 3; z++)
             for (int y = cell.Y - 1; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
-            resourceCells = kitchen ? [cell + new Point3(1, 0, 0), cell + new Point3(0, 0, 1)]
+            resourceCells = hunt ? [cell + new Point3(-1, 0, 0), cell + new Point3(0, 0, -1),
+                    cell + new Point3(-1, 0, -1), cell + new Point3(1, 0, 1)]
+                : kitchen ? [cell + new Point3(1, 0, 0), cell + new Point3(0, 0, 1)]
                 : [cell + new Point3(1, 0, 0), cell + new Point3(-1, 0, 0), cell + new Point3(0, 0, 1)];
             for (int i = 0; i < resourceCells.Length; i++)
             {
@@ -43,8 +49,21 @@ sealed partial class Runner
                 var drops = p.Project.FindSubsystem<SubsystemPickables>(true);
                 var at = body.Position + new Vector3(0, 0.2f, -0.2f);
                 drops.AddPickable(CobblestoneBlock.Index, 7, at, Vector3.Zero, null);
-                drops.AddPickable(RawMeatBlock.Index, 2, at, Vector3.Zero, null);
-                drops.AddPickable(PlanksBlock.Index, 3, at, Vector3.Zero, null);
+                if (!hunt)
+                {
+                    drops.AddPickable(RawMeatBlock.Index, 2, at, Vector3.Zero, null);
+                    drops.AddPickable(PlanksBlock.Index, 3, at, Vector3.Zero, null);
+                }
+            }
+            if (hunt)
+            {
+                for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
+                for (int y = cell.Y; y <= cell.Y + 2; y++) terrain.ChangeCell(cell.X + 2, y, z, GraniteBlock.Index);
+                var duck = DatabaseManager.CreateEntity(p.Project, "Duck", true);
+                duck.FindComponent<ComponentBody>(true).Position = body.Position + 1.1f * Vector3.UnitX;
+                var legs = duck.FindComponent<ComponentLocomotion>(true);
+                legs.WalkSpeed = legs.FlySpeed = legs.JumpSpeed = 0f;
+                p.Project.AddEntity(duck);
             }
             forageTools = new(Guid.NewGuid(), p, new ActorTools(actions, true));
             elapsed = 0;
@@ -52,7 +71,8 @@ sealed partial class Runner
             return;
         }
         if (elapsed < 1) return;
-        production ??= new(p, actions, forageTools!, order[productionIndex], now, Gate.Log, productionStations);
+        production ??= new(p, actions, forageTools!, order[productionIndex], now, Gate.Log, productionStations,
+            () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)));
         production.Update(now);
         if (production.Status is null) return;
         Gate.Log(new { kind = "production_fixture_task", production.Task, production.Status, production.Reason, production.Added });
@@ -69,11 +89,12 @@ sealed partial class Runner
         Passed = materialConsumed && (kitchen
             ? productionStations.ContainsKey(CraftingTableBlock.Index) && productionStations.ContainsKey(FurnaceBlock.Index)
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 0
-                && NativeAcquisitionAudit.InventoryCount(inventory, CookedMeatBlock.Index) == 2
-                && NativeAcquisitionAudit.InventoryCount(inventory, RawMeatBlock.Index) == 0
+                && NativeAcquisitionAudit.InventoryCount(inventory, hunt ? CookedBirdBlock.Index : CookedMeatBlock.Index) == (hunt ? 1 : 2)
+                && NativeAcquisitionAudit.InventoryCount(inventory, hunt ? RawBirdBlock.Index : RawMeatBlock.Index) == 0
             : productionStations.ContainsKey(CampfireBlock.Index) && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) == 1
                 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Workbench) == 1);
         Done = true;
-        Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, completed = productionIndex });
+        Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, completed = productionIndex });
     }
+
 }

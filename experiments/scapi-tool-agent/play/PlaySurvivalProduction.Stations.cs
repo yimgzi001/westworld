@@ -47,7 +47,7 @@ internal sealed partial class PlaySurvivalProduction
 
     private void StartStation()
     {
-        stationBlock = Task switch { Furnace => CraftingTableBlock.Index, Cook => FurnaceBlock.Index, _ => CampfireBlock.Index };
+        stationBlock = Task switch { Furnace or Spear => CraftingTableBlock.Index, Cook => FurnaceBlock.Index, _ => CampfireBlock.Index };
         var panorama = owner.Queries.ReadPanorama(4.5f);
         if (Task != Warm && SeenStation(panorama, stations, stationBlock) is { } existing)
         {
@@ -114,7 +114,7 @@ internal sealed partial class PlaySurvivalProduction
     private void AimStation()
     {
         action = owner.Start(new FaceTowards(Center(stationCell), 3f));
-        phase = Task == Furnace ? Phase.Craft : Phase.Cook;
+        phase = Task is Furnace or Spear ? Phase.Craft : Phase.Cook;
     }
 
     private T? ObservedStation<T>() where T : GameEntitySystem.Component

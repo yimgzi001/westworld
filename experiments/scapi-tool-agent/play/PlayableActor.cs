@@ -211,6 +211,8 @@ internal sealed class PlayableActor
                 var displacement = (player.ComponentBody.Position - route.Origin).XZ;
                 if (displacement.Length() > 0.15f && terminal == "succeeded") Moves++;
                 Report(PlayNavigationMenu.ScoutTool, terminal, route.Reason, gameTime, route.Legs, displacement);
+                if (route.Reason == "no_observed_dry_route" && displacement.LengthSquared() < 0.04f)
+                    nextDecision = gameTime + 8;
                 FinishStep(terminal == "succeeded", route.Reason, gameTime);
             }
             return;
@@ -296,7 +298,8 @@ internal sealed class PlayableActor
         log(new { kind = "play_plan_step", actor = Name, tool = step.Tool, remaining = planned.Count, gameTime });
         if (step.Tool == PlaySurvivalProduction.Tool)
         {
-            production = new(player, owner, tools, step.Arguments.GetProperty("task").GetString()!, gameTime, log, placedStations);
+            production = new(player, owner, tools, step.Arguments.GetProperty("task").GetString()!, gameTime, log,
+                placedStations, ReadDryWindow);
             return;
         }
         if (step.Tool is PlaySurvivalIntents.Gather or PlaySurvivalIntents.Eat or PlaySurvivalIntents.Rest
@@ -688,7 +691,7 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。全向摘要的 bearing 相对当前朝向，height 相对脚下。水上先用 dry_land 上岸。优先成熟南瓜和熟食，附近生蛋可先储备两枚，饱食不高于 24% 才吃。生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
+                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向。水上先用 dry_land 上岸。优先成熟南瓜和熟食，附近生蛋可先储备两枚，饱食不高于 24% 才吃。可用木矛捕近处食用鸟，生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             actor = Name,
             previousGoal = goal,
@@ -713,6 +716,8 @@ internal sealed class PlayableActor
             onDryGround = survival ? onDryGround : (bool?)null,
             localMemory = survival ? survivalMemory.Snapshot(gameTime) : null,
             rememberedCamp = reuse is not null ? CampSummary(reuse, body) : null,
+            walkableBearings = includePanorama && onDryGround && !inEarthShelter
+                ? PlayDryRoutes.WalkableBearings(ReadDryWindow(), body.Matrix.Forward.XZ) : null,
             surroundings = includePanorama && surroundings is { } surveyed
                 ? surveyed.Snapshot(body.Position, body.Matrix.Forward.XZ, gameTime, onDryGround) : null,
             sleepBlocker = string.IsNullOrEmpty(sleepBlocker) ? null : sleepBlocker,

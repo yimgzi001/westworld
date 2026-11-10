@@ -12,7 +12,57 @@ sealed partial class Runner
     private bool insetAtStart, passedThroughPlant;
     private ComponentBody? pursuingBear;
     private Vector3 bearOrigin;
-    private float escapeStartDistance;
+    private float escapeStartDistance, farthestForward;
+
+    private void RunNaturalStall()
+    {
+        const int fixtureTerrainKey = 33001;
+        var body = p.ComponentBody;
+        var stalled = new Vector3(-101.541466f, 67f, 119.49001f);
+        var cell = Terrain.ToCell(stalled);
+        if (stage == 0)
+        {
+            terrain.TerrainUpdater.SetUpdateLocation(fixtureTerrainKey, stalled.XZ, 16, 48);
+            stage = 1;
+            return;
+        }
+        if (stage == 1)
+        {
+            for (int x = cell.X - 5; x <= cell.X + 5; x += 5)
+            for (int z = cell.Z - 5; z <= cell.Z + 5; z += 5)
+                if (!(terrain.Terrain.GetChunkAtCell(x, z)?.State >= TerrainChunkState.InvalidVertices1)) return;
+            body.Position = stalled;
+            body.Velocity = Vector3.Zero;
+            elapsed = 0;
+            stage = 2;
+            return;
+        }
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        if (stage == 2)
+        {
+            if (elapsed < 0.9) return;
+            terrain.TerrainUpdater.RemoveUpdateLocation(fixtureTerrainKey);
+            var window = memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true));
+            var blockedHeading = -Vector2.UnitY;
+            var starts = PlayDryRoutes.WalkableBearings(window, body.Matrix.Forward.XZ);
+            bool blocked = PlayDryRoutes.Next(window, blockedHeading, 6f, false) is null;
+            Gate.Log(new { kind = "natural_stall_geometry", window.Position, blocked, starts,
+                grounded = PlaySurvivalSenses.OnDryGround(body) });
+            if (!blocked || starts.Length == 0) throw new InvalidOperationException("夹具需要原方向封住且有其他观察到的起步方向。");
+            float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, blockedHeading));
+            travel = new(p, actions, bearing, 6f, "survey", false, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []),
+                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
+            stage = 3;
+        }
+        travel!.Update(now);
+        if (travel.Status is null) return;
+        float moved = (body.Position - travel.Origin).XZ.Length();
+        Passed = travel.Reason == "scout_detoured_to_open_ground" && moved >= 1f && PlaySurvivalSenses.OnDryGround(body)
+            && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
+        Done = true;
+        Gate.Log(new { kind = "natural_stall_result", Passed, travel.Status, travel.Reason, moved, stationaryLooks });
+    }
 
     private void RunRollingNavigation()
     {
@@ -64,6 +114,7 @@ sealed partial class Runner
             () => (JsonSerializer.SerializeToElement(new { }), []),
             () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
         jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
+        farthestForward = Math.Max(farthestForward, body.Position.X - travel.Origin.X);
         if (vegetation)
         {
             var feet = Terrain.ToCell(body.Position + new Vector3(0, 0.05f, 0));
@@ -79,7 +130,8 @@ sealed partial class Runner
         bool continuousMovement = continuations >= (cliff ? 1 : 3) && slowestContinuation > 0.7f && stationaryLooks == 0;
         var destination = travel.Origin.XZ + 18 * PlaySurvivalTravel.Rotate(Vector2.UnitX, turn ? 20 : 0);
         float error = (body.Position.XZ - destination).Length();
-        bool completed = cliff ? travel.Reason == "no_observed_dry_route" && moved > 6f && !jumped
+        bool completed = cliff ? (travel.Reason is "no_observed_dry_route" or "scout_detoured_to_open_ground")
+                && farthestForward > 6f && !jumped
             : travel.Status == "succeeded" && error <= 0.45f && (turn ? biggestContinuousTurn > 35f : edge ? insetAtStart : jumped);
         Passed = continuousMovement && completed && PlaySurvivalSenses.OnDryGround(body)
             && (cliff || turn || edge || body.Position.Y >= navigationOrigin.Y + 0.95f) && (!vegetation || passedThroughPlant);

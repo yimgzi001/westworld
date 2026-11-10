@@ -86,6 +86,28 @@ internal static class PlayDryRoutes
         bool IsAir(int x, int y, int z) => recent.TryGetValue((x, y, z), out var cell) && OpenCell(cell.Value);
     }
 
+    public static Leg? Detour(LocalObservationWindow window, Vector2 direction, float remaining, Func<Position, int>? visits)
+    {
+        var origin = PositionOf(window.Position);
+        return LongRoutes(window, Math.Min(remaining, 4f), Cardinal).Select(FlatLeg)
+            .Concat(ShortRoutes(window)).Concat(ReadSteps(window).Select(StepLeg)).MaxBy(leg =>
+            {
+                var point = leg.End;
+                var offset = point.XZ - origin.XZ;
+                int seen = visits?.Invoke(new Position(point.X, point.Y, point.Z)) ?? 0;
+                return 0.7f * offset.Length() + 0.9f * Vector2.Dot(Vector2.Normalize(offset), direction)
+                    - Math.Min(1f, 0.25f * seen) - (leg.Step?.Kind == StepKind.Down ? 0.2f : 0f);
+            });
+    }
+
+    public static int[] WalkableBearings(LocalObservationWindow window, Vector2 facing)
+    {
+        var origin = PositionOf(window.Position).XZ;
+        return ShortRoutes(window).Concat(ReadSteps(window).Select(StepLeg))
+            .Select(leg => (int)MathF.Round(MathUtils.RadToDeg(Vector2.Angle(facing, leg.End.XZ - origin)) / 15) * 15)
+            .Distinct().Order().ToArray();
+    }
+
     private static Vector3 PositionOf(Position value) => new((float)value.X, (float)value.Y, (float)value.Z);
     private static Leg StepLeg(ObservedStepRoute step) => new(new StepTo(PositionOf(step.Destination)), step.Evidence, step);
     private static Leg FlatLeg(ObservedFlatRoute flat) =>
