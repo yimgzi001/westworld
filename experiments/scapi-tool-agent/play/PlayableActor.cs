@@ -344,11 +344,13 @@ internal sealed class PlayableActor
             var direction = PlaySurvivalTravel.Rotate(body.Matrix.Forward.XZ, bearing);
             var sweep = surroundings is { } current && gameTime - current.CompletedAt < 30 ? current : null;
             var targetFood = seek == "food" ? sweep?.FoodInDirection(player, direction, distance) : null;
-            if (targetFood is not null && !CanRetryFood(targetFood, body.Position, gameTime)) targetFood = null;
+            if (targetFood is not null && (!CanRetryFood(targetFood, body.Position, gameTime)
+                || !PermitSurvivalLeg(targetFood.Point, gameTime))) targetFood = null;
             if (seek == "shelter") earth = sweep?.EarthInDirection(body.Position, direction);
             var shore = seek == "dry_land" ? sweep?.ShoreInDirection(body.Position, direction) : null;
             travel = new(player, owner, bearing, distance, seek, false, gameTime, ObserveSurvival, ReadDryWindow, log,
-                survivalMemory.VisitsTo, foodTarget: targetFood, shelterTarget: earth, shoreTarget: shore);
+                survivalMemory.VisitsTo, foodTarget: targetFood, shelterTarget: earth, shoreTarget: shore,
+                permitLandLeg: PermitSurvivalLeg);
         }
         else if (foodToHarvest is { } food)
         {
@@ -418,7 +420,7 @@ internal sealed class PlayableActor
                     float bearing = Vector2.Angle(body.Matrix.Forward.XZ, offset) * (180f / MathF.PI);
                     foodApproach = (food, FoodStock(food.Value));
                     travel = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 9f), "food", false, gameTime,
-                        ObserveSurvival, ReadDryWindow, log, foodTarget: food);
+                        ObserveSurvival, ReadDryWindow, log, foodTarget: food, permitLandLeg: PermitSurvivalLeg);
                     log(new { kind = "play_food_approach", actor = Name, food.Name, distance = offset.Length(), gameTime });
                 }
                 return;
@@ -453,7 +455,7 @@ internal sealed class PlayableActor
             : Enumerable.Empty<PlaySurvivalFood.Food>();
         return foods.Concat(pastFood).Where(item => PlaySurvivalFood.CanApproachOnLand(item, origin)
             && (PlaySurvivalFood.CanSeek(player, item) || PlaySurvivalFood.IsRawMeat(item.Value))
-            && CanRetryFood(item, origin, gameTime));
+            && CanRetryFood(item, origin, gameTime) && survivalMemory.AvoidsPredatorAreas(origin, item.Point, gameTime));
     }
 
     private bool CanRetryFood(PlaySurvivalFood.Food food, Vector3 position, double gameTime) =>
@@ -510,7 +512,7 @@ internal sealed class PlayableActor
         attempt.Repositioned = true;
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
         travel = new(player, owner, bearing, Math.Max(1f, distance - 0.85f), "survey", false, gameTime,
-            ObserveSurvival, ReadDryWindow, log);
+            ObserveSurvival, ReadDryWindow, log, permitLandLeg: PermitSurvivalLeg);
         log(new { kind = "play_harvest_reposition", actor = Name, attempt.Food.Name, distance, gameTime });
         return true;
     }
@@ -621,6 +623,9 @@ internal sealed class PlayableActor
 
     private LocalObservationWindow ReadDryWindow() =>
         travelMemory!.Observe(travelSenses!.Observe(travelSenses.SessionId, Id, allDirections: true));
+
+    private bool PermitSurvivalLeg(Vector3 end, double gameTime) =>
+        survivalMemory.AvoidsPredatorAreas(player.ComponentBody.Position, end, gameTime);
 
     private bool RestWindow()
     {
@@ -749,10 +754,10 @@ internal sealed class PlayableActor
         var context = JsonSerializer.SerializeToElement(new
         {
             objective = survival
-                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
+                ? "先保命。全向摘要的 bearing 相对朝向，height 相对脚下。探索优先用 walkableBearings 中可起步的方向，绕开刚看到猎食者的位置。水上先用 dry_land 上岸。优先成熟南瓜和熟食，储粮按营养看，小蛋的饱食收益较低。生蛋在饱食不高于 24% 才吃。可用木矛捕食用鸟，生肉留着用熔炉和燃料做熟。黄昏、降温或生病低血量时找封闭庇护，土坑能自行取得封顶材料，太湿先在顶下晾干。最多四步，每步核对实际条件。"
                 : "照顾自己的生存。根据身体、背包和局部视野行动。侧后方先转身看清。移动受阻后，根据实际位移和新观察调整方向。需要合作时可简短交流或交接。只选一个现在可执行的动作。",
             rows = survival && includePanorama
-                ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物还在行尾带致病概率和营养。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]。"
+                ? "地形点[方向,距离,高度差]。动物和物品在行首加名称，食物还在行尾带致病概率和营养。visited[x,z,访问次数,干地,距今秒]，pastFoodSightings[名称,x,y,z,距今秒]，pastPredators[名称,x,z,距今秒]。"
                 : null,
             actor = Name,
             previousGoal = goal,
@@ -918,7 +923,7 @@ internal sealed class PlayableActor
             attempt.CollectUntil = gameTime + 6;
             float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
             travel = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 9f), "food", false, gameTime,
-                ObserveSurvival, ReadDryWindow, log, foodTarget: drop);
+                ObserveSurvival, ReadDryWindow, log, foodTarget: drop, permitLandLeg: PermitSurvivalLeg);
         }
     }
 
@@ -960,6 +965,7 @@ internal sealed class PlayableActor
     private bool CheckDanger(PlayDecisionQueue queue, double gameTime)
     {
         predators = PlaySurvivalSenses.Threats(player, owner.Queries);
+        survivalMemory.SeePredators(predators, gameTime);
         var names = predators.Select(threat => threat.Name).Distinct().Order(StringComparer.Ordinal).ToArray();
         if (!names.SequenceEqual(reportedPredators))
         {

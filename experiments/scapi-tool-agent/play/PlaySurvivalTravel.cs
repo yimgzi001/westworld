@@ -26,6 +26,7 @@ internal sealed class PlaySurvivalTravel
     private readonly Vector3? shoreTarget;
     private readonly Vector3 surveyTarget;
     private readonly Func<Vector2>? escapeFrom;
+    private readonly Func<Vector3, double, bool>? permitLandLeg;
     private readonly Action<object> log;
     private Vector2 direction;
     private Vector3 legOrigin;
@@ -44,7 +45,7 @@ internal sealed class PlaySurvivalTravel
         string seek, bool evading, double gameTime, Func<(JsonElement Observation, PlaySurvivalFood.Food[] Foods)> observe,
         Func<LocalObservationWindow> readDryWindow, Action<object> log, Func<Position, int>? visits = null,
         PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null,
-        Func<Vector2>? escapeFrom = null)
+        Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null)
     {
         this.player = player;
         this.owner = owner;
@@ -59,6 +60,7 @@ internal sealed class PlaySurvivalTravel
         this.shelterTarget = shelterTarget;
         this.shoreTarget = shoreTarget;
         this.escapeFrom = escapeFrom;
+        this.permitLandLeg = permitLandLeg;
         this.log = log;
         Evading = evading;
         Origin = player.ComponentBody.Position;
@@ -331,12 +333,12 @@ internal sealed class PlaySurvivalTravel
         dryLeg = true;
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
-        var route = DryRoute(window, remaining, !aligned, towardLowerDrop);
+        var route = DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
         bool exploring = seek == "survey" || seek == "food" && foodTarget is null || seek == "shelter" && shelterTarget is null;
         if (route is null && exploring && !Evading && remaining >= 1f)
         {
             // 原方向封住时走完一段已确认的旁路，再交给模型评估新位置。
-            route = PlayDryRoutes.Detour(window, direction, remaining, visits);
+            route = PlayDryRoutes.Detour(window, direction, remaining, visits, end => CanUseLandLeg(end, gameTime));
             if (route is not null)
             {
                 detouring = true;
@@ -371,9 +373,13 @@ internal sealed class PlaySurvivalTravel
         Finish("failed", "no_observed_dry_route");
     }
 
-    private PlayDryRoutes.Leg? DryRoute(LocalObservationWindow window, float remaining, bool canAlign, bool towardLowerDrop) =>
+    private PlayDryRoutes.Leg? DryRoute(LocalObservationWindow window, float remaining, bool canAlign, bool towardLowerDrop,
+        double gameTime) =>
         escapeFrom is { } readThreat ? PlayDryRoutes.Escape(window, readThreat(), remaining, canAlign)
-            : PlayDryRoutes.Next(window, direction, remaining, canAlign, visits, towardLowerDrop);
+            : PlayDryRoutes.Next(window, direction, remaining, canAlign, visits, towardLowerDrop,
+                end => CanUseLandLeg(end, gameTime));
+
+    private bool CanUseLandLeg(Vector3 end, double gameTime) => permitLandLeg?.Invoke(end, gameTime) != false;
 
     private (MoveAlongObservedRoute Route, Action Accepted)? ContinueFlat(double gameTime)
     {
@@ -388,7 +394,7 @@ internal sealed class PlaySurvivalTravel
         float remaining = RemainingOnLand(body, approach, traveled + progress);
         if (remaining < 1.1f) return null;
         bool towardLowerDrop = TowardLowerDrop(body, approach);
-        var route = DryRoute(readDryWindow(), remaining, false, towardLowerDrop);
+        var route = DryRoute(readDryWindow(), remaining, false, towardLowerDrop, gameTime);
         if (route?.Action is not MoveAlongObservedRoute next || !route.Contains(body, 0)) return null;
         // 低处拾取物需要对齐下台阶时，先结束当前平地段，避免连续改走侧向短步。
         if (towardLowerDrop && Vector2.Dot(Vector2.Normalize((route.End - body.Position).XZ), direction) < 0.9f)

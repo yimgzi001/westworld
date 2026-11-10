@@ -1,13 +1,17 @@
 #nullable enable
 
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Engine;
 using Game;
 using Game.Westworld;
 
 internal static class PlaySurvivalSenses
 {
-    internal sealed record Threat(string Name, float Distance, bool Aquatic, bool Predator, float X, float Y, float Z);
+    internal sealed record Threat(string Name, float Distance, bool Aquatic, bool Predator, float X, float Y, float Z)
+    {
+        [JsonIgnore] public int EntityId { get; init; }
+    }
     internal sealed record Shore(float X, float Y, float Z, float Distance);
 
     public static bool OnDryGround(ComponentBody body) => body.ParentBody is null && body.StandingOnBody is null
@@ -37,12 +41,13 @@ internal static class PlaySurvivalSenses
             bool predator = (category & (CreatureCategory.LandPredator | CreatureCategory.WaterPredator)) != 0
                 || template.StartsWith("Shark", StringComparison.Ordinal);
             string name = string.IsNullOrWhiteSpace(entity.Name) ? template : entity.Name;
-            return new Threat(name, entity.Distance, aquatic, predator, entity.Position.X, entity.Position.Y, entity.Position.Z);
+            return new Threat(name, entity.Distance, aquatic, predator, entity.Position.X, entity.Position.Y, entity.Position.Z)
+                { EntityId = entity.EntityId };
         }).Take(5).ToArray();
     }
 
     public static bool NeedsAvoidance(Threat animal, bool inWater) =>
-        (!animal.Aquatic || inWater) && animal.Distance <= (animal.Predator ? animal.Aquatic ? 14f : 18f : 5f);
+        (!animal.Aquatic || inWater) && animal.Distance <= (animal.Predator ? animal.Aquatic ? 14f : 22f : 5f);
 
     public static Shore? VisibleShore(JsonElement observation, ComponentBody body, ComponentBody? boat)
     {

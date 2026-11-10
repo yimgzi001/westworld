@@ -26,24 +26,29 @@ sealed partial class Runner
     private Point3 threatOrigin;
     private Vector3 threatPosition;
     private float sightDistance;
+    private readonly PlaySurvivalMemory predatorMemory = new();
+    private float closestRememberedThreat = float.PositiveInfinity;
 
     private void RunThreatRange()
     {
         var body = p.ComponentBody;
+        bool withMemory = mode == "predator-memory";
+        double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         if (stage == 0)
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
-            if (!(terrain.Terrain.GetChunkAtCell(cell.X + 18, cell.Z)?.State >= TerrainChunkState.InvalidVertices1)) return;
+            if (!(terrain.Terrain.GetChunkAtCell(cell.X + 23, cell.Z)?.State >= TerrainChunkState.InvalidVertices1)) return;
             threatOrigin = cell;
-            for (int x = cell.X - 1; x <= cell.X + 19; x++)
-            for (int z = cell.Z - 2; z <= cell.Z + 2; z++)
+            for (int x = cell.X - 5; x <= cell.X + 23; x++)
+            for (int z = cell.Z - 5; z <= cell.Z + 5; z++)
             for (int y = cell.Y - 1; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             body.Velocity = Vector3.Zero;
+            body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
             var bear = DatabaseManager.CreateEntity(p.Project, "Bear_Black", true);
-            threatPosition = body.Position + 17f * Vector3.UnitX;
+            threatPosition = body.Position + (withMemory ? 17f : 20.5f) * Vector3.UnitX;
             bear.FindComponent<ComponentBody>(true).Position = threatPosition;
             var locomotion = bear.FindComponent<ComponentLocomotion>(true);
             locomotion.WalkSpeed = 0f;
@@ -60,15 +65,42 @@ sealed partial class Runner
         if (stage == 1)
         {
             var first = visible.FirstOrDefault(IsFixtureThreat);
-            if (first is null || first.Distance is <= 16f or > 18f || !PlaySurvivalSenses.NeedsAvoidance(first, false)
-                || PlaySurvivalSenses.Threats(p, actions.Queries, 16).Any(IsFixtureThreat))
-                throw new InvalidOperationException("预警夹具未能从 16 格以外的实际视野识别黑熊。");
+            float oldRadius = withMemory ? 16f : 18f;
+            if (first is null || first.Distance <= oldRadius || first.Distance > 22f || !PlaySurvivalSenses.NeedsAvoidance(first, false)
+                || PlaySurvivalSenses.Threats(p, actions.Queries, oldRadius).Any(IsFixtureThreat))
+                throw new InvalidOperationException("预警夹具未能从旧范围以外的实际视野识别黑熊。");
             sightDistance = first.Distance;
+            predatorMemory.SeePredators([first], now);
             for (int y = threatOrigin.Y; y <= threatOrigin.Y + 2; y++)
             for (int z = threatOrigin.Z - 2; z <= threatOrigin.Z + 2; z++)
                 terrain.ChangeCell(threatOrigin.X + 7, y, z, GraniteBlock.Index);
             elapsed = 0;
             stage = 2;
+            return;
+        }
+        if (withMemory)
+        {
+            if (stage == 2)
+            {
+                var towardBear = body.Position + 4f * Vector3.UnitX;
+                if (visible.Any(IsFixtureThreat) || predatorMemory.AvoidsPredatorAreas(body.Position, towardBear, now)
+                    || !predatorMemory.AvoidsPredatorAreas(body.Position, towardBear, now + 49))
+                    throw new InvalidOperationException("看不见黑熊后，短期记忆未正确限制接近方向或未过期。");
+                travel = new(p, actions, 0f, 6f, "survey", false, now,
+                    () => (JsonSerializer.SerializeToElement(new { }), []),
+                    () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), Gate.Log,
+                    permitLandLeg: (end, time) => predatorMemory.AvoidsPredatorAreas(body.Position, end, time));
+                stage = 3;
+            }
+            closestRememberedThreat = Math.Min(closestRememberedThreat, (body.Position - threatPosition).XZ.Length());
+            travel!.Update(now);
+            if (travel.Status is null) return;
+            float moved = (body.Position - travel.Origin).XZ.Length();
+            Passed = travel.Reason == "scout_detoured_to_open_ground" && moved >= 3f && closestRememberedThreat > 16.9f
+                && p.ComponentHealth.Health >= 0.99f;
+            Done = true;
+            Gate.Log(new { kind = "predator_memory_result", Passed, sightDistance, moved, closestRememberedThreat,
+                health = p.ComponentHealth.Health });
             return;
         }
         Passed = !visible.Any(IsFixtureThreat);
