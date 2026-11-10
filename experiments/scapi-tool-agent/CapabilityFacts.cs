@@ -57,8 +57,15 @@ public static class CapabilityFacts {
   foreach(var read in good){
    if(read.Tool is "read_block_settings" or "read_item_settings"&&read.Data.ValueKind==JsonValueKind.Object){
     string type=Text(read.Data,"type");if(read.Tool=="read_block_settings"){
-     string target=Text(read.Arguments,"target");if(!targets.TryGetValue(target,out var kind)||kind!=ProductionTargetKind.Block)throw new ArgumentException("settings_target_not_current_block");settings.Add(new(target,null,null,type));
-    }else {int slot=Int(read.Arguments,"slot"),value=Int(read.Arguments,"value");if(slots is null||!slots.Any(s=>s.Slot==slot&&s.Value==value&&s.Count>0))throw new ArgumentException("settings_item_not_current_owned_pair");settings.Add(new(null,slot,value,type));}
+     string target=Text(read.Arguments,"target");if(!targets.TryGetValue(target,out var kind)||kind!=ProductionTargetKind.Block)throw new ArgumentException("settings_target_not_current_block");settings.Add(new(target,null,null,type,read.Data.TryGetProperty("settings",out var blockValues)?blockValues.Clone():null));
+    }else {int slot=Int(read.Arguments,"slot"),value=Int(read.Arguments,"value");if(slots is null||!slots.Any(s=>s.Slot==slot&&s.Value==value&&s.Count>0))throw new ArgumentException("settings_item_not_current_owned_pair");settings.Add(new(null,slot,value,type,read.Data.TryGetProperty("settings",out var itemValues)?itemValues.Clone():null));}
+   }
+   if(read.Tool=="read_sign"&&read.Data.ValueKind==JsonValueKind.Object){
+    string target=Text(read.Arguments,"target");
+    if(!targets.TryGetValue(target,out var signKind)||signKind!=ProductionTargetKind.Block)throw new ArgumentException("sign_target_not_current_block");
+    // A real reachable SignView grants this type, never an old map or guessed block id.
+    if(!read.Data.TryGetProperty("lines",out var lines)||lines.ValueKind!=JsonValueKind.Array||!read.Data.TryGetProperty("colors",out var colors)||colors.ValueKind!=JsonValueKind.Array)throw new ArgumentException("invalid_sign_view");
+    settings.Add(new(target,null,null,"SignBlock",read.Data.Clone()));
    }
    if(read.Tool=="read_storage"&&read.Data.ValueKind==JsonValueKind.Object&&read.Data.TryGetProperty("crafting",out var c)&&c.ValueKind==JsonValueKind.Object&&c.TryGetProperty("recipe",out var recipe)&&recipe.ValueKind==JsonValueKind.Object){
     // Native act_Craft count is output items; preserve recipe output multiplicity.

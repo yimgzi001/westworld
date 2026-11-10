@@ -16,7 +16,7 @@ public sealed record ReceivedSocialOffer(SocialCaptureId Scope,Guid RecipientAct
 public sealed record CurrentActionSchema(SocialCaptureId Scope,ToolOffer Offer);
 public sealed record FamilyCapability(CapabilityDescriptor Descriptor,CapabilityState State,JsonElement? Schema,ToolOffer? Offer);
 public sealed record FamilyCoverage(int VisibleTargets,int OwnedStacks,int OfferedStacks,int OmittedStacks,int ReceivedOffers,int PlanCandidates,int PlanIncluded,int PlanOmitted);
-public sealed record SocialTaskFamilyResult(IReadOnlyList<FamilyCapability> Entries,FamilyCoverage Coverage);
+public sealed record SocialTaskFamilyResult(IReadOnlyList<FamilyCapability> Entries,FamilyCoverage Coverage) { public int PlanPage {get;init;} public int PlanPages {get;init;} public IReadOnlyList<string> PlanRejected {get;init;}=Array.Empty<string>(); }
 
 /// <summary>One immutable trusted public capture. Null-known flags mean unknown, not empty.</summary>
 public sealed class SocialTaskFacts {
@@ -58,7 +58,7 @@ public static class SocialTaskFamily {
  static JsonObject Exact(int value)=>new(){["type"]="integer",["const"]=value};
  static CapabilityDescriptor Descriptor(string name,params ParameterKind[] kinds)=>new(name,name=="submit_plan"?"finite_task":"social",Array.AsReadOnly(kinds),true);
  static ToolOffer Tool(string name,string description,JsonObject schema,IReadOnlyDictionary<string,IReadOnlyList<string>>? refs=null,IReadOnlyList<JsonElement>? associated=null)=>new(name,description,J(schema),refs,AssociatedParameterSchemas:associated);
- public static SocialTaskFamilyResult Build(SocialCaptureId expected,SocialTaskFacts facts){
+ public static SocialTaskFamilyResult Build(SocialCaptureId expected,SocialTaskFacts facts,int planPage=0){
   if(expected!=facts.Scope)throw new InvalidOperationException("stale_or_wrong_social_capture");
   var entries=new List<FamilyCapability>();
   var targets=facts.Visible.Where(x=>!x.IsSelf).Select(x=>x.Reference).ToArray();
@@ -96,35 +96,58 @@ public static class SocialTaskFamily {
   Add(Descriptor("act_OfferItem",ParameterKind.LiveTarget,ParameterKind.OwnedItem),offerItem,offerState,offerReason,true);
   var respond=facts.InboxKnown==true&&offers.Length>0?Tool("act_RespondToOffer","Respond only to an offer actually received by this actor. Native recipient, pending state, 15s lifetime, 2m LOS and inventory still validate. Successful accept may transfer only the affected count, not the whole request.",Obj(new(){["offer"]=Choice(offers),["accept"]=new JsonObject{["type"]="boolean"}},"offer","accept"),new Dictionary<string,IReadOnlyList<string>>{{"offer",Array.AsReadOnly(offers)}}):null;
   Add(Descriptor("act_RespondToOffer",ParameterKind.SocialOffer),respond,facts.InboxKnown!=true?FactState.Unknown:respond is null?FactState.Unavailable:FactState.Available,facts.InboxKnown!=true?"own_received_inbox_unknown":respond is null?"no_unexpired_received_offer":"own_received_reference_not_pending_or_delivery_guarantee",true);
-  var plan=FiniteNativePlan.Build(facts.Scope,facts.Actions.Where(x=>facts.ActorSupport.GetValueOrDefault(x.Offer.Name)==true).ToArray());
+  // Current social results replace older same-name candidates, including unavailable/null.
+  var merged=facts.Actions.Where(x=>facts.ActorSupport.GetValueOrDefault(x.Offer.Name)==true).ToDictionary(x=>x.Offer.Name,StringComparer.Ordinal);
+  foreach(var entry in entries.Where(x=>x.Descriptor.Name.StartsWith("act_",StringComparison.Ordinal))){merged.Remove(entry.Descriptor.Name);if(entry.Offer is not null)merged[entry.Descriptor.Name]=new(facts.Scope,entry.Offer);}
+  var pages=FiniteNativePlan.BuildPages(facts.Scope,merged.Values.ToArray());
+  if(planPage<0||planPage>=Math.Max(1,pages.Pages.Count))throw new ArgumentOutOfRangeException(nameof(planPage));
+  var plan=pages.Pages.Count==0?new NativePlanSchemaResult(null,pages.Candidates,0,pages.Candidates):pages.Pages[planPage];
   Add(Descriptor("submit_plan",ParameterKind.NestedPlan),plan.Offer,plan.Offer is null?FactState.Unavailable:FactState.Available,plan.Offer is null?"no_bounded_current_native_action_schema":"one_native_task_owner_linear_1_to_12_steps",true);
-  return new(entries.AsReadOnly(),new(targets.Length,items.Length,offerItem?.AssociatedParameterSchemas?.Count??0,items.Length-(offerItem?.AssociatedParameterSchemas?.Count??0),offers.Length,plan.Candidates,plan.Included,plan.Omitted));
+  return new(entries.AsReadOnly(),new(targets.Length,items.Length,offerItem?.AssociatedParameterSchemas?.Count??0,items.Length-(offerItem?.AssociatedParameterSchemas?.Count??0),offers.Length,plan.Candidates,plan.Included,plan.Omitted)){PlanPage=planPage,PlanPages=pages.Pages.Count,PlanRejected=pages.Rejected};
  }
 }
 
 public sealed record NativePlanSchemaResult(ToolOffer? Offer,int Candidates,int Included,int Omitted);
+public sealed record NativePlanPages(IReadOnlyList<NativePlanSchemaResult> Pages,int Candidates,IReadOnlyList<string> Rejected);
 public static class FiniteNativePlan {
- // Payload is submitted once to existing ActorTools.SubmitPlan. No scheduler/task owner here.
- public static NativePlanSchemaResult Build(SocialCaptureId scope,IReadOnlyList<CurrentActionSchema> current){
-  scope.Validate();if(current.Count>32||current.Any(x=>x.Scope!=scope))throw new ArgumentException("Same capture current action schemas required");
+ // Only schemas, submitted once to existing ActorTools.SubmitPlan. No queue here.
+ public static NativePlanSchemaResult Build(SocialCaptureId scope,IReadOnlyList<CurrentActionSchema> current)=>BuildPages(scope,current).Pages.FirstOrDefault()??new(null,current.Count(x=>x.Offer.Name.StartsWith("act_",StringComparison.Ordinal)),0,current.Count(x=>x.Offer.Name.StartsWith("act_",StringComparison.Ordinal)));
+ public static NativePlanPages BuildPages(SocialCaptureId scope,IReadOnlyList<CurrentActionSchema> current){
+  scope.Validate();if(current.Count>32||current.Any(x=>x.Scope!=scope)||current.Select(x=>x.Offer.Name).Distinct().Count()!=current.Count)throw new ArgumentException("Same capture unique current action schemas required");
   var candidates=current.Where(x=>x.Offer.Name.StartsWith("act_",StringComparison.Ordinal)).OrderBy(x=>x.Offer.Name,StringComparer.Ordinal).ToArray();
-  var variants=new JsonArray();int included=0;
-  JsonObject Parameters(JsonArray options)=>new(){["type"]="object",["properties"]=new JsonObject{["steps"]=new JsonObject{["type"]="array",["minItems"]=1,["maxItems"]=12,["items"]=new JsonObject{["oneOf"]=options.DeepClone()}}},["required"]=new JsonArray("steps"),["additionalProperties"]=false};
+  var pages=new List<NativePlanSchemaResult>();var rejected=new List<string>();var variants=new JsonArray();var names=new HashSet<string>(StringComparer.Ordinal);
+  ToolOffer Offer(JsonArray options)=>new("submit_plan","One native task: 1..12 linear actions, explicit safe retries 0..2 (at most 36 attempts). This is one bounded schema page; other pages need explicit selection and fresh facts. No next/fallback/item_from_step. Native task_status/cancel_task retain ownership.",JsonSerializer.SerializeToElement(new JsonObject{["type"]="object",["properties"]=new JsonObject{["steps"]=new JsonObject{["type"]="array",["minItems"]=1,["maxItems"]=12,["items"]=new JsonObject{["oneOf"]=options.DeepClone()}}},["required"]=new JsonArray("steps"),["additionalProperties"]=false}));
+  bool Fits(JsonArray options){try{_=new ToolDecisionPrompt(scope.Session,scope.Actor,scope.Capture,JsonSerializer.SerializeToElement(new{}),new[]{Offer(options)});return true;}catch(ArgumentException){return false;}}
+  void Flush(){if(variants.Count==0)return;pages.Add(new(Offer(variants),candidates.Length,names.Count,candidates.Length-names.Count));variants=new();names.Clear();}
   foreach(var candidate in candidates){
-   try{
-    var prompt=new ToolDecisionPrompt(scope.Session,scope.Actor,scope.Capture,JsonSerializer.SerializeToElement(new{}),new[]{candidate.Offer});
-    using var doc=JsonDocument.Parse(prompt.ResponseSchema);
-    var effective=doc.RootElement.GetProperty("properties").GetProperty("steps").GetProperty("items").GetProperty("oneOf")[0].GetProperty("properties").GetProperty("arguments");
-    var variant=new JsonObject{["type"]="object",["properties"]=new JsonObject{["tool"]=new JsonObject{["type"]="string",["const"]=candidate.Offer.Name},["arguments"]=JsonNode.Parse(effective.GetRawText()),["retries"]=new JsonObject{["type"]="integer",["minimum"]=0,["maximum"]=2},["minimum_affected"]=new JsonObject{["type"]="integer",["minimum"]=0,["maximum"]=64}},["required"]=new JsonArray("tool","arguments"),["additionalProperties"]=false};
-    var proposed=(JsonArray)variants.DeepClone();proposed.Add(variant);
-    var parameters=JsonSerializer.SerializeToElement(Parameters(proposed));
-    var offer=new ToolOffer("submit_plan","One native task, 1..12 linear actions; retries only when explicitly requested (0..2), native safe pre-effect rules. No nested host skills, invented future refs, implicit recovery, or goal success from acceptance.",parameters);
-    // Use the actual protocol's size/depth/type validator, not a parallel schema language.
-    _=new ToolDecisionPrompt(scope.Session,scope.Actor,scope.Capture,JsonSerializer.SerializeToElement(new{}),new[]{offer});
-    variants=proposed;included++;
-   }catch(ArgumentException){} // Explicit omission count below, never an untyped fallback.
+   JsonElement effective;
+   try{var prompt=new ToolDecisionPrompt(scope.Session,scope.Actor,scope.Capture,JsonSerializer.SerializeToElement(new{}),new[]{candidate.Offer});using var doc=JsonDocument.Parse(prompt.ResponseSchema);effective=doc.RootElement.GetProperty("properties").GetProperty("steps").GetProperty("items").GetProperty("oneOf")[0].GetProperty("properties").GetProperty("arguments").Clone();}
+   catch(ArgumentException){rejected.Add(candidate.Offer.Name+":invalid_current_schema");continue;}
+   // Flatten only provably disjoint top-level alternatives. Overlapping oneOf must not
+   // become permissive when spread across pages. Correlated slot/value branches survive.
+   var parts=effective.TryGetProperty("oneOf",out var alternatives)&&Disjoint(alternatives)?alternatives.EnumerateArray().Select(x=>x.Clone()).ToArray():new[]{effective};
+   int index=0;
+   foreach(var part in parts){
+    var variant=new JsonObject{["type"]="object",["properties"]=new JsonObject{["tool"]=new JsonObject{["type"]="string",["const"]=candidate.Offer.Name},["arguments"]=JsonNode.Parse(part.GetRawText()),["retries"]=new JsonObject{["type"]="integer",["minimum"]=0,["maximum"]=2},["minimum_affected"]=new JsonObject{["type"]="integer",["minimum"]=0,["maximum"]=64}},["required"]=new JsonArray("tool","arguments"),["additionalProperties"]=false};
+    var alone=new JsonArray(variant.DeepClone());if(!Fits(alone)){rejected.Add(candidate.Offer.Name+":fragment_"+index+"_exceeds_protocol");index++;continue;}
+    var proposed=(JsonArray)variants.DeepClone();proposed.Add(variant.DeepClone());if(!Fits(proposed)){Flush();proposed=alone;}
+    variants=proposed;names.Add(candidate.Offer.Name);index++;
+   }
   }
-  if(included==0)return new(null,candidates.Length,0,candidates.Length);
-  return new(new ToolOffer("submit_plan",$"One native task: 1..12 linear actions, explicit safe retries 0..2 (at most 36 attempts). {included}/{candidates.Length} current action schemas fit. No next/fallback/item_from_step in this initial adapter; task_status/cancel_task retain native ownership.",JsonSerializer.SerializeToElement(Parameters(variants))),candidates.Length,included,candidates.Length-included);
+  Flush();return new(pages.AsReadOnly(),candidates.Length,rejected.AsReadOnly());
+ }
+ static bool Disjoint(JsonElement alternatives){
+  var branches=alternatives.EnumerateArray().ToArray();
+  for(int i=0;i<branches.Length;i++)for(int j=i+1;j<branches.Length;j++)if(!Separate(branches[i],branches[j]))return false;
+  return true;
+ }
+ static bool Separate(JsonElement a,JsonElement b){
+  if(!a.TryGetProperty("properties",out var ap)||!b.TryGetProperty("properties",out var bp)||!a.TryGetProperty("required",out var ar)||!b.TryGetProperty("required",out var br))return false;
+  foreach(var name in ar.EnumerateArray().Select(x=>x.GetString()!).Intersect(br.EnumerateArray().Select(x=>x.GetString()!))){
+   if(!ap.TryGetProperty(name,out var av)||!bp.TryGetProperty(name,out var bv))continue;
+   JsonElement[]? Values(JsonElement x)=>x.TryGetProperty("const",out var c)?new[]{c}:x.TryGetProperty("enum",out var e)?e.EnumerateArray().ToArray():null;
+   var aa=Values(av);var bb=Values(bv);if(aa is not null&&bb is not null&&!aa.Any(x=>bb.Any(y=>JsonElement.DeepEquals(x,y))))return true;
+  }
+  return false;
  }
 }

@@ -29,4 +29,12 @@ var craft=ProductionFamily.Build("act_Craft",nativeCraft,true,f.Production.Scope
 var counts=craft.Offer!.AssociatedParameterSchemas!.Single().GetProperty("properties").GetProperty("count").GetProperty("enum").EnumerateArray().Select(x=>x.GetInt32()).ToArray();
 Check(counts.SequenceEqual(new[]{4,8,12}),"only native whole-batch output counts");
 _=new ToolDecisionPrompt(scope.Session,scope.Actor,scope.Capture,J("{}"),[craft.Offer]);Check(true,"raw unbounded native craft schema compiles");
+Check(f.Production.Settings[0].Values!.Value.GetProperty("voltage").GetInt32()==3,"actual settings values retained");
+var piston=CapabilityFacts.Build(scope,[reads[0],R("read_block_settings","""{"type":"PistonBlock","settings":{"mode":"Pulling","pullCount":2}}""","""{"target":"b"}""")]);
+Check(piston.Production.Settings.Single().Values!.Value.GetProperty("mode").GetString()=="Pulling","piston mode public fact");
+var sign=CapabilityFacts.Build(scope,[reads[0],R("read_sign","""{"lines":["hello"],"colors":[{"r":0,"g":0,"b":0,"a":255}],"url":""}""","""{"target":"b"}""")]);
+Check(sign.Production.Settings.Single().Type=="SignBlock","real sign read authorizes sign template");
+Check(CapabilityFacts.Build(scope,[reads[0],R("read_sign","null","""{"target":"b"}""")]).Production.Settings.Count==0,"null sign does not invent type");
+Reject(()=>CapabilityFacts.Build(scope,[reads[0],R("read_sign","""{"lines":[],"colors":[]}""","""{"target":"old"}""")]),"old sign reference");
+Reject(()=>CapabilityFacts.Build(scope,[reads[0],R("read_sign","""{"lines":[]}""","""{"target":"b"}""")]),"malformed sign view");
 Console.WriteLine($"PASS {n} capability fact mapping assertions (pure DTO, no game/API)");

@@ -7,7 +7,7 @@ public sealed record ProductionScope(Guid Session,Guid Actor,Guid Capture);
 public sealed record ProductionTarget(string Reference,ProductionTargetKind Kind);
 public sealed record ProductionSlot(int Slot,int Value,int Count);
 // These are successful, same-capture public native read results, not guessed item properties.
-public sealed record ProductionSettings(string? Target,int? Slot,int? Value,string Type);
+public sealed record ProductionSettings(string? Target,int? Slot,int? Value,string Type,JsonElement? Values=null);
 public sealed record ProductionCraftPreview(string Workspace,int ResultValue,int AvailableCount,int MinimumCount=1,int CountMultiple=1);
 public sealed record ProductionFacts(ProductionScope Scope,IReadOnlyList<ProductionTarget> Targets,IReadOnlyList<ProductionSlot> Slots,IReadOnlyList<ProductionSettings> Settings,IReadOnlyList<ProductionCraftPreview> Crafts);
 public sealed record ProductionOffer(CapabilityDescriptor Descriptor,CapabilityState State,ToolOffer? Offer,int OfferedAlternatives,int OmittedAlternatives,string Description);
@@ -48,8 +48,8 @@ public static class ProductionFamily {
   if(owns&&branches.Count==0)return No(FactState.Unavailable,"insufficient_owned_count");
   if(name=="act_UseAimedItem")Bound(props,"duration",.05,4);
   if(name=="act_BuildFurniture"){
-   // Optional options are omitted until full native semantic constraints are represented. Default build remains usable.
-   props.Remove("options");description+=" Uses native default options; custom furniture options not yet adapted.";
+   // Native option keys and bounded geometry; actual design fit remains a native precondition.
+   props["options"]=FurnitureSchema();description+=" Custom options are bounded native fields; geometric fit and text semantics remain native checks.";
   }
   if(omitted>0)description+=$" Partial alternatives; {omitted} omitted by explicit bounds.";
   var schema=JsonSerializer.SerializeToElement(node);var offer=new ToolOffer(name,description,schema,refs.Count==0?null:refs,branches.Count==0?null:branches);
@@ -79,12 +79,13 @@ public static class ProductionFamily {
    var reads=facts.Settings.Where(s=>block ? s.Target!=null&&facts.Targets.Any(t=>t.Reference==s.Target&&t.Kind==ProductionTargetKind.Block)&&StringAllowed(p["target"]!.AsObject(),s.Target):s.Slot.HasValue&&s.Value.HasValue&&facts.Slots.Any(i=>i.Slot==s.Slot&&i.Value==s.Value&&i.Count>0)&&IntAllowed(p["slot"]!.AsObject(),s.Slot.Value)&&IntAllowed(p["value"]!.AsObject(),s.Value.Value)).ToArray();
    if(reads.Length==0)return No("current_typed_settings_read_required");
    if(reads.Select(r=>block?r.Target:$"{r.Slot}/{r.Value}").Distinct().Count()!=reads.Length)throw new ArgumentException("Duplicate/conflicting settings read");
-   var known=reads.Where(r=>SettingsSchema(r.Type)!=null).ToArray();omitted+=reads.Length-known.Length;
+   var known=reads.Where(r=>SettingsSchema(r,facts)!=null).ToArray();omitted+=reads.Length-known.Length;
    if(known.Length==0)return No("settings_type_not_yet_adapted");
-   var templates=known.Select(r=>SettingsSchema(r.Type)!).GroupBy(x=>x.ToJsonString()).Select(g=>g.First()).ToArray();
+   foreach(var r in known.Where(r=>r.Type is "BowBlock" or "CrossbowBlock" or "MusketBlock"))omitted+=Math.Max(0,facts.Slots.Count(s=>s.Count>0&&s.Slot!=r.Slot)-(r.Type=="CrossbowBlock"?31:32));
+   var templates=known.Select(r=>SettingsSchema(r,facts)!).GroupBy(x=>x.ToJsonString()).Select(g=>g.First()).ToArray();
    p["settings"]=templates.Length==1?templates[0]:new JsonObject{["oneOf"]=new JsonArray(templates.Select(t=>(JsonNode)t).ToArray())};
    if(!block){NarrowInteger(p,"slot",known.Select(r=>r.Slot!.Value));NarrowInteger(p,"value",known.Select(r=>r.Value!.Value));}
-   foreach(var r in known){var v=node.DeepClone().AsObject();var vp=v["properties"]!.AsObject();vp["settings"]=SettingsSchema(r.Type);
+   foreach(var r in known){var v=node.DeepClone().AsObject();var vp=v["properties"]!.AsObject();vp["settings"]=SettingsSchema(r,facts);
     if(block)vp["target"]=Constant("string",r.Target!);else {vp["slot"]=Constant("integer",r.Slot!.Value);vp["value"]=Constant("integer",r.Value!.Value);}
     Add(v,block?r.Target:null);
    }
@@ -112,10 +113,34 @@ public static class ProductionFamily {
   props[key]=new JsonObject{["type"]="integer",["enum"]=JsonSerializer.SerializeToNode(allowed)};
  }
  static void Bound(JsonObject p,string key,double low,double high){var f=p[key]!.AsObject();if(f["minimum"]!=null)low=Math.Max(low,f["minimum"]!.Deserialize<double>());if(f["maximum"]!=null)high=Math.Min(high,f["maximum"]!.Deserialize<double>());if(low>high)throw new ArgumentException("Empty native bounds");bool integer=f["type"]!.GetValue<string>()=="integer";f["minimum"]=integer?JsonValue.Create((int)low):JsonValue.Create(low);f["maximum"]=integer?JsonValue.Create((int)high):JsonValue.Create(high);}
- static JsonObject? SettingsSchema(string type){
+ static JsonObject Integer(int min,int max)=>new(){["type"]="integer",["minimum"]=min,["maximum"]=max};
+ static JsonObject Text(int max)=>new(){["type"]="string",["minLength"]=0,["maxLength"]=max};
+ static JsonObject Object(Dictionary<string,JsonNode> props,bool required=true)=>new(){["type"]="object",["properties"]=new JsonObject(props.Select(p=>KeyValuePair.Create<string,JsonNode?>(p.Key,p.Value))),["required"]=new JsonArray((required?props.Keys.AsEnumerable():Array.Empty<string>()).Select(k=>(JsonNode)JsonValue.Create(k)!).ToArray()),["additionalProperties"]=false};
+ static JsonObject Alternatives(IEnumerable<JsonObject> variants){var v=variants.ToArray();return v.Length==1?v[0]:new(){["oneOf"]=new JsonArray(v.Select(x=>(JsonNode)x).ToArray())};}
+ static JsonObject Nonempty(Dictionary<string,JsonNode> fields){var a=fields.ToArray();return Alternatives(Enumerable.Range(1,(1<<a.Length)-1).Select(mask=>Object(a.Where((_,i)=>(mask&(1<<i))!=0).ToDictionary(x=>x.Key,x=>x.Value.DeepClone()))));}
+ static JsonObject FurnitureSchema()=>Object(new(){["name"]=Text(20),["resolution"]=Integer(2,256),["mirror_axis"]=Integer(0,2),["rotation_axis"]=Integer(0,2),["quarter_turns"]=Integer(0,3),["shift"]=Object(new(){["x"]=Integer(-256,256),["y"]=Integer(-256,256),["z"]=Integer(-256,256)})},false);
+ static JsonObject? SettingsSchema(ProductionSettings read,ProductionFacts facts){
+  string type=read.Type;
   string? key=type switch {"BatteryBlock" or "ButtonBlock" or "SwitchBlock"=>"voltage","AdjustableDelayGateBlock"=>"delaySteps",_=>null};
-  if(key==null)return null;
-  return new JsonObject{["type"]="object",["properties"]=new JsonObject{[key]=new JsonObject{["type"]="integer",["minimum"]=0,["maximum"]=key=="voltage"?15:255}},["required"]=new JsonArray(key),["additionalProperties"]=false};
+  if(key!=null)return Object(new(){[key]=Integer(0,key=="voltage"?15:255)});
+  if(type=="PistonBlock"){
+   var fields=new Dictionary<string,JsonNode>{["maxExtension"]=Integer(1,8),["speed"]=Integer(0,3)};
+   if(read.Values is JsonElement values&&values.ValueKind==JsonValueKind.Object&&values.TryGetProperty("mode",out var mode)&&mode.ValueKind==JsonValueKind.String&&mode.GetString() is "Pulling" or "StrictPulling")fields["pullCount"]=Integer(1,8);
+   return Nonempty(fields);
+  }
+  if(type=="TruthTableCircuitBlock")return Object(new(){["outputs"]=Text(16)});
+  if(type=="MemoryBankBlock")return Object(new(){["data"]=Text(256)});
+  if(type=="FurnitureBlock")return Object(new(){["name"]=Text(20)});
+  if(type=="SignBlock"&&read.Target==null)return null;
+  if(type=="SignBlock")return Nonempty(new(){["lines"]=new JsonObject{["type"]="array",["items"]=Text(16),["minItems"]=0,["maxItems"]=4},["colors"]=new JsonObject{["type"]="array",["items"]=Integer(0,7),["minItems"]=4,["maxItems"]=4},["url"]=Text(256)});
+  if(type is "BowBlock" or "CrossbowBlock" or "MusketBlock"){
+   if(read.Slot is not int target)return null;
+   var variants=new List<JsonObject>();
+   if(type=="CrossbowBlock")variants.Add(Object(new(){["cock"]=new JsonObject{["type"]="boolean",["const"]=true}}));
+   foreach(var slot in facts.Slots.Where(s=>s.Count>0&&s.Slot!=target).OrderBy(s=>s.Slot).Take(32-variants.Count))variants.Add(Object(new(){["sourceSlot"]=new JsonObject{["type"]="integer",["const"]=slot.Slot},["expectedSourceValue"]=new JsonObject{["type"]="integer",["const"]=slot.Value}}));
+   return variants.Count==0?null:Alternatives(variants);
+  }
+  return null;
  }
  public static string Description(string n)=>n switch {
   "act_Drop"=>"Drop from the exact current owned slot/value up to the offered count; dropped items leave inventory and are not a delivery receipt.",

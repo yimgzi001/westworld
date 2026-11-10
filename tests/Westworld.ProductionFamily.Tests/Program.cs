@@ -26,11 +26,11 @@ Check(Accept(Build("act_Interact"),"{\"target\":\"moving\"}"),"moving interact")
 foreach(var s in new[]{"{\"voltage\":0}","{\"voltage\":15}"})Check(Accept(Build("act_ConfigureBlock"),"{\"target\":\"block\",\"settings\":"+s+"}"),"voltage range");
 foreach(var s in new[]{"{\"voltage\":16}","{\"isOn\":true}","{\"voltage\":1,\"script\":\"x\"}","{}"})Check(!Accept(Build("act_ConfigureBlock"),"{\"target\":\"block\",\"settings\":"+s+"}"),"reject settings");
 Check(Build("act_ConfigureBlock",facts with{Settings=[]}).State.Facts==FactState.Unknown,"unknown settings");
-Check(Build("act_ConfigureItem",facts with{Settings=[new(null,0,89,"MusketBlock")]}).Offer==null,"unsupported settings template");
+Check(Build("act_ConfigureItem",facts with{Settings=[new(null,0,89,"UnknownBlock")]}).Offer==null,"unsupported settings template");
 Check(Build("act_Craft",facts with{Crafts=[new("a",21,3),new("b",22,3)]}).Offer!=null,"mixed craft correlated");
 Check(!Accept(Build("act_Craft"),"{\"workspace\":\"crafting\",\"result_value\":22,\"count\":1}"),"wrong result");
 Check(!Accept(Build("act_Craft"),"{\"workspace\":\"crafting\",\"result_value\":21,\"count\":4}"),"over craft");
-Check(!Accept(Build("act_BuildFurniture"),"{\"target\":\"block\",\"slot\":0,\"value\":89,\"options\":{}}"),"unknown options not opened");
+Check(Accept(Build("act_BuildFurniture"),"{\"target\":\"block\",\"slot\":0,\"value\":89,\"options\":{}}"),"native default options accepted");
 try{Build("act_Drop",facts with{Scope=scope with{Actor=Guid.NewGuid()}});throw new Exception("wrong scope");}catch(ArgumentException){checks++;}
 try{Build("act_Drop",facts with{Slots=[new(0,89,2),new(0,162,1)]});throw new Exception("dupe slots");}catch(ArgumentException){checks++;}
 var narrow=System.Text.Json.Nodes.JsonNode.Parse(Schema("act_Drop").GetRawText())!;
@@ -53,9 +53,41 @@ var mixedBlock=Build("act_ConfigureBlock",mixed);var mixedItem=Build("act_Config
 foreach(string target in new[]{"battery","delay"})foreach(string key in new[]{"voltage","delaySteps"})foreach(int v in new[]{0,15,255,256})Check(Accept(mixedBlock,$"{{\"target\":\"{target}\",\"settings\":{{\"{key}\":{v}}}}}")==((target=="battery"&&key=="voltage"&&v<=15)||(target=="delay"&&key=="delaySteps"&&v<=255)),"typed target/settings correlation");
 foreach(int slot in new[]{0,3})foreach(int val in new[]{89,162})foreach(string key in new[]{"voltage","delaySteps"})Check(Accept(mixedItem,$"{{\"slot\":{slot},\"value\":{val},\"settings\":{{\"{key}\":1}}}}")==((slot==0&&val==89&&key=="voltage")||(slot==3&&val==162&&key=="delaySteps")),"owned typed settings correlation");
 Check(!Accept(mixedBlock,"{\"target\":\"battery\",\"settings\":{\"voltage\":1,\"delaySteps\":1}}"),"settings union not open object");
-var partialSettings=Build("act_ConfigureBlock",mixed with{Settings=[new("battery",null,null,"BatteryBlock"),new("delay",null,null,"PistonBlock")]});
+var partialSettings=Build("act_ConfigureBlock",mixed with{Settings=[new("battery",null,null,"BatteryBlock"),new("delay",null,null,"UnknownBlock")]});
 Check(partialSettings.OmittedAlternatives==1&&partialSettings.State.Reason=="partial_current_facts","unsupported type explicit partial");
 Check(!Accept(partialSettings,"{\"target\":\"delay\",\"settings\":{\"voltage\":1}}"),"omitted type no borrowed permission");
 try{Build("act_Craft",facts with{Crafts=[new("a",21,1),new("a",22,1)]});throw new Exception("conflict preview");}catch(ArgumentException){checks++;}
 try{Build("act_ConfigureBlock",facts with{Settings=[new("block",null,null,"BatteryBlock"),new("block",null,null,"AdjustableDelayGateBlock")]});throw new Exception("conflict settings");}catch(ArgumentException){checks++;}
+
+ProductionOffer Config(string type,bool item=false,JsonElement? values=null)=>Build(item?"act_ConfigureItem":"act_ConfigureBlock",facts with{Settings=[new(item?null:"block",item?0:null,item?89:null,type,values)]});
+bool Set(ProductionOffer o,string settings,bool item=false)=>Accept(o,(item?"{\"slot\":0,\"value\":89,\"settings\":" : "{\"target\":\"block\",\"settings\":")+settings+"}");
+var piston=Config("PistonBlock",values:J("{\"mode\":\"Pulling\"}"));
+foreach(int extension in new[]{0,1,8,9})Check(Set(piston,$"{{\"maxExtension\":{extension}}}")==(extension>=1&&extension<=8),"piston extension bounds");
+foreach(int speed in new[]{-1,0,3,4})Check(Set(piston,$"{{\"speed\":{speed}}}")==(speed>=0&&speed<=3),"piston speed bounds");
+Check(Set(piston,"{\"pullCount\":8,\"speed\":3,\"maxExtension\":8}"),"piston combined keys");
+Check(!Set(piston,"{}")&&!Set(piston,"{\"mode\":\"Pulling\"}")&&!Set(piston,"{\"extended\":true}"),"piston readonly fields rejected");
+Check(!Set(Config("PistonBlock"),"{\"pullCount\":1}"),"unknown piston mode cannot pull");
+Check(!Set(Config("PistonBlock",values:J("{\"mode\":\"Pushing\"}")),"{\"pullCount\":1}"),"pushing piston cannot pull");
+foreach(string type in new[]{"TruthTableCircuitBlock","MemoryBankBlock","FurnitureBlock"}){
+ var key=type=="TruthTableCircuitBlock"?"outputs":type=="MemoryBankBlock"?"data":"name";int max=type=="TruthTableCircuitBlock"?16:type=="MemoryBankBlock"?256:20;
+ foreach(bool item in new[]{false,true})foreach(int n in new[]{0,max,max+1})Check(Set(Config(type,item),JsonSerializer.Serialize(new Dictionary<string,string>{{key,new string('0',n)}}),item)==(n<=max),"native bounded text settings");
+ Check(!Set(Config(type),"{\"voltage\":1}"),"type cannot borrow settings");
+}
+var sign=Config("SignBlock");
+Check(Set(sign,"{\"lines\":[\"你好\",\"第二行\"],\"colors\":[0,1,6,7],\"url\":\"https://example.com\"}"),"sign complete fields");
+foreach(var bad in new[]{"{}","{\"colors\":[0,1,2]}","{\"colors\":[0,1,2,8]}","{\"lines\":[\"\",\"\",\"\",\"\",\"\"]}","{\"lines\":[\"12345678901234567\"]}"})Check(!Set(sign,bad),"sign bounds");
+foreach(string type in new[]{"BowBlock","CrossbowBlock","MusketBlock"}){
+ var weapon=Config(type,true);
+ Check(Set(weapon,"{\"sourceSlot\":3,\"expectedSourceValue\":162}",true),"weapon current source pair");
+ foreach(var bad in new[]{"{\"sourceSlot\":0,\"expectedSourceValue\":89}","{\"sourceSlot\":3,\"expectedSourceValue\":89}","{\"sourceSlot\":4,\"expectedSourceValue\":162}","{\"sourceSlot\":3}","{\"draw\":15}"})Check(!Set(weapon,bad,true),"weapon pair rejects mismatch or readonly");
+ Check(Set(weapon,"{\"cock\":true}",true)==(type=="CrossbowBlock"),"only crossbow cock");
+ Check(!Set(weapon,"{\"cock\":false}",true),"cannot uncock through native configure");
+}
+var furniture=Build("act_BuildFurniture");
+bool Furniture(string opts)=>Accept(furniture,"{\"target\":\"block\",\"slot\":0,\"value\":89,\"options\":"+opts+"}");
+Check(Furniture("{\"name\":\"小屋\",\"resolution\":256,\"rotation_axis\":2,\"quarter_turns\":3,\"mirror_axis\":0,\"shift\":{\"x\":-256,\"y\":0,\"z\":256}}"),"all native furniture fields");
+foreach(var bad in new[]{"{\"resolution\":1}","{\"resolution\":257}","{\"mirror_axis\":3}","{\"quarter_turns\":4}","{\"shift\":{\"x\":0,\"y\":0}}","{\"script\":\"anything\"}"})Check(!Furniture(bad),"furniture closed/bounded");
+Check(Config("SignBlock",true).Offer==null,"sign block configuration cannot be item");
+var weaponMany=Build("act_ConfigureItem",facts with{Slots=Enumerable.Range(0,35).Select(i=>new ProductionSlot(i,100+i,1)).ToArray(),Settings=[new(null,0,100,"CrossbowBlock")]});
+Check(weaponMany.OmittedAlternatives==3&&weaponMany.State.Reason=="partial_current_facts","weapon bounded source omissions explicit");
 Console.WriteLine($"PASS {checks}; production family mapper; no GUI/API/native execution");

@@ -68,7 +68,44 @@ var social=Build();var socialActions=social.Entries.Where(x=>x.Offer is not null
 var nested=Build(Facts(actions:socialActions));
 Check(Parse("submit_plan",new{steps=new[]{new{tool="act_OfferItem",arguments=new{target="visible_person",slot=0,value=89,count=1}}}},nested).Steps.Count==1,"nested owned-item association preserved");
 Throws(()=>Parse("submit_plan",new{steps=new[]{new{tool="act_OfferItem",arguments=new{target="visible_person",slot=0,value=162,count=1}}}},nested),"nested slot correlation cannot widen");
-Check(Entry("submit_plan",Build(Facts(actions:[]))).Offer is null,"no typed current actions yields explicit unavailable not any object");
+Check(Entry("submit_plan",Build(Facts(actions:[],support:new Dictionary<string,bool?>{{"submit_plan",true}}))).Offer is null,"no supported current actions yields explicit unavailable not any object");
 var registry=new CapabilityRegistry(Build().Entries.Select(x=>x.Descriptor));var capture=registry.Capture(scope.Session,scope.Actor,scope.Capture,Build().Entries.Select(x=>x.State));
 Check(capture.Discover(scope.Session,scope.Actor,scope.Capture).Total==5,"shared registry descriptors and tri-state integrate");
+// Stage40: social actions are included by the family itself, not a second host pass.
+Check(Parse("submit_plan",new{steps=new[]{new{tool="act_Speak",arguments=new{text="安排采集"}}}}).Steps.Count==1,"current speech automatically joins finite native plan");
+Check(Parse("submit_plan",new{steps=new[]{new{tool="act_RespondToOffer",arguments=new{offer="offer_self",accept=true}}}}).Steps.Count==1,"own received offer automatically joins native plan");
+Throws(()=>Parse("submit_plan",new{steps=new[]{new{tool="act_OfferItem",arguments=new{target="visible_person",slot=0,value=162,count=1}}}}),"automatic social nested plan retains slot correlation");
+var priorOffer=Entry("act_OfferItem").Offer!;
+var unavailable=Build(Facts(visible:false,actions:[new(scope,priorOffer)]));
+Throws(()=>Parse("submit_plan",new{steps=new[]{new{tool="act_OfferItem",arguments=new{target="visible_person",slot=0,value=89,count=1}}}},unavailable),"unavailable current social action masks stale prior candidate");
+var expired=Build(Facts(time:15,actions:[new(scope,Entry("act_RespondToOffer").Offer!)]));
+Throws(()=>Parse("submit_plan",new{steps=new[]{new{tool="act_RespondToOffer",arguments=new{offer="offer_self",accept=true}}}},expired),"expired social offer cannot return through old nested candidate");
+var largeFacts=Facts(people:[new(scope,new string('p',120),false)],slots:Enumerable.Range(0,32).Select(i=>new OwnSocialItem(scope,i,89+i,1)).ToArray());
+var large=Build(largeFacts);
+Check(large.PlanPages>1,"large correlated social schema exposes multiple explicit pages");
+Check(large.PlanRejected.Count==0,"all social fragments fit bounded pages without silent loss");
+int accepted=0;
+for(int page=0;page<large.PlanPages;page++){
+ var result=SocialTaskFamily.Build(scope,largeFacts,page);
+ Check(Entry("submit_plan",result).Offer!.Parameters.GetRawText().Length<=8192,"page stays within protocol 8KB "+page);
+ for(int slot=0;slot<32;slot++){
+  try{Parse("submit_plan",new{steps=new[]{new{tool="act_OfferItem",arguments=new{target=new string('p',120),slot,value=89+slot,count=1}}}},result);accepted++;}catch(FormatException){}
+ }
+}
+Check(accepted==32,"every correlated item variant is reachable on exactly one page");
+Throws(()=>SocialTaskFamily.Build(scope,largeFacts,-1),"negative page rejected");
+Throws(()=>SocialTaskFamily.Build(scope,largeFacts,large.PlanPages),"out of range page rejected");
+var duplicate=new[]{new CurrentActionSchema(scope,Wait()),new CurrentActionSchema(scope,Wait())};
+Throws(()=>FiniteNativePlan.BuildPages(scope,duplicate),"duplicate action names rejected before paging");
+var queryOnly=FiniteNativePlan.BuildPages(scope,[new(scope,Entry("read_social").Offer!)]);
+Check(queryOnly.Pages.Count==0&&queryOnly.Candidates==0,"queries do not enter native action pages");
+var wrongScope=new[]{new CurrentActionSchema(scope with{Actor=Guid.NewGuid()},Wait())};
+Throws(()=>FiniteNativePlan.BuildPages(scope,wrongScope),"paging cannot rebind cross actor schema");
+// Ambiguous oneOf must never become valid merely by splitting pages.
+var overlapSchema=J(new{type="object",properties=new{duration=new{type="number",minimum=.1,maximum=10}},required=new[]{"duration"},additionalProperties=false});
+var overlapping=Wait() with{AssociatedParameterSchemas=new[]{overlapSchema,overlapSchema}};
+var overlapPages=FiniteNativePlan.BuildPages(scope,[new(scope,overlapping)]);
+if(overlapPages.Pages.Count>0){var op=new ToolDecisionPrompt(scope.Session,scope.Actor,scope.Capture,J(new{}),new[]{overlapPages.Pages[0].Offer!});Throws(()=>op.ParseResponse(JsonSerializer.Serialize(new{goal="reject ambiguous",steps=new[]{new{tool="submit_plan",arguments=new{steps=new[]{Step()}}}}})),"paging preserves overlapping oneOf rejection");}
+else Check(overlapPages.Rejected.Count>0,"unpackable ambiguous schema explicitly rejected");
+Check(large.PlanPage==0&&SocialTaskFamily.Build(scope,largeFacts,1).PlanPage==1,"explicit plan page selected without execution");
 Console.WriteLine($"RESULT PASS {checks}");

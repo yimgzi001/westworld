@@ -37,4 +37,9 @@ var prompt=new ToolDecisionPrompt(s,a,c,JsonSerializer.SerializeToElement(new{})
 var parsed=prompt.ParseResponse("{\"goal\":\"select body\",\"steps\":[{\"tool\":\"read_capability_schema\",\"arguments\":{\"select_family\":\"body\"}}]}");
 Check(parsed.Steps.Single().Tool==CapabilityMenu.SchemaTool);
 Check(menu.HandleDiscovery(s,a,c,parsed.Steps[0].Tool,parsed.Steps[0].Arguments).GetProperty("nextMenu").GetArrayLength()==22);
+var planMenu=new CapabilityMenu(s,a,c,CapabilityCatalog.All,Array.Empty<CapabilityMenuCandidate>(),Array.Empty<CapabilityMenuCandidate>());
+Check(planMenu.HandleDiscovery(s,a,c,CapabilityMenu.SchemaTool,JsonSerializer.SerializeToElement(new{select_tool="submit_plan",plan_page=2})).GetProperty("executionGranted").GetBoolean()==false);
+foreach(var bad in new[]{"{\"plan_page\":0}","{\"select_tool\":\"act_Eat\",\"plan_page\":0}","{\"select_tool\":\"submit_plan\",\"plan_page\":-1}","{\"select_tool\":\"submit_plan\",\"plan_page\":128}"}){
+ bool denied=false;try{planMenu.HandleDiscovery(s,a,c,CapabilityMenu.SchemaTool,JsonDocument.Parse(bad).RootElement);}catch(ArgumentException){denied=true;}Check(denied);
+}
 Console.WriteLine($"PASS {count} capability menu assertions; no native/model execution");

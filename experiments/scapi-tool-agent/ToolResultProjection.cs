@@ -60,6 +60,37 @@ public static class ToolResultProjection {
    return Fits(result,maxChars,maxUtf8Bytes)?result:Result("budget_exceeded",null,1,hasMore);
   }catch(ArgumentException){return Result("unsupported_shape",null,0,hasMore);}
  }
+ // Lossless model representation only. Raw observations remain unchanged for native validation.
+ // Missing/null values and original array order survive; a heterogeneous array is left untouched.
+ public static JsonElement CompactPublicFacts(JsonElement facts){
+  if(facts.ValueKind!=JsonValueKind.Object)throw new ArgumentException("Facts must be an object");
+  var node=JsonNode.Parse(facts.GetRawText())!.AsObject();
+  if(node["observation"] is not JsonObject observation)return facts.Clone();
+  foreach(var key in new[]{"visibleBlocks","entities","pickables"}){
+   if(observation[key] is not JsonArray array||array.Count<2||array.Any(x=>x is not JsonObject))continue;
+   var columns=array[0]!.AsObject().Select(x=>x.Key).Order(StringComparer.Ordinal).ToArray();
+   if(columns.Length==0||array.Any(x=>!x!.AsObject().Select(p=>p.Key).Order(StringComparer.Ordinal).SequenceEqual(columns)))continue;
+   var rows=new JsonArray();foreach(var row in array){var cells=new JsonArray();foreach(var column in columns)cells.Add(row![column]?.DeepClone());rows.Add(cells);}
+   var table=new JsonObject{["encoding"]="lossless_columns_v1",["columns"]=JsonSerializer.SerializeToNode(columns),["rows"]=rows,["rowCount"]=array.Count};
+   // Encoding metadata is self-contained; coverage remains byte-value identical.
+   if(table.ToJsonString().Length<array.ToJsonString().Length)observation[key]=table;
+  }
+  return JsonSerializer.SerializeToElement(node);
+ }
+ public static JsonElement ExpandPublicFacts(JsonElement facts){
+  if(facts.ValueKind!=JsonValueKind.Object)throw new ArgumentException("Facts must be an object");
+  var node=JsonNode.Parse(facts.GetRawText())!.AsObject();
+  if(node["observation"] is not JsonObject observation)return facts.Clone();
+  foreach(var key in new[]{"visibleBlocks","entities","pickables"}){
+   if(observation[key] is not JsonObject table||table["encoding"]?.GetValue<string>()!="lossless_columns_v1")continue;
+   if(table.Count!=4||table["columns"] is not JsonArray cols||table["rows"] is not JsonArray rows||table["rowCount"] is not JsonValue count||!count.TryGetValue<int>(out var n)||n!=rows.Count)throw new ArgumentException("Invalid lossless public table");
+   var names=cols.Select(c=>c?.GetValue<string>()??throw new ArgumentException("Missing column")).ToArray();
+   if(names.Length==0||names.Distinct().Count()!=names.Length)throw new ArgumentException("Invalid table columns");
+   var array=new JsonArray();foreach(var row in rows){if(row is not JsonArray cells||cells.Count!=names.Length)throw new ArgumentException("Invalid table row");var item=new JsonObject();for(int j=0;j<names.Length;j++)item[names[j]]=cells[j]?.DeepClone();array.Add(item);}
+   observation[key]=array;
+  }
+  return JsonSerializer.SerializeToElement(node);
+ }
  // Facts are atomic: never silently remove identity/health/inventory or truncate references.
  // Caller must not request a model decision when status is facts_too_large.
  public static JsonElement BuildContext(JsonElement facts,IReadOnlyList<JsonElement> projectedRecent,int maxChars=14000,int maxUtf8Bytes=16000){
@@ -67,7 +98,10 @@ public static class ToolResultProjection {
   if(facts.ValueKind!=JsonValueKind.Object)throw new ArgumentException("Facts must be an object");
   var list=new JsonArray();int total=projectedRecent.Count,kept=0;
   JsonElement Wrap(string status)=>JsonSerializer.SerializeToElement(new{projectionStatus=status,facts, recentResults=list,omittedRecent=total-kept});
-  if(!Fits(Wrap("projected"),maxChars,maxUtf8Bytes))return JsonSerializer.SerializeToElement(new{projectionStatus="facts_too_large",facts=(object?)null,recentResults=Array.Empty<object>(),omittedRecent=total});
+  if(!Fits(Wrap("projected"),maxChars,maxUtf8Bytes)){
+   facts=CompactPublicFacts(facts);
+   if(!Fits(Wrap("projected"),maxChars,maxUtf8Bytes))return JsonSerializer.SerializeToElement(new{projectionStatus="facts_too_large",facts=(object?)null,recentResults=Array.Empty<object>(),omittedRecent=total});
+  }
   // Most recent complete records first; no partial ingredient lists or partial slot records.
   foreach(var r in projectedRecent.Reverse()){
    list.Insert(0,JsonNode.Parse(r.GetRawText()));kept++;

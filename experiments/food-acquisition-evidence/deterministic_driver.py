@@ -35,13 +35,34 @@ def valid(value,schema):
  if t=='boolean':return type(value)==bool
  return False
 
+def decode_public_facts(facts):
+ # Shared by the food and natural-resource consumers, including frozen staging.
+ # This is the inverse of ToolResultProjection lossless_columns_v1, not inference.
+ if not isinstance(facts,dict):raise ValueError('facts_object_required')
+ observation=facts.get('observation')
+ if not isinstance(observation,dict):return facts
+ decoded=None
+ for key in ('visibleBlocks','entities','pickables'):
+  table=observation.get(key)
+  if not isinstance(table,dict):continue
+  if table.get('encoding')!='lossless_columns_v1':raise ValueError('unsupported_public_table')
+  if set(table)!=set(('encoding','columns','rows','rowCount')):raise ValueError('public_table_fields')
+  columns,rows,n=table['columns'],table['rows'],table['rowCount']
+  if not isinstance(columns,list) or not columns or len(columns)>64 or any(not isinstance(c,str) or not c for c in columns) or len(set(columns))!=len(columns):raise ValueError('public_table_columns')
+  if not isinstance(rows,list) or type(n)!=int or not 0<=n<=4096 or n!=len(rows):raise ValueError('public_table_count')
+  if any(not isinstance(row,list) or len(row)!=len(columns) for row in rows):raise ValueError('public_table_row')
+  if decoded is None:decoded=observation.copy()
+  decoded[key]=[dict(zip(columns,row)) for row in rows]
+ if decoded is None:return facts
+ result=facts.copy();result['observation']=decoded;return result
+
 def facts_from_prompt(request):
  # No request.context fallback: this driver must use exactly the model-visible text.
  prompt=request['prompt'];marker='OBSERVATION:\n'
  if prompt.count(marker)!=1:raise ValueError('single_observation_required')
  data,_=json.JSONDecoder().raw_decode(prompt.split(marker,1)[1].lstrip())
  if data.get('projectionStatus')!='projected' or not isinstance(data.get('facts'),dict):raise ValueError('projected_facts_required')
- return data['facts']
+ return decode_public_facts(data['facts'])
 
 def counts(slots):
  out={}

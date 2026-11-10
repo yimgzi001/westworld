@@ -15,10 +15,14 @@ internal sealed partial class ToolAgentScenario {
  readonly Dictionary<string,JsonElement> capabilityReadArguments=new(StringComparer.Ordinal);
  readonly List<JsonElement> retainedSocialEvents=[];
  bool socialInboxRead;
+ int capabilityPlanPage;
+ int capabilityPlanPages;
+ string[] capabilityPlanRejected=Array.Empty<string>();
+ bool capabilityPlanPageReset;
  void RememberCapabilityRead(string name,object args,ToolReceipt r){
   if(!CapabilityMode||r.State!="returned")return;
   var a=JsonSerializer.SerializeToElement(args);
-  if(name is "read_block_settings" or "read_item_settings" or "read_storage" or "read_map"){
+  if(name is "read_block_settings" or "read_item_settings" or "read_sign" or "read_storage" or "read_map"){
    string key=CapabilityDispatchPolicy.ReadKey(name,a);capabilityReadArguments[key]=a.Clone();
    while(capabilityReadArguments.Count>6)capabilityReadArguments.Remove(capabilityReadArguments.Keys.First());
   }
@@ -37,7 +41,7 @@ internal sealed partial class ToolAgentScenario {
   if(o.TryGetProperty("focus",out var focus)&&focus.ValueKind==JsonValueKind.Object&&focus.TryGetProperty("kind",out var kind)&&kind.ToString() is "block" or "Block" or "0"&&focus.TryGetProperty("reference",out var fr))liveBlocks.Add(fr.GetString());
   foreach(var pair in capabilityReadArguments.ToArray()){
    string tool=pair.Key[..pair.Key.IndexOf(':')];var args=pair.Value;
-   if(tool=="read_block_settings"&&(!args.TryGetProperty("target",out var target)||!liveBlocks.Contains(target.GetString())))continue;
+   if(tool is "read_block_settings" or "read_sign"&&(!args.TryGetProperty("target",out var target)||!liveBlocks.Contains(target.GetString())))continue;
    if(tool=="read_item_settings"&&!i.GetProperty("slots").EnumerateArray().Any(slot=>slot.GetProperty("slot").GetInt32()==args.GetProperty("slot").GetInt32()&&slot.GetProperty("value").GetInt32()==args.GetProperty("value").GetInt32()&&slot.GetProperty("count").GetInt32()>0))continue;
    Read(tool,args);
   }
@@ -65,7 +69,12 @@ internal sealed partial class ToolAgentScenario {
    // Include actual social actions in the task schema, not just the earlier physical families.
    candidateActions=CapabilityExecution.MergeActions(legacy,typed.Select(t=>new KeyValuePair<string,ToolOffer>(t.Name,t.ActorSupported==true&&t.Facts==FactState.Available?t.Offer:null))).ToArray();
    facts=CapabilityFacts.Build(scope,reads,names,idle||afterPrecedingSuccess,candidateActions);
-   var task=SocialTaskFamily.Build(scope,facts.Social).Entries.Single(b=>b.Descriptor.Name=="submit_plan");typed.Add(new(task.Descriptor.Name,task.State.ActorSupported,task.State.Facts,task.State.Reason,task.Offer,task.Schema));
+   var planResult=SocialTaskFamily.Build(scope,facts.Social);
+   capabilityPlanPageReset=capabilityPlanPage>=Math.Max(1,planResult.PlanPages);
+   if(capabilityPlanPageReset)capabilityPlanPage=0;
+   if(capabilityPlanPage!=0)planResult=SocialTaskFamily.Build(scope,facts.Social,capabilityPlanPage);
+   capabilityPlanPages=planResult.PlanPages;capabilityPlanRejected=planResult.PlanRejected.ToArray();
+   var task=planResult.Entries.Single(b=>b.Descriptor.Name=="submit_plan");typed.Add(new(task.Descriptor.Name,task.State.ActorSupported,task.State.Facts,task.State.Reason,task.Offer,task.Schema));
   }catch(Exception e)when(e is ArgumentException or InvalidOperationException or NotSupportedException){typed.RemoveAll(t=>t.Name is "read_social" or "act_Speak" or "act_OfferItem" or "act_RespondToOffer" or "submit_plan");Unadapted(new[]{"read_social","act_Speak","act_OfferItem","act_RespondToOffer","submit_plan"},e);}
   if(!idle&&!afterPrecedingSuccess)typed=typed.Select(c=>CapabilityExecution.TracksOutcome(c.Name)?c with{Facts=FactState.Unavailable,Reason="native_owner_busy",Offer=null}:c).ToList();
   var old=CapabilityCatalog.All.Select(d=>{var offer=legacy.FirstOrDefault(x=>x.Name==d.Name);return new CapabilityMenuCandidate(d.Name,names.Contains(d.Name),offer is null?FactState.Unknown:FactState.Available,offer is null?"current_parameters_not_bound":"legacy_same_capture_binding",offer);});
@@ -73,7 +82,7 @@ internal sealed partial class ToolAgentScenario {
   capabilityMenu=new(scope.Session,scope.Actor,scope.Capture,CapabilityCatalog.All,old.Select(OwnerFilter),typed.Select(OwnerFilter));
   var view=capabilityMenu.Select(scope.Session,scope.Actor,scope.Capture,capabilitySelection);
   var context=JsonNode.Parse(currentContext.GetRawText()).AsObject();
-  context["capabilities"]=JsonSerializer.SerializeToNode(new{completeIndex=view.CompleteIndex,families=CapabilityCatalog.All.Select(x=>x.Family).Distinct(),requestedButUnavailable=view.RequestedButUnavailable,missingFacts=facts.Missing,verification="55 catalog entries; templates and current executability are separate. Stage39 real game verification is pending; discovery is not execution.",instruction="Use read_capabilities for state pages. Use read_capability_schema select_tool/select_family to choose the next execution menu; selection terminates this plan. No action is run by selection."});
+  context["capabilities"]=JsonSerializer.SerializeToNode(new{completeIndex=view.CompleteIndex,finitePlan=new{page=capabilityPlanPage,pages=capabilityPlanPages,rejected=capabilityPlanRejected,resetToFirstPage=capabilityPlanPageReset},families=CapabilityCatalog.All.Select(x=>x.Family).Distinct(),requestedButUnavailable=view.RequestedButUnavailable,missingFacts=facts.Missing,verification="55 catalog entries; templates and current executability are separate. Stage39 real game verification is pending; discovery is not execution.",instruction="Use read_capabilities for state pages. Use read_capability_schema select_tool/select_family to choose the next execution menu; selection terminates this plan. No action is run by selection."});
   currentContext=JsonSerializer.SerializeToElement(context);
   return view.Offers;
  }
@@ -82,6 +91,8 @@ internal sealed partial class ToolAgentScenario {
   var c=capabilityMenu.Build().Capture;
   var result=capabilityMenu.HandleDiscovery(c.Session,c.Actor,c.CaptureId,step.Tool,step.Arguments);
   if(step.Arguments.TryGetProperty("select_tool",out var tool))capabilitySelection=new(new[]{tool.GetString()},Array.Empty<string>());
+  if(step.Arguments.TryGetProperty("plan_page",out var planPage))capabilityPlanPage=planPage.GetInt32();
+  else if(step.Arguments.TryGetProperty("select_tool",out var selected)&&selected.GetString()=="submit_plan")capabilityPlanPage=0;
   if(step.Arguments.TryGetProperty("select_family",out var family))capabilitySelection=new(Array.Empty<string>(),new[]{family.GetString()});
   recent.Add(JsonSerializer.SerializeToElement(new{tool=step.Tool,ok=true,data=result}));while(recent.Count>8)recent.RemoveAt(0);
   ToolAgentGate.Log(new{kind="capability_discovery",tool=step.Tool,result,executionGranted=false});

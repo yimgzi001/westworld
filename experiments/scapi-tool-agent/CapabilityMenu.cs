@@ -67,8 +67,9 @@ public sealed class CapabilityMenu {
   Scope(s,a,c); if(!IsDiscovery(name))throw new ArgumentException("Not a discovery tool");
   if(arguments.ValueKind!=JsonValueKind.Object)throw new ArgumentException("Object arguments required");
   var props=arguments.EnumerateObject().ToArray();
-  if(props.Select(x=>x.Name).Distinct().Count()!=props.Length||props.Any(x=>x.Name is not("offset" or "limit" or "select_tool" or "select_family")))throw new ArgumentException("Unknown/duplicate argument");
+  if(props.Select(x=>x.Name).Distinct().Count()!=props.Length||props.Any(x=>x.Name is not("offset" or "limit" or "select_tool" or "select_family" or "plan_page")))throw new ArgumentException("Unknown/duplicate argument");
   bool hasTool=arguments.TryGetProperty("select_tool",out var tool), hasFamily=arguments.TryGetProperty("select_family",out var family);
+  if(arguments.TryGetProperty("plan_page",out var page)&&(!hasTool||tool.ValueKind!=JsonValueKind.String||tool.GetString()!="submit_plan"||!page.TryGetInt32(out int pageNumber)||pageNumber<0||pageNumber>127))throw new ArgumentException("plan_page_requires_submit_plan_selection_and_bounded_integer");
   if(hasTool||hasFamily) {
    if(name!=SchemaTool||hasTool&&hasFamily)throw new ArgumentException("Select exactly one tool or family through schema discovery");
    var value=hasTool?tool:family;
@@ -88,9 +89,10 @@ public sealed class CapabilityMenu {
   var selectProperties=new Dictionary<string,object>{
    ["offset"]=new{type="integer",minimum=0,maximum=descriptors.Length},["limit"]=new{type="integer",minimum=1,maximum=8},
    ["select_tool"]=new{type="string",@enum=descriptors.Select(x=>x.Name).ToArray()},
-   ["select_family"]=new{type="string",@enum=descriptors.Select(x=>x.Family).Distinct().ToArray()}};
+   ["select_family"]=new{type="string",@enum=descriptors.Select(x=>x.Family).Distinct().ToArray()},
+   ["plan_page"]=new{type="integer",minimum=0,maximum=127}};
   var sp=JsonSerializer.SerializeToElement(new{type="object",properties=selectProperties,required=Array.Empty<string>(),additionalProperties=false});
-  yield return new(SchemaTool,"Page schemas, or set exactly one select_tool/select_family to replace the NEXT execution menu. Selection changes only host menu, never executes game actions. Await the new prompt; unavailable facts stay unavailable.",sp);
+  yield return new(SchemaTool,"Page schemas, or set exactly one select_tool/select_family to replace the NEXT execution menu. For submit_plan selection, optional plan_page chooses an explicit finite-plan schema page. Selection changes only host menu, never executes game actions. Await the new prompt; unavailable facts stay unavailable.",sp);
  }
  void Scope(Guid s,Guid a,Guid c){if(s!=session||a!=actor||c!=capture)throw new InvalidOperationException("stale_or_wrong_scope");}
 }
