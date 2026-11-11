@@ -38,6 +38,7 @@ internal sealed partial class PlayableActor
     private readonly PlaySurvivalMemory survivalMemory = new();
     private readonly Dictionary<int, Point3> placedStations = new();
     private readonly Dictionary<Point3, PlaySurvivalProduction.Patch> ownFarm = new();
+    private readonly List<PlaySurvivalProduction.QuarrySite> ownQuarries = new();
     private PlaySurvivalProduction.CampSite? campSite;
     private (Guid Id, string Tool, Vector3 Origin)? active;
     private Harvest? harvest;
@@ -499,7 +500,7 @@ internal sealed partial class PlayableActor
             return;
         }
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
-        path ??= PlanFoodPath(body.Position, food.Point, gameTime);
+        path ??= PlanFoodPath(body.Position, food, gameTime);
         if (path is not null)
             log(new { kind = "play_food_observed_path", actor = Name, cells = path.Cells, waypoints = path.Waypoints.Length, gameTime });
         foodApproach = (food, FoodStock(food.Value), checkpoint?.Until ?? gameTime + 120, checkpoint?.Interruptions ?? 0);
@@ -508,14 +509,15 @@ internal sealed partial class PlayableActor
             observedPath: path);
     }
 
-    private PlayObservedPath.Plan? PlanFoodPath(Vector3 origin, Vector3 target, double gameTime)
+    private PlayObservedPath.Plan? PlanFoodPath(Vector3 origin, PlaySurvivalFood.Food food, double gameTime)
     {
+        var target = food.Point;
         if ((target - origin).XZ.LengthSquared() < 25f || surroundings is not { } sweep || gameTime - sweep.CompletedAt > 30
             || (origin - sweep.Origin).XZ.LengthSquared() > 36f) return null;
         var frozen = PlaySurvivalCold.CanEnterSnow(player) ? Array.Empty<Vector3>() : sweep.FrozenGround;
         return PlayObservedPath.Find(sweep.Panorama, origin, target, (from, to) => survivalMemory.AvoidsPredatorAreas(from, to, gameTime)
             && hearing.AllowsRoute(from, to, gameTime)
-            && PlaySurvivalCold.AllowsRoute(from, to, frozen));
+            && PlaySurvivalCold.AllowsRoute(from, to, frozen), maximumAboveTarget: food.Source == "pickup" ? 0.2f : 1.25f);
     }
 
     private (int Slot, int Value, float Risk, float Nutrition) FindMeal(bool safeOnly)
@@ -755,8 +757,9 @@ internal sealed partial class PlayableActor
         return true;
     }
 
-    private void StartProduction(string task, double gameTime, int? bird = null)
+    private void StartProduction(string task, double gameTime, int? bird = null, PlaySurvivalProduction.QuarrySite? quarry = null)
     {
+        if (quarry is not null && !ownQuarries.Contains(quarry)) ownQuarries.Add(quarry);
         bool resumeGear = false;
         if (pausedSupply is { } paused && paused.Task == task)
         {
@@ -765,8 +768,15 @@ internal sealed partial class PlayableActor
             pausedSupply = null;
         }
         production = new(player, owner, tools, task, gameTime, log, placedStations, ReadDryWindow, PermitSurvivalLeg,
-            selectedBird: bird, resumeGear: resumeGear, ownFarm: ownFarm, camp: campSite);
+            selectedBird: bird, resumeGear: resumeGear, ownFarm: ownFarm, camp: campSite,
+            quarrySite: quarry, preserveGround: ProtectedOwnedCells());
     }
+
+    private HashSet<Point3> ProtectedOwnedCells() => ownQuarries.SelectMany(site => site.Supports)
+        .Concat(ownFarm.Keys.Select(cell => cell - new Point3(0, 1, 0))).ToHashSet();
+
+    private bool ProtectedOwnedGround(Point3 cell) => campSite?.Protects(cell) == true
+        || ownFarm.ContainsKey(cell + new Point3(0, 1, 0)) || ownQuarries.Any(site => site.Protects(cell));
 
     private void PauseSupply(PlaySurvivalProduction supply, string reason, double gameTime)
     {
@@ -1078,6 +1088,14 @@ internal sealed partial class PlayableActor
             foodReserve = new { safe = Math.Round(reserves.Safe, 2), emergency = Math.Round(reserves.Risky, 2),
                 dailyTarget = Math.Round(PlayFoodBudget.DailyNeed(player), 2), needsSupply = PlayFoodBudget.NeedsSupply(player),
                 throughMorning = Math.Round(PlayFoodBudget.NeedThroughMorning(player, calendar), 2) },
+            foodPreparation = new { rawMeat = PlaySurvivalProduction.Stock(player, PlaySurvivalProduction.Hunt),
+                cobblestone = PlaySurvivalProduction.Stock(player, PlaySurvivalProduction.Stone), furnaceNeedsCobblestone = 8,
+                knownFurnace = placedStations.ContainsKey(FurnaceBlock.Index), furnaceInBag = PlaySurvivalProduction.Stock(player, PlaySurvivalProduction.Furnace),
+                visibleStone = surroundings?.Panorama.Blocks.Any(block => PlaySurvivalProduction.IsMaterial(block.Value, PlaySurvivalProduction.Stone)) == true,
+                shallowProbeOffered = menu.Choices.Any(choice => choice.Supply == PlaySurvivalProduction.Quarry) },
+            ownQuarries = ownQuarries.Where(site => site.Worked).Select(site => new { entry = site.EntryCell.ToString(), site.StoneSeen,
+                depthReached = Math.Round(site.DepthReached, 1), distance = Math.Round((site.Entry - body.Position).XZ.Length(), 1),
+                note = "本人曾挖出的阶梯口；只有重新看到的地层才算当前可采" }).ToArray(),
             lastGoal = lastSurvivalGoal,
             previousPlan = lastSurvivalPlan,
             plantedPumpkins = ownFarm.Values.Select(patch => new { cell = patch.Cell.ToString(),
@@ -1086,10 +1104,7 @@ internal sealed partial class PlayableActor
             ownCamp = campSite is { } home ? new { home.X, home.Y, home.Z, home.Built, home.DoorClosed,
                 distance = Math.Round((home.Inside - body.Position).XZ.Length(), 1), inside = InOwnCamp(),
                 lastConfirmedSecondsAgo = Math.Round(gameTime - home.LastConfirmed) } : null,
-            worksites = placedStations.Select(site => new { type = site.Key == CraftingTableBlock.Index ? "workbench"
-                : site.Key == FurnaceBlock.Index ? "furnace" : "campfire", cell = site.Value.ToString(),
-                distance = Math.Round((new Vector3(site.Value) - body.Position).XZ.Length(), 1),
-                currentlySeen = surroundings?.Panorama.Blocks.Any(block => block.Cell == site.Value) == true }).ToArray(),
+            worksites = PlaySurvivalProduction.WorksiteSnapshot(placedStations, surroundings?.Panorama, body.Position),
             recentOutcome = outcome,
             unfinishedSupply = pausedSupply is { } unfinished && gameTime - unfinished.Time <= 2400
                 ? new { task = unfinished.Task, stage = unfinished.Stage, reason = unfinished.Reason } : null,

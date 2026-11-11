@@ -87,6 +87,20 @@ internal sealed partial class PlayableActor
                     new Choice($"prey_{i + 1}", GoalKind.Supply, new { goal = "猎取这只食用鸟并取得生肉", bird.Name,
                         distance = Math.Round(bird.Distance, 1), readyNow = PlaySurvivalProduction.HasHuntingGear(player),
                         prerequisites = "先持有木矛，猎物仍可见时再执行" }, Supply: PlaySurvivalProduction.Hunt, Bird: bird.EntityId)));
+                if (!InOwnCamp())
+                {
+                    var sites = PlaySurvivalProduction.QuarrySites(ReadDryWindow(), ProtectedOwnedGround)
+                        .Where(site => PermitSurvivalLeg(new Vector3(site.Column(4).X + 0.5f, site.EntryCell.Y, site.Column(4).Z + 0.5f), now))
+                        .Take(3).ToArray();
+                    choices.AddRange(sites.Select((site, i) => new Choice($"quarry_{i + 1}", GoalKind.Supply,
+                        site.Snapshot(body.Matrix.Forward.XZ), Supply: PlaySurvivalProduction.Quarry, Quarry: site)));
+                    if (sites.Length > 0)
+                        foreach (string future in new[] { PlaySurvivalProduction.StoneSupply, PlaySurvivalProduction.Axe, PlaySurvivalProduction.Furnace })
+                            if (!choices.Any(choice => choice.Id == future))
+                                choices.Add(new(future, GoalKind.Supply, new { goal = PlaySurvivalProduction.DescribeTask(future),
+                                    readyNow = false, prerequisites = PlaySurvivalProduction.Prerequisites(future),
+                                    dependency = "可先浅探石，实际发现岩石后再按库存安排后续制作与采集" }, Supply: future));
+                }
             }
         }
         if (dry && earthSite?.Contains(body) != true)
@@ -173,7 +187,7 @@ internal sealed partial class PlayableActor
             if (choice.Food is not { } food) continue;
             var origin = player.ComponentBody.Position;
             float distance = (food.Point - origin).XZ.Length();
-            var path = distance >= 5f ? PlanFoodPath(origin, food.Point, now) : null;
+            var path = distance >= 5f ? PlanFoodPath(origin, food, now) : null;
             if (!food.InReach && (distance > (urgent ? 18f : 12f) || distance >= 5f && path is null)) continue;
             if (!food.InReach && distance is >= 1.5f and < 5f
                 && PlayDryRoutes.Next(ReadDryWindow(), Vector2.Normalize((food.Point - origin).XZ), distance, canAlign: true,
@@ -270,7 +284,7 @@ internal sealed partial class PlayableActor
             case GoalKind.Supply when dry && earthSite?.Contains(body) != true && now >= nextProduction
                 && choice.Supply is { } task:
                 if (choice.Camp is { } home) campSite = home;
-                StartProduction(task, now, choice.Bird);
+                StartProduction(task, now, choice.Bird, choice.Quarry);
                 return;
             case GoalKind.Eat when dry:
                 DispatchIntent(PlaySurvivalIntents.Eat, queue, now);

@@ -46,17 +46,17 @@ internal static class PlayDryRoutes
         double Score(Position target) => (target.X - origin.X) * direction.X + (target.Z - origin.Z) * direction.Y
             - Math.Min(0.35, 0.07 * (visits?.Invoke(target) ?? 0));
         var steps = ReadSteps(window).Where(step => permitted?.Invoke(PositionOf(step.Destination)) != false).ToArray();
-        var forwardStep = steps.Where(step => (step.Kind == StepKind.Up || towardLowerDrop)
+        var forwardStep = steps.Where(step => step.Kind == (towardLowerDrop ? StepKind.Down : StepKind.Up)
                 && Vector2.Dot(Vector2.Normalize((PositionOf(step.Destination) - PositionOf(origin)).XZ), direction)
                     >= (step.Kind == StepKind.Up ? 0.9f : 0.78f))
             .MaxBy(step => Score(step.Destination));
-        // 目标前方已经证实有一格台阶时，直接跳过去，避免绕去侧面的平地。
+        // 低处拾取物先找可证明的下阶，不能因为前面也有上阶就反而向高处跳。
         if (forwardStep is not null) return StepLeg(forwardStep);
         var longRoute = LongRoutes(window, remaining, Cardinal.Where(axis => Vector2.Dot(axis, direction) > 0.3f), permitted)
             .MaxBy(candidate => Score(candidate.Destination));
         if (longRoute is not null) return FlatLeg(longRoute);
         if (towardLowerDrop && canAlign && Alignment(window) is { } centered) return centered;
-        return ShortRoutes(window).Concat(steps.Select(StepLeg))
+        return ShortRoutes(window).Concat(steps.Where(step => !towardLowerDrop || step.Kind == StepKind.Down).Select(StepLeg))
             .Where(leg => permitted?.Invoke(leg.End) != false)
             .Select(leg => (Leg: leg, Score: Score(new Position(leg.End.X, leg.End.Y, leg.End.Z)) - (leg.Step is null ? 0 : 0.04)))
             .Where(option => option.Score > 0.12).OrderByDescending(option => option.Score).FirstOrDefault().Leg
@@ -259,7 +259,7 @@ internal static class PlayDryRoutes
 
     private static bool IsPumpkin(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)] is BasePumpkinBlock;
 
-    private static Leg? Alignment(LocalObservationWindow window) => ObserveAlignment(window, OpenCell) is { MaximumAge: <= 1.5 } alignment
+    public static Leg? Alignment(LocalObservationWindow window) => ObserveAlignment(window, OpenCell) is { MaximumAge: <= 1.5 } alignment
         ? new(new MoveTo(PositionOf(alignment.Destination), 0.04f, 3f), alignment.Evidence) : null;
 
     private static ObservedAlignmentRoute? ObserveAlignment(LocalObservationWindow window, Func<int, bool> openCell)

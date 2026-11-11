@@ -3,7 +3,7 @@
 using Engine;
 using Game;
 
-internal sealed class PlayThermalRecovery(ComponentPlayer player, Point3 fire, double start)
+internal sealed class PlayThermalRecovery(ComponentPlayer player, Point3 fire, double start, bool fully = false)
 {
     public enum State { Warming, Warmed, NoImprovement, FireUnavailable, UnsafeHeat }
     public float Before { get; } = player.ComponentVitalStats.Temperature;
@@ -31,8 +31,9 @@ internal sealed class PlayThermalRecovery(ComponentPlayer player, Point3 fire, d
         bool warmed = vitals.Temperature >= Before + 0.45f
             && (vitals.Temperature >= 7.5f || vitals.m_targetTemperature >= 8f && now - start >= 18);
         bool dried = wetBefore >= 0.4f && vitals.Wetness < 0.3f && vitals.Temperature >= 6f;
-        if (warmed || dried) return State.Warmed;
-        return now - start >= 26 || now - start >= 7 && vitals.m_targetTemperature < Before + 0.4f
+        if (fully ? vitals.Temperature >= 8f && vitals.Wetness < 0.3f : warmed || dried) return State.Warmed;
+        return now - start >= (fully ? 50 : 26) || now - start >= 7 && vitals.m_targetTemperature < Before + 0.4f
+            && vitals.Wetness >= wetBefore - 0.05f
             ? State.NoImprovement : State.Warming;
     }
 }

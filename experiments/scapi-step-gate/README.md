@@ -115,3 +115,13 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 - `survival-goal-fire-contact` 验证本地观察能拒绝穿火路线并允许撤离、实际接触后及时退开；`survival-goal-fire-burning` 在夹具初态设定着火，随后只使用原生移动、燃烧伤害与自然消退。真实请求必须含本人 `onFire`、`touchingFire` 和情境攻略。
 
 稳定供食、自然农作成熟和当前版本十天存活仍需按长测单独验收，不由上述夹具通过推断。
+
+### 首炉材料、工作站与营火恢复
+
+- `quarry-probe` 从遮住石层的土面开始，不提供石料或工具，核对逐层看见地层、真实石样入包、保留阶梯并回到原地面。`survival-goal-quarry` 通过正常角色入口的一次固定回复选择浅探，检查完整执行与实际返程。
+- `quarry-depth-limit` 在较厚土层中实际下到三格后退出；`quarry-water` 在逐层暴露水后返回。两者要求不挖原落脚块、未取得石料且保持生命，不把提前卡住冒充安全上限验收。
+- `quarry-kitchen` 只提供木材、工作台和生肉，不提供圆石或石斧。连续核对浅探取样、制石斧、采八圆石、返回工作台、制炉、烤肉及真实进食；熟食必须具有原生出料归因。
+- `station-grass`、`station-flower` 检查真实小草和花遮挡下的清理与放置；`station-crop` 检查农作物不被当成小草挖掉。`worksite-hidden` 从山脊遮住的远处逐段返回本人熔炉，再真实烤肉。
+- `station-fire-fuel` 检查原生燃料减少一份与火势增加；`station-fire-out`、`station-fire-full` 检查熄灭与满档时不浪费燃料。`survival-goal-fire-care` 通过正常角色入口依次采木、制火、放火，再由第二次选择添柴并连续晾干回暖，要求只放一堆火且保持满血。
+
+这些新增夹具关闭随机天气或固定地层等初态以隔离问题；生存物理、原生材料结算、饥饿和烹饪规则仍保留。自然长测不使用夹具赠送的工具、材料或固定地层。

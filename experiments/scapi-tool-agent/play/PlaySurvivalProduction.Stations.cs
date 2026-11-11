@@ -11,6 +11,10 @@ internal sealed partial class PlaySurvivalProduction
     private Point3 stationCell;
     private PanoramicBlock? placementFloor;
     private int stationBlock;
+    private Vector3? stationAim;
+    private Phase afterStationClear;
+    private int stationPlantsCleared;
+    private readonly HashSet<Point3> refusedStationFloors = new();
 
     private static void AddStationOffers(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
         List<string> available)
@@ -33,6 +37,11 @@ internal sealed partial class PlaySurvivalProduction
             || (oven is not null || Stock(player, Furnace) > 0) && hasRawMeat && hasFuel)
             available.Add(Cook);
         if (Stock(player, Fire) > 0 && player.ComponentVitalStats.Temperature < 8f) available.Add(Warm);
+        if (SeenStation(panorama, stations, CampfireBlock.Index) is { } fire && Terrain.ExtractData(fire.Value) > 0)
+        {
+            if (Terrain.ExtractData(fire.Value) < 15 && Count(carry, CampfireFuel) > 0) available.Add(TendFire);
+            if (PlayThermalRecovery.FireWithinReach(player, fire.Cell)) available.Add(WarmAtFire);
+        }
     }
 
     private static PanoramicBlock? SeenStation(ActorPanorama? panorama, Dictionary<int, Point3> stations, int block, float reach = StationReach) =>
@@ -54,7 +63,7 @@ internal sealed partial class PlaySurvivalProduction
         if (Task != Warm && SeenStation(panorama, stations, stationBlock) is { } existing)
         {
             stationCell = existing.Cell;
-            AimStation(existing.Point);
+            AimStation(Center(existing.Cell));
             return;
         }
         var carry = player.ComponentMiner.Inventory;
@@ -70,34 +79,51 @@ internal sealed partial class PlaySurvivalProduction
 
         var body = player.ComponentBody.Position;
         int ground = Terrain.ToCell(body.Y + 0.05f) - 1;
-        placementFloor = panorama?.Blocks.Where(block => block.BareTop && block.Cell.Y == ground
+        placementFloor = panorama?.Blocks.Where(block => block.BareTop && block.Cell.Y == ground && !refusedStationFloors.Contains(block.Cell)
                 && BlocksManager.Blocks[Terrain.ExtractContents(block.Value)] is CubeBlock cube && cube.IsCollidable_(block.Value))
             .Where(block => (Center(block.Cell) - body).XZ.Length() is >= 1.05f and <= 2.55f
                 && (stationBlock != CampfireBlock.Index || PlayFireSafety.CampfireSpacingSafe(player, block.Cell + Up)))
             .MinBy(block => (Center(block.Cell) - body).XZ.LengthSquared());
         if (placementFloor is null) { Finish(false, "no_observed_station_floor"); return; }
         stationCell = placementFloor.Cell + Up;
-        action = owner.Start(new FaceTowards(Center(stationCell) - 0.55f * Vector3.UnitY, 3f));
+        stationAim = Center(stationCell) - 0.55f * Vector3.UnitY;
+        action = owner.Start(new FaceTowards(stationAim.Value, 3f));
         phase = Phase.PlaceStation;
     }
 
     private void PlaceStation()
     {
+        if (ClearTrivialStationObstruction(Phase.PlaceStation)) return;
         var carry = player.ComponentMiner.Inventory;
         int slot = FindSlot(carry, value => Terrain.ExtractContents(value) == stationBlock, carry.VisibleSlotsCount);
-        var focus = owner.Queries.LookAhead(5);
-        if (slot < 0 || focus is not { Kind: FocusKind.Block, Cell: Point3 cell, Face: 4, BlockValue: int value }
-            || cell != placementFloor!.Cell || Terrain.ExtractContents(value) != Terrain.ExtractContents(placementFloor.Value))
+        var seen = owner.Queries.ReadPanorama(StationReach + 0.6f);
+        var floor = seen?.Blocks.FirstOrDefault(block => block.Cell == placementFloor!.Cell && block.BareTop
+            && Terrain.ExtractContents(block.Value) == Terrain.ExtractContents(placementFloor.Value));
+        var cover = seen?.Blocks.FirstOrDefault(block => block.Cell == stationCell);
+        if (cover is not null && TrivialPlant(cover.Value) && stationPlantsCleared < 8)
         {
-            Finish(false, "station_floor_no_longer_usable");
+            ClearStationPlant(cover.Cell, cover.Value, Phase.PlaceStation);
             return;
         }
-        if (stationBlock == CampfireBlock.Index && !PlayFireSafety.CampfireSpacingSafe(player, cell + Up))
+        if (slot < 0 || floor is null || cover is not null)
+        {
+            log(new { kind = "play_station_floor_rejected", actor = player.PlayerData.Name, stationBlock,
+                expected = placementFloor?.Cell.ToString(), obstruction = cover?.Cell.ToString() });
+            if (placementFloor is { } refused && refusedStationFloors.Count < 6)
+            {
+                refusedStationFloors.Add(refused.Cell);
+                phase = Phase.Start;
+            }
+            else Finish(false, "station_floor_no_longer_usable");
+            return;
+        }
+        if (stationBlock == CampfireBlock.Index && !PlayFireSafety.CampfireSpacingSafe(player, floor.Cell + Up))
         {
             Finish(false, "campfire_placement_too_close_to_body");
             return;
         }
-        action = owner.Start(new Place(new BlockTarget(cell, value, 4), new OwnItemSlot(slot, carry.GetSlotValue(slot))));
+        // 可见地面绑定具体格与原值，原生放置再次校验射线、面、遮挡和碰撞，不要求准星恰好命中方块中心。
+        action = owner.Start(new Place(new BlockTarget(floor.Cell, floor.Value, 4), new OwnItemSlot(slot, carry.GetSlotValue(slot))));
         phase = Phase.AimStation;
     }
 
@@ -121,9 +147,35 @@ internal sealed partial class PlaySurvivalProduction
 
     private void AimStation(Vector3 point)
     {
+        stationAim = point;
         action = owner.Start(new FaceTowards(point, 3f));
         phase = Task is Furnace or Spear or Rake or Axe ? Phase.Craft : Phase.Cook;
     }
+
+    private bool ClearTrivialStationObstruction(Phase resume)
+    {
+        if (stationAim is not { } aim || stationPlantsCleared >= 8) return false;
+        var focus = owner.Queries.LookAhead(5f);
+        if (focus is not { Kind: FocusKind.Block, Cell: Point3 cell, Face: int face, BlockValue: int value }
+            || focus.Distance > (aim - player.ComponentCreatureModel.EyePosition).Length() + 0.2f
+            || !TrivialPlant(value)) return false;
+        // 只清理实际挡住交互射线的草、花和小枯灌木；作物、木块与未知方块不擅自挖掉。
+        ClearStationPlant(cell, value, resume);
+        return true;
+    }
+
+    private void ClearStationPlant(Point3 cell, int value, Phase resume)
+    {
+        stationPlantsCleared++;
+        afterStationClear = resume;
+        action = owner.Start(new Dig(new BlockTarget(cell, value), 4f));
+        phase = Phase.ClearStationSight;
+        log(new { kind = "play_station_plant_clearing", actor = player.PlayerData.Name, cell = cell.ToString(),
+            plant = BlocksManager.Blocks[Terrain.ExtractContents(value)].GetDisplayName(null, value), stationPlantsCleared });
+    }
+
+    private static bool TrivialPlant(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)]
+        is TallGrassBlock or FlowerBlock or DryBushBlock;
 
     private T? ObservedStation<T>() where T : GameEntitySystem.Component
     {

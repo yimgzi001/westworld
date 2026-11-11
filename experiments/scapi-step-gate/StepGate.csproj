@@ -25,6 +25,8 @@
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Farm.cs" Link="PlaySurvivalProduction.Farm.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Camp.cs" Link="PlaySurvivalProduction.Camp.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Worksites.cs" Link="PlaySurvivalProduction.Worksites.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Fire.cs" Link="PlaySurvivalProduction.Fire.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Quarry.cs" Link="PlaySurvivalProduction.Quarry.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Hunt.cs" Link="PlaySurvivalProduction.Hunt.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Project.cs" Link="PlaySurvivalProduction.Project.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalCold.cs" Link="PlaySurvivalCold.cs" />

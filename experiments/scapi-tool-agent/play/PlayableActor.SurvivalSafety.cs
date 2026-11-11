@@ -8,6 +8,7 @@ internal sealed partial class PlayableActor
 {
     private readonly PlayPredatorHearing hearing;
     private PlayThermalRecovery? thermalRecovery;
+    private string thermalWorkTool = PlaySurvivalProduction.Warm;
     private double nextHeat;
     private double listenUntil;
     private (PlaySurvivalExploration Search, PlaySurvivalGoals.Choice Choice, double Until)? pausedExploration;
@@ -135,15 +136,16 @@ internal sealed partial class PlayableActor
                 nextHeat = now + 60;
             return false;
         }
-        if (supply.Task is not (PlaySurvivalProduction.Warm or PlaySurvivalProduction.WarmthProject)
+        if (supply.Task is not (PlaySurvivalProduction.Warm or PlaySurvivalProduction.WarmthProject or PlaySurvivalProduction.WarmAtFire)
             || !placedStations.TryGetValue(CampfireBlock.Index, out var fire)) return false;
-        StartThermalRecovery(fire, now);
+        StartThermalRecovery(fire, now, supply.Task == PlaySurvivalProduction.WarmAtFire);
         return true;
     }
 
-    private void StartThermalRecovery(Point3 fire, double now)
+    private void StartThermalRecovery(Point3 fire, double now, bool fully = false)
     {
-        thermalRecovery = new(player, fire, now);
+        thermalWorkTool = fully ? PlaySurvivalProduction.WarmAtFire : PlaySurvivalProduction.Warm;
+        thermalRecovery = new(player, fire, now, fully);
         log(new { kind = "play_survival_warming", actor = Name, temperature = thermalRecovery.Before, gameTime = now });
     }
 
@@ -163,7 +165,7 @@ internal sealed partial class PlayableActor
         };
         log(new { kind = "play_survival_warming_result", actor = Name, reason, before = recovery.Before,
             after = player.ComponentVitalStats.Temperature, target = player.ComponentVitalStats.m_targetTemperature, gameTime = now });
-        Report(PlaySurvivalProduction.Warm, warmed ? "succeeded" : "failed", reason, now);
+        Report(thermalWorkTool, warmed ? "succeeded" : "failed", reason, now);
         FinishStep(warmed, reason, now);
     }
 }

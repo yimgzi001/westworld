@@ -111,10 +111,9 @@ internal sealed partial class PlaySurvivalProduction
         // 每个阶段完成后读取实际库存、工作站和可见资源。中断后从这些事实重新选择前置步骤。
         bool Permitted(Vector3 end) => permitLandLeg?.Invoke(end, gameTime) != false;
         var panorama = owner.Queries.ReadPanorama(ProjectReach);
-        if (Task == EarthSupply && camp is { } protectedSite && panorama is not null)
-            panorama = panorama with { Blocks = panorama.Blocks.Where(block => !protectedSite.Protects(block.Cell)).ToArray() };
         var next = NextProjectStep(player, Task, panorama, stations, Permitted,
-            triedMaterialApproaches, projectBird, keepPreparingGear: resumeGear || projectStages > 0 && projectBird is null);
+            triedMaterialApproaches, projectBird, keepPreparingGear: resumeGear || projectStages > 0 && projectBird is null,
+            protectedMaterials: missedMaterials);
         if (next is null)
         {
             Finish(false, "project_missing_visible_prerequisite");
@@ -141,17 +140,17 @@ internal sealed partial class PlaySurvivalProduction
             return;
         }
         projectStep = new(player, owner, tools, next.Task, gameTime, log, stations, readDryWindow, permitLandLeg, next.Bird,
-            ownFarm: ownFarm, camp: camp);
+            ownFarm: ownFarm, camp: camp, preserveGround: preserveGround);
         if (Task is StoneSupply or EarthSupply) projectStep.missedMaterials.Add(materialEntryFooting);
     }
 
     private static ProjectStep? NextProjectStep(ComponentPlayer player, string task, ActorPanorama? panorama,
         Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted, IReadOnlySet<Point3>? triedMaterials = null,
-        int? selectedBird = null, bool keepPreparingGear = false)
+        int? selectedBird = null, bool keepPreparingGear = false, IReadOnlySet<Point3>? protectedMaterials = null)
     {
         if (panorama is null) return null;
         if (task is WoodSupply or StoneSupply or EarthSupply)
-            return CollectMaterial(player, panorama, task == WoodSupply ? Wood : task == EarthSupply ? Earth : Stone, permitted, triedMaterials);
+            return CollectMaterial(player, panorama, task == WoodSupply ? Wood : task == EarthSupply ? Earth : Stone, permitted, triedMaterials, protectedMaterials);
         if (task == WarmthProject)
         {
             if (Stock(player, Fire) > 0) return new(Warm);
@@ -198,7 +197,7 @@ internal sealed partial class PlaySurvivalProduction
             ? entities.GetBlockEntity(visibleTable.Cell)?.Entity.FindComponent<ComponentCraftingTable>() : null;
         int stagedStone = table is null ? 0 : Count(table, value => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
             table.ResultSlotIndex);
-        if (Stock(player, Stone) + stagedStone < 8) return CollectMaterial(player, panorama, Stone, permitted, triedMaterials);
+        if (Stock(player, Stone) + stagedStone < 8) return CollectMaterial(player, panorama, Stone, permitted, triedMaterials, protectedMaterials);
         if (table is not null || Stock(player, Workbench) > 0) return new(Furnace);
         return ApproachStation(visibleTable, body, "return_to_workbench", permitted)
             ?? (HasBoardsForTable(player) ? new(Workbench) : CollectMaterial(player, panorama, Wood, permitted, triedMaterials));
@@ -221,14 +220,15 @@ internal sealed partial class PlaySurvivalProduction
         HasIngredient(player, "planks", 4) || HasIngredient(player, "wood", 1);
 
     private static ProjectStep? CollectMaterial(ComponentPlayer player, ActorPanorama panorama, string task,
-        Func<Vector3, bool>? permitted, IReadOnlySet<Point3>? triedMaterials)
+        Func<Vector3, bool>? permitted, IReadOnlySet<Point3>? triedMaterials, IReadOnlySet<Point3>? protectedMaterials = null)
     {
         var origin = player.ComponentBody.Position;
-        if (FindMaterial(panorama, origin, task) is not null) return new(task);
+        if (FindMaterial(panorama, origin, task, protectedMaterials) is not null) return new(task);
         var ground = panorama.Blocks.Where(block => block.BareTop && PlaySurvivalSenses.IsDryTerrain(block.Value))
             .ToLookup(block => (block.Cell.X, block.Cell.Z));
         foreach (var material in panorama.Blocks.Where(block => IsMaterial(block.Value, task)
-            && MathF.Abs(block.Cell.Y - origin.Y) <= 4f && triedMaterials?.Contains(block.Cell) != true).OrderBy(block => block.Distance))
+            && MathF.Abs(block.Cell.Y - origin.Y) <= 4f && triedMaterials?.Contains(block.Cell) != true
+            && protectedMaterials?.Contains(block.Cell) != true).OrderBy(block => block.Distance))
         {
             var cell = material.Cell;
             // 先证明材料旁有可以站着挖的位置。悬在头顶的树干不会反复生成一格内的靠近任务。

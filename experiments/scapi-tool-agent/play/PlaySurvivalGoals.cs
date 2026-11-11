@@ -17,6 +17,7 @@ internal static class PlaySurvivalGoals
         "prey 编号绑定已经看到的某只猎物；hunt_route 是你可选的定向巡猎动作，会持续搜索并在食用鸟进入投矛范围后攻击、拾肉。选择普通 route 只观察，不会自动改为狩猎。" +
         "烤肉的前置关系是木材→木板/木棒→工作台和木矛→狩猎得生肉；八块圆石加工作台做熔炉，再放生肉和燃料烤熟取出。你自行安排先后，已有材料就跳过准备。" +
         "平地裸露的岩石也能从侧边采，禁止挖本人脚下。先取一块圆石，用两根木棒在工作台做石斧，能加快后续批量采石和砍树；是否先做由你比较饱食、余粮和天色。记得留燃料。" +
+        "看不到露天石料时，可选 quarry 编号浅挖阶梯，逐层观察、取一块石样并回地面；最深四格且不保证有石头。它用于首炉准备，是否值得投入要比较饱食余量和返程时间。" +
         "原料不足时沿一条新路线寻找，记住已经确认的营地和资源，日落前回安全掩体。生肉留给熔炉；生蛋只是紧急补充，煮蛋需要水桶，前期不为它专门发展金属。" +
         "低温先干燥回暖，没有热源时继续找食和走向已见的温暖干地，别反复等待。猎食者声音只表示大概方向，结合可见危险和已排除路线选择。" +
         "储粮按能吃下的营养判断：生肉、未成熟作物和高致病食物不能算可靠口粮；同类食物吃太多会生病，留意实际可吃种类。一次少做够近期消耗的熟食，避免腐败浪费。" +
@@ -33,7 +34,8 @@ internal static class PlaySurvivalGoals
 
     internal sealed record Choice(string Id, Kind Activity, object Details, PlaySurvivalFood.Food? Food = null,
         PlaySurvivalExploration.Course? Course = null, string? Supply = null, int Seconds = 0,
-        PlaySurvivalProduction.CampSite? Camp = null, int? Bird = null, PlayEarthShelter.Site? Shelter = null)
+        PlaySurvivalProduction.CampSite? Camp = null, int? Bird = null, PlayEarthShelter.Site? Shelter = null,
+        PlaySurvivalProduction.QuarrySite? Quarry = null)
     {
         public object Snapshot() => new { id = Id, activity = Activity.ToString().ToLowerInvariant(), details = Details };
     }

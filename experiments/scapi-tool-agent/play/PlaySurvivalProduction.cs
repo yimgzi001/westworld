@@ -24,7 +24,7 @@ internal sealed partial class PlaySurvivalProduction
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    private enum Phase { Start, Dig, PickUp, PlaceStation, AimStation, Craft, Cook, Hunt, Farm, Camp, Worksite }
+    private enum Phase { Start, Dig, PickUp, PlaceStation, AimStation, Craft, Cook, Hunt, Farm, Camp, Worksite, ClearStationSight, TendFire }
     private readonly ComponentPlayer player;
     private readonly AtomicActions owner;
     private readonly NativeToolSession tools;
@@ -43,7 +43,7 @@ internal sealed partial class PlaySurvivalProduction
     private AtomicActionRun? action;
     private Guid? craftTask;
     private int craftValue, craftBefore, craftCount;
-    private int digRetries;
+    private int digRetries, staleMaterialCandidates;
     private PlaySurvivalTravel? materialPickupRoute;
     private bool approachedMaterialDrop;
     private readonly HashSet<Point3> missedMaterials = new();
@@ -53,7 +53,8 @@ internal sealed partial class PlaySurvivalProduction
     public PlaySurvivalProduction(ComponentPlayer player, AtomicActions owner, NativeToolSession tools, string task,
         double gameTime, Action<object> log, Dictionary<int, Point3> stations, Func<LocalObservationWindow> readDryWindow,
         Func<Vector3, double, bool>? permitLandLeg = null, int? selectedBird = null, bool resumeGear = false,
-        Dictionary<Point3, Patch>? ownFarm = null, CampSite? camp = null)
+        Dictionary<Point3, Patch>? ownFarm = null, CampSite? camp = null, QuarrySite? quarrySite = null,
+        IReadOnlySet<Point3>? preserveGround = null)
     {
         this.player = player;
         this.owner = owner;
@@ -66,13 +67,21 @@ internal sealed partial class PlaySurvivalProduction
         this.resumeGear = resumeGear;
         this.ownFarm = ownFarm;
         this.camp = camp;
+        this.quarrySite = quarrySite;
+        this.preserveGround = preserveGround;
+        if (preserveGround is not null) missedMaterials.UnionWith(preserveGround);
+        if (camp is not null)
+            for (int x = camp.X; x <= camp.X + 3; x++)
+            for (int z = camp.Z; z <= camp.Z + 3; z++)
+            for (int y = camp.Y - 1; y <= camp.Y + 2; y++) missedMaterials.Add(new(x, y, z));
+        triedMaterialApproaches.UnionWith(missedMaterials);
         Task = task;
         before = Stock(player, task);
         materialEntryFooting = Terrain.ToCell(player.ComponentBody.Position) - Up;
         startedAtNight = PlaySurvivalRest.NightCoverDue(player.Project.FindSubsystem<SubsystemTimeOfDay>(true));
         if (task is StoneSupply or EarthSupply)
             triedMaterialApproaches.Add(materialEntryFooting);
-        deadline = gameTime + (task is BuildCamp or ReturnCamp or LeaveCamp or VisitTable or VisitFurnace or VisitFire || IsProject(task) ? 180 : 36);
+        deadline = gameTime + (task is Quarry or BuildCamp or ReturnCamp or LeaveCamp or VisitTable or VisitFurnace or VisitFire || IsProject(task) ? 180 : 36);
         log(new { kind = "play_production_started", actor = player.PlayerData.Name, task, before, gameTime });
     }
 
@@ -80,11 +89,13 @@ internal sealed partial class PlaySurvivalProduction
     public string? Status { get; private set; }
     public string? Reason { get; private set; }
     public int Added => Task is VisitTable or VisitFurnace or VisitFire ? worksiteReached ? 1 : 0
+        : Task == TendFire ? fireFuelAdded
         : Task is BuildCamp or ReturnCamp or LeaveCamp ? campComplete ? 1 : 0
         : Task == PlantPumpkins ? plantedCount : Task == WarmthProject ? warmthReady ? 1 : 0 : Math.Max(0, Stock(player, Task) - before);
     public string? CurrentStage { get; private set; }
     public Vector3? ActiveLandEndpoint => projectRoute?.ActiveLandEndpoint ?? projectStep?.ActiveLandEndpoint
-        ?? huntApproach?.ActiveLandEndpoint ?? materialPickupRoute?.ActiveLandEndpoint ?? campRoute?.ActiveLandEndpoint;
+        ?? huntApproach?.ActiveLandEndpoint ?? materialPickupRoute?.ActiveLandEndpoint ?? campRoute?.ActiveLandEndpoint
+        ?? quarryRoute?.ActiveLandEndpoint ?? quarryChild?.ActiveLandEndpoint;
 
     public static ToolOffer? Offer(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
         bool routineWork, bool allowProjects = true, Func<Vector3, bool>? permitted = null)
@@ -108,12 +119,15 @@ internal sealed partial class PlaySurvivalProduction
         WarmthProject => "需要时先取木材，制作并点起营火，然后核对身体是否回暖",
         Fire => "做一个备用营火带在背包",
         Warm => "在已确认的地面生火并核对是否回暖",
+        TendFire => "给仍有火苗的本人营火添加一份安全燃料，按实际消耗与火势增加核对",
+        WarmAtFire => "在本人营火旁连续取暖晾干，达到安全体温与湿度后结束",
         Cook => "把现有生肉烧熟，并从熔炉取出",
         Hunt => "用木矛追猎一只看得见的食用鸟，取得生肉后保留",
         Wood => "取得可见的木材",
         Stone => "取得可见的圆石",
         WoodSupply => "连续采集三块木材，沿已见地形接近树干并逐块核对入包",
         StoneSupply => "连续取得八块圆石，材料够八块即完成",
+        Quarry => "从选定的已见土面浅挖阶梯找石，最多下探四格，保留退路并带一块样本回到地面；不保证地下有石头",
         PumpkinSeeds => "用一只成熟南瓜按原生配方制三粒种子；消耗这只南瓜",
         PlantPumpkins => "在身边已见的向阳土面播种，最多三株；自带木耙时先耕地，苗不计作粮食",
         Rake => "在工作台制作木耙，用于改善南瓜种植土面",
@@ -139,7 +153,10 @@ internal sealed partial class PlaySurvivalProduction
         Hunt => "可见且掉肉的鸟、木矛、自己站在安全干地；命中伤害由原生结算",
         Fire => "一块原木或两块木板或四根木棒",
         Warm => "自带营火和可见安全地面",
+        TendFire => "先回到仍有火苗的营火；一份非爆炸燃料。已熄灭的灰烬不能靠添柴重新点燃",
+        WarmAtFire => "先回自己的燃烧营火，必要时添柴；站在三格内安全距离，不踩火",
         StoneSupply or Stone => "本人已经见到的花岗岩及安全落脚位置",
+        Quarry => "已见四格平整软土地面与净空；逐层观察，不读取地下地图；不可拆营地、农地或旧矿口退路",
         PumpkinSeeds => "成熟南瓜一只；应先保留吃的南瓜，再考虑留种",
         PlantPumpkins => "背包南瓜种子、可见向阳土面；温暖季节生长较快，幼苗需等待自然成熟",
         Rake => "原生工作台、木板和木棒",
@@ -170,6 +187,12 @@ internal sealed partial class PlaySurvivalProduction
         }
         if (stone) { tasks.Add(StoneSupply); tasks.Add(Furnace); }
         if (wood || stone) tasks.Add(Axe);
+        if (stations.TryGetValue(CampfireBlock.Index, out var fireSite)
+            && (Center(fireSite) - player.ComponentBody.Position).XZ.Length() <= ProjectReach && !CampfireSeenOut(panorama, stations))
+        {
+            tasks.Add(WarmAtFire);
+            if (wood || Count(player.ComponentMiner.Inventory, CampfireFuel) > 0) tasks.Add(TendFire);
+        }
         if (CollectMaterial(player, panorama, Earth, permitted, null) is not null) tasks.Add(EarthSupply);
         if (FindFoodBird(player, panorama.Objects.Entities, ProjectBirdReach) is not null) tasks.Add(Hunt);
         if (Stock(player, Hunt) > 0 || tasks.Contains(Hunt)) tasks.Add(Cook);
@@ -177,7 +200,8 @@ internal sealed partial class PlaySurvivalProduction
         if (Count(player.ComponentMiner.Inventory, IsPumpkinSeed) > 0) tasks.Add(PlantPumpkins);
         foreach (string visit in new[] { VisitTable, VisitFurnace, VisitFire })
             if (stations.TryGetValue(WorksiteBlock(visit), out var known)
-                && (Center(known) - player.ComponentBody.Position).XZ.Length() <= 40f) tasks.Add(visit);
+                && (Center(known) - player.ComponentBody.Position).XZ.Length() <= 40f
+                && (visit != VisitFire || !CampfireSeenOut(panorama, stations))) tasks.Add(visit);
         return tasks.Where(task => task != WarmthProject).Distinct().ToArray();
     }
 
@@ -187,7 +211,9 @@ internal sealed partial class PlaySurvivalProduction
         bool woodNearby = FindMaterial(panorama, player.ComponentBody.Position, Wood) is not null;
         var available = new List<string>();
         foreach (string visit in new[] { VisitTable, VisitFurnace, VisitFire })
-            if (stations.ContainsKey(WorksiteBlock(visit))) available.Add(visit);
+            if (stations.TryGetValue(WorksiteBlock(visit), out var known)
+                && (Center(known) - player.ComponentBody.Position).XZ.Length() <= ProjectReach
+                && (visit != VisitFire || !CampfireSeenOut(panorama, stations))) available.Add(visit);
         if (CanAdvanceProject(player, WoodSupply, panorama, stations, permitted)) available.Add(WoodSupply);
         if (Stock(player, Stone) < 8 && CanAdvanceProject(player, StoneSupply, panorama, stations, permitted)) available.Add(StoneSupply);
         if (routineWork)
@@ -240,7 +266,7 @@ internal sealed partial class PlaySurvivalProduction
     public static int Stock(ComponentPlayer player, string task) => Count(player.ComponentMiner.Inventory, value => task switch
     {
         Wood or WoodSupply => IsMaterial(value, Wood),
-        Stone or StoneSupply => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
+        Stone or StoneSupply or Quarry => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
         Workbench => Terrain.ExtractContents(value) == CraftingTableBlock.Index,
         Fire => Terrain.ExtractContents(value) == CampfireBlock.Index,
         Furnace => Terrain.ExtractContents(value) == FurnaceBlock.Index,
@@ -272,6 +298,7 @@ internal sealed partial class PlaySurvivalProduction
     public void Update(double gameTime)
     {
         if (Status is not null) return;
+        if (Task == Quarry) { AdvanceQuarry(gameTime); return; }
         if (IsProject(Task))
         {
             AdvanceProject(gameTime);
@@ -307,6 +334,8 @@ internal sealed partial class PlaySurvivalProduction
                     if (!TryApproachPreyDrop(gameTime)) Finish(false, "prey_meat_out_of_reach");
                     return;
                 }
+                if (phase == Phase.ClearStationSight && native.Action is Dig && native.Result.Failure == AtomicActionFailure.TargetChanged)
+                    return;
                 if (native.Action is Dig && native.Result.Failure == AtomicActionFailure.TargetChanged && digRetries++ == 0)
                 {
                     phase = Phase.Dig;
@@ -320,9 +349,13 @@ internal sealed partial class PlaySurvivalProduction
                 && !ConfirmStationPlacement(gameTime)) return;
         }
 
+        if ((phase is Phase.Craft or Phase.Cook || phase == Phase.TendFire && fireStage < 2)
+            && stationAim is not null && ClearTrivialStationObstruction(phase)) return;
         switch (phase)
         {
             case Phase.Start:
+                if (Task == TendFire) { phase = Phase.TendFire; break; }
+                if (Task == WarmAtFire) { ConfirmRecoveryFire(); break; }
                 if (Task is Workbench or Fire or PumpkinSeeds) { phase = Phase.Craft; break; }
                 if (Task == PlantPumpkins) { phase = Phase.Farm; break; }
                 if (Task is BuildCamp or ReturnCamp or LeaveCamp) { phase = Phase.Camp; break; }
@@ -340,7 +373,8 @@ internal sealed partial class PlaySurvivalProduction
                 if (focus is not { Kind: FocusKind.Block, Cell: Point3 cell, Face: int face, BlockValue: int value }
                     || cell != material!.Cell || !IsMaterial(value, Task))
                 {
-                    if (missedMaterials.Add(material!.Cell) && missedMaterials.Count < 3) phase = Phase.Start;
+                    // 阶梯与耕地保护不计入失败候选数，仍允许换到真正可采的目标。
+                    if (missedMaterials.Add(material!.Cell) && ++staleMaterialCandidates < 3) phase = Phase.Start;
                     else Finish(false, "material_no_longer_visible");
                     break;
                 }
@@ -374,6 +408,15 @@ internal sealed partial class PlaySurvivalProduction
                 break;
             case Phase.Worksite:
                 AdvanceWorksite(gameTime);
+                break;
+            case Phase.ClearStationSight:
+                if (player.Project.FindSubsystem<SubsystemTerrain>(true).Terrain
+                    .GetChunkAtCell(stationCell.X, stationCell.Z)?.State != TerrainChunkState.Valid) break;
+                action = owner.Start(new FaceTowards(stationAim!.Value, 3f));
+                phase = afterStationClear;
+                break;
+            case Phase.TendFire:
+                AdvanceFireTending();
                 break;
         }
     }
@@ -421,7 +464,7 @@ internal sealed partial class PlaySurvivalProduction
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset.XZ));
         var target = MaterialTarget(drop);
         var path = PlayObservedPath.Find(owner.Queries.ReadPanorama(8f), body.Position, drop.Position,
-            (_, end) => permitLandLeg?.Invoke(end, gameTime) != false, goalReach: 0.7f);
+            (_, end) => permitLandLeg?.Invoke(end, gameTime) != false, goalReach: 0.7f, maximumAboveTarget: 0.2f);
         materialPickupRoute = new(player, owner, bearing, distance + 1f, "food", false, gameTime,
             () => (JsonSerializer.SerializeToElement(new { }), owner.Queries.FindVisibleObjectsAround(6f).Pickables.Select(MaterialTarget).ToArray()),
             readDryWindow, log, permitLandLeg: permitLandLeg, foodTarget: target, observedPath: path);
@@ -472,6 +515,11 @@ internal sealed partial class PlaySurvivalProduction
         var grid = usesWorkbench ? ObservedStation<ComponentCraftingTable>() : player.Entity.FindComponent<ComponentCraftingTable>();
         if (workspace is null || grid is null)
         {
+            var focus = owner.Queries.LookAhead(5f);
+            log(new { kind = "play_crafting_station_unavailable", actor = player.PlayerData.Name, task = Task,
+                expected = stationCell.ToString(), focus = focus.Cell?.ToString(), focus.Kind, focus.Distance,
+                eye = player.ComponentCreatureModel.EyePosition.ToString(), position = player.ComponentBody.Position.ToString(),
+                workspaceFound = workspace is not null, gridFound = grid is not null });
             Finish(false, "crafting_station_unavailable");
             return;
         }
@@ -536,6 +584,7 @@ internal sealed partial class PlaySurvivalProduction
 
     public void Stop()
     {
+        StopQuarry();
         projectStep?.Stop();
         projectStep = null;
         projectRoute?.Stop();

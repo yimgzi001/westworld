@@ -246,7 +246,7 @@ internal sealed partial class PlaySurvivalProduction
             || permitLandLeg?.Invoke(food.Point, gameTime) == false) return false;
         var panorama = owner.Queries.ReadPanorama(26f);
         var path = PlayObservedPath.Find(panorama, body.Position, food.Point,
-            (_, end) => permitLandLeg?.Invoke(end, gameTime) != false, goalReach: 0.9f);
+            (_, end) => permitLandLeg?.Invoke(end, gameTime) != false, goalReach: 0.9f, maximumAboveTarget: 0.2f);
         if (offset.Length() > 5f && path is null) return false;
         approachedPreyDrop = true;
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));

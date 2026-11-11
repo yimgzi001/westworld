@@ -55,6 +55,10 @@ sealed partial class Runner
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
             p.ComponentLocomotion.LookAngles = new(0f, MathUtils.DegToRad(-70f));
             goalOrigin = body.Position;
+            if (mode == "survival-goal-quarry")
+                for (int x = cell.X - 5; x <= cell.X + 24; x++)
+                for (int z = cell.Z - 6; z <= cell.Z + 6; z++)
+                for (int y = cell.Y - 5; y <= cell.Y - 3; y++) terrain.ChangeCell(x, y, z, GraniteBlock.Index);
             if (mode is "survival-goal-fire-contact" or "survival-goal-fire-burning")
             {
                 terrain.ChangeCell(cell.X + 1, cell.Y, cell.Z, Terrain.MakeBlockValue(CampfireBlock.Index, 0, 15));
@@ -105,18 +109,18 @@ sealed partial class Runner
                 p.Project.FindSubsystem<SubsystemUpdate>(true).RemoveUpdateable(wolf.FindComponent<ComponentChaseBehavior>(true));
                 goalWolfSounds = wolf.FindComponent<ComponentCreatureSounds>(true);
             }
-            if (mode is "survival-goal-warming" or "survival-goal-pending-cold" or "survival-goal-gear-plan")
+            if (mode is "survival-goal-warming" or "survival-goal-pending-cold" or "survival-goal-gear-plan" or "survival-goal-fire-care")
             {
                 terrain.ChangeCell(cell.X + 5, cell.Y, cell.Z + 1, OakWoodBlock.Index);
-                if (mode is "survival-goal-warming" or "survival-goal-gear-plan")
+                if (mode is "survival-goal-warming" or "survival-goal-gear-plan" or "survival-goal-fire-care")
                 {
                     terrain.ChangeCell(cell.X + 6, cell.Y, cell.Z + 1, OakWoodBlock.Index);
                     terrain.ChangeCell(cell.X + 6, cell.Y, cell.Z + 2, OakWoodBlock.Index);
                 }
-                if (mode == "survival-goal-warming")
+                if (mode is "survival-goal-warming" or "survival-goal-fire-care")
                 {
                     p.ComponentVitalStats.Temperature = 5.5f;
-                    p.ComponentVitalStats.Wetness = 0.5f;
+                    p.ComponentVitalStats.Wetness = mode == "survival-goal-fire-care" ? 0.9f : 0.5f;
                 }
                 goalWarmingBefore = p.ComponentVitalStats.Temperature;
             }
@@ -230,6 +234,17 @@ sealed partial class Runner
             "survival-goal-observe-bird" => goalQueue.Issued == 1 && moved >= 6f
                 && !goalEvents.Any(entry => Kind(entry) == "play_hunt_started" || Kind(entry) == "play_hunt_search_contact"),
             "survival-goal-contract" => goalContractChecked,
+            "survival-goal-quarry" => goalQueue.Issued == 1 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Stone) > 0
+                && Math.Abs(body.Position.Y - goalOrigin.Y) < 0.1f && (body.Position - goalOrigin).XZ.LengthSquared() < 0.2f
+                && goalEvents.Any(entry => Kind(entry) == "play_shallow_quarry_result" && entry.GetProperty("sample").GetBoolean()
+                    && entry.GetProperty("returned").GetBoolean()),
+            "survival-goal-fire-care" => goalQueue.Issued == 2 && p.ComponentVitalStats.Wetness < 0.3f
+                && p.ComponentVitalStats.Temperature >= 8f
+                && goalEvents.Count(entry => Kind(entry) == "play_station_placed" && entry.GetProperty("stationBlock").GetInt32() == CampfireBlock.Index) == 1
+                && goalEvents.Any(entry => Kind(entry) == "play_campfire_fuel_result" && entry.GetProperty("conserved").GetBoolean())
+                && goalEvents.Any(entry => Kind(entry) == "play_survival_goal_finished"
+                    && Text(entry.GetProperty("goal"), "target") == PlaySurvivalProduction.WarmAtFire
+                    && Text(entry.GetProperty("goal"), "status") == "succeeded"),
             "survival-goal-fire-contact" => moved >= 2.5f && goalFireKnowledgeChecked && goalFireRouteChecked
                 && goalEvents.Any(entry => Kind(entry) == "play_fire_escape")
                 && !goalEvents.Any(entry => Kind(entry) == "play_fire_state" && entry.GetProperty("burning").GetBoolean())
@@ -262,7 +277,8 @@ sealed partial class Runner
                 && goalEvents.Any(entry => Kind(entry) == "play_survival_emergency_meal"),
             _ => false
         };
-        if (!success && now - goalStarted < (mode == "survival-goal-night-through" ? 1450 : 76)
+        if (!success && now - goalStarted < (mode == "survival-goal-night-through" ? 1450
+                : mode is "survival-goal-quarry" or "survival-goal-fire-care" ? 180 : 76)
             && !goalActor.Died && !goalActor.Retired) return;
         Done = true;
         // 接触火焰夹具在交接控制前已受原生伤害；撤离后允许最后一次延迟接触伤害，不允许继续燃烧。
@@ -328,6 +344,14 @@ sealed partial class Runner
                     && (mode != "survival-goal-fire-burning" || onFire.GetBoolean());
             }
             var selected = new List<JsonElement>();
+            if (mode == "survival-goal-quarry") selected.Add(options.First(option => Text(option, "id") == "quarry_1"));
+            if (mode == "survival-goal-fire-care")
+            {
+                string[] tasks = goalEvents.Any(entry => Kind(entry) == "play_station_placed")
+                    ? [PlaySurvivalProduction.TendFire, PlaySurvivalProduction.WarmAtFire]
+                    : [PlaySurvivalProduction.WoodSupply, PlaySurvivalProduction.Fire, PlaySurvivalProduction.Warm];
+                foreach (string task in tasks) selected.Add(options.First(option => Text(option, "id") == task));
+            }
             if (mode is "survival-goal-sequence" or "survival-goal-plan-failure")
             {
                 selected.AddRange(options.Where(option => Text(option, "activity") == "collect")

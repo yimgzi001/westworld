@@ -35,6 +35,8 @@ internal sealed class PlaySurvivalTravel
     private readonly Vector3[] waypoints;
     private readonly Func<Vector3?>? readMovingTarget;
     private readonly float movingTargetReach;
+    private readonly Func<bool>? arrived;
+    private readonly float goalRange;
     private Vector3? movingTarget;
     private double nextMovingTargetRead, lastMovingTargetSeen;
     private bool movingTargetVisible;
@@ -64,7 +66,8 @@ internal sealed class PlaySurvivalTravel
         PlaySurvivalFood.Food? foodTarget = null, Vector3? shelterTarget = null, Vector3? shoreTarget = null,
         Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null,
         float escapeClearance = 0f, bool allowEscapeTurn = false, PlayObservedPath.Plan? observedPath = null,
-        Func<Vector3?>? readMovingTarget = null, float movingTargetReach = 0f)
+        Func<Vector3?>? readMovingTarget = null, float movingTargetReach = 0f, Func<bool>? arrived = null,
+        float goalRange = 0.45f)
     {
         this.player = player;
         this.owner = owner;
@@ -93,6 +96,8 @@ internal sealed class PlaySurvivalTravel
         waypoints = observedPath?.Waypoints ?? [];
         this.readMovingTarget = readMovingTarget;
         this.movingTargetReach = movingTargetReach;
+        this.arrived = arrived;
+        this.goalRange = goalRange;
         Evading = evading;
         Origin = player.ComponentBody.Position;
         initialHealth = player.ComponentHealth.Health;
@@ -126,7 +131,12 @@ internal sealed class PlaySurvivalTravel
     public void Update(double gameTime)
     {
         if (status is not null) return;
-        if (foodTarget is not null && PlaySurvivalSenses.OnDryGround(player.ComponentBody)
+        if (SettledOnLand() && arrived?.Invoke() == true)
+        {
+            Finish("succeeded", "native_goal_reconfirmed");
+            return;
+        }
+        if (foodTarget is not null && SettledOnLand()
             && (AcquiredTargetCount > 0 || initialFoodStock is int before
             && NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value) > before))
         {
@@ -402,7 +412,7 @@ internal sealed class PlaySurvivalTravel
                 return true;
             }
         }
-        if (movingTargetVisible && movingTarget is { } current && PlaySurvivalSenses.OnDryGround(body)
+        if (movingTargetVisible && movingTarget is { } current && SettledOnLand()
             && MathF.Abs(body.Position.Y - current.Y) <= 1.05f
             && (body.Position - current).XZ.LengthSquared() <= movingTargetReach * movingTargetReach)
         {
@@ -420,6 +430,11 @@ internal sealed class PlaySurvivalTravel
             && after > before && after - before == fact.SourceBefore - fact.SourceAfter)
             AcquiredTargetCount += after - before;
     }
+
+    private bool SettledOnLand() => PlaySurvivalSenses.OnDryGround(player.ComponentBody)
+        && Math.Abs(player.ComponentBody.Velocity.Y) < 0.6f
+        // 上台阶过程中，原生支撑值可能短暂保留；先完成这一跳，不能在半空把制作交给下一步。
+        && !(leg is { Action: StepTo, Result.Status: AtomicActionStatus.Running });
 
     private void Finish(string state, string outcome)
     {
@@ -444,7 +459,9 @@ internal sealed class PlaySurvivalTravel
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
         if (KeepsTarget) visitedGoalCells.Add(CellXZ(player.ComponentBody.Position));
-        var route = DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
+        bool preciseCenter = goalRange < 0.2f && CellXZ(surveyTarget) == CellXZ(player.ComponentBody.Position)
+            && (surveyTarget - player.ComponentBody.Position).XZ.LengthSquared() < 0.5f * 0.5f;
+        var route = preciseCenter ? PlayDryRoutes.Alignment(window) : DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
         if (route is null && nextWaypoint < waypoints.Length)
         {
             // 局部净空与先前路标冲突时放弃路标，保留原来的食物目标。
@@ -618,9 +635,10 @@ internal sealed class PlaySurvivalTravel
         }
         else if (seek is "survey" or "work" or "search")
         {
-            if ((surveyTarget - body.Position).XZ.LengthSquared() <= 0.45f * 0.45f)
+            // 带原生到达条件的任务还须核对楼层或交互状态，不能只靠平面距离提前完成。
+            if (arrived is null && (surveyTarget - body.Position).XZ.LengthSquared() <= goalRange * goalRange)
                 return ("navigation_goal_reached", null);
-            approach = surveyTarget;
+            approach = shelterTarget ?? surveyTarget;
         }
         else if (movingTarget is { } observed)
         {
