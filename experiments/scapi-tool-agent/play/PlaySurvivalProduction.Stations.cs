@@ -15,6 +15,8 @@ internal sealed partial class PlaySurvivalProduction
     private Phase afterStationClear;
     private int stationPlantsCleared;
     private readonly HashSet<Point3> refusedStationFloors = new();
+    private PlaySurvivalProduction? stationApproach;
+    private bool stationApproachTried;
 
     private static void AddStationOffers(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
         List<string> available)
@@ -60,10 +62,23 @@ internal sealed partial class PlaySurvivalProduction
         stationBlock = Task switch { Furnace or Spear or Rake or Axe => CraftingTableBlock.Index, Cook => FurnaceBlock.Index, _ => CampfireBlock.Index };
         // 全景先按方块中心筛选，再量到可见表面。留出中心到表面的距离，交互仍按原距离核对。
         var panorama = owner.Queries.ReadPanorama(StationReach + 0.6f);
-        if (Task != Warm && SeenStation(panorama, stations, stationBlock) is { } existing)
+        if (Task != Warm && SeenStation(panorama, stations, stationBlock) is { } existing
+            && Math.Abs(player.ComponentBody.Position.Y - existing.Cell.Y) < 0.1f
+            && (Center(existing.Cell) - player.ComponentBody.Position).XZ.LengthSquared() <= 9f)
         {
             stationCell = existing.Cell;
             AimStation(Center(existing.Cell));
+            return;
+        }
+        if (Task != Warm && !stationApproachTried && stations.TryGetValue(stationBlock, out var known)
+            && (Center(known) - player.ComponentBody.Position).XZ.LengthSquared() <= 40f * 40f)
+        {
+            // AI 已决定制作或烤肉；走近本人工作站属于该动作的执行前置，不另替它安排发展路线。
+            stationApproachTried = true;
+            CurrentStage = "approach_own_station_for_selected_job";
+            stationApproach = new(player, owner, tools, stationBlock == CraftingTableBlock.Index ? VisitTable : VisitFurnace,
+                player.Project.FindSubsystem<SubsystemTime>(true).GameTime, log, stations, readDryWindow, permitLandLeg,
+                ownFarm: ownFarm, camp: camp, preserveGround: preserveGround);
             return;
         }
         var carry = player.ComponentMiner.Inventory;

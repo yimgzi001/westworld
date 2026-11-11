@@ -18,21 +18,24 @@ sealed partial class Runner
     {
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         var carry = p.ComponentMiner.Inventory;
-        bool kitchen = mode == "quarry-kitchen";
+        bool roundTrip = mode == "quarry-kitchen-roundtrip";
+        bool kitchen = mode is "quarry-kitchen" or "quarry-kitchen-auto" || roundTrip;
         if (stage == 0)
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(p.ComponentBody.Position);
-            for (int x = cell.X - 6; x <= cell.X + 14; x++)
+            int soilLayers = mode is "quarry-deeper-stone" or "quarry-kitchen-auto" || roundTrip ? 4 : 2;
+            for (int x = cell.X - (roundTrip ? 14 : 6); x <= cell.X + 14; x++)
             for (int z = cell.Z - 6; z <= cell.Z + 6; z++)
             for (int y = cell.Y - 7; y <= cell.Y + 3; y++)
             {
-                int value = y >= cell.Y ? 0 : y >= cell.Y - 2 || mode == "quarry-depth-limit" ? DirtBlock.Index : GraniteBlock.Index;
+                int value = y >= cell.Y ? 0 : y >= cell.Y - soilLayers || mode == "quarry-depth-limit" ? DirtBlock.Index : GraniteBlock.Index;
                 if (mode == "quarry-water" && y == cell.Y - 2) value = WaterBlock.Index;
                 terrain.ChangeCell(x, y, z, value);
             }
             p.ComponentBody.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             p.ComponentBody.Velocity = Vector3.Zero;
+            if (mode == "quarry-low-ceiling") terrain.ChangeCell(cell.X, cell.Y + 2, cell.Z, GraniteBlock.Index);
             p.ComponentVitalStats.Food = 0.8f;
             p.ComponentVitalStats.Sleep = 0.8f;
             p.ComponentVitalStats.Temperature = 12f;
@@ -52,7 +55,13 @@ sealed partial class Runner
                 });
                 // 夹具给木材、工作台和生肉，不给石料或石斧；石料必须从遮住的地层逐步露出并实际采得。
                 carry.AddSlotItems(0, OakWoodBlock.Index, 6);
-                carry.AddSlotItems(1, CraftingTableBlock.Index, 1);
+                if (roundTrip)
+                {
+                    var table = cell + new Point3(-10, 0, 0);
+                    terrain.ChangeCell(table.X, table.Y, table.Z, CraftingTableBlock.Index);
+                    productionStations[CraftingTableBlock.Index] = table;
+                }
+                else carry.AddSlotItems(1, CraftingTableBlock.Index, 1);
                 carry.AddSlotItems(2, RawMeatBlock.Index, 1);
             }
             forageTools = new(Guid.NewGuid(), p, new ActorTools(actions, true));
@@ -62,6 +71,17 @@ sealed partial class Runner
         }
         if (elapsed < 1) return;
         quarryLowest = Math.Min(quarryLowest, p.ComponentBody.Position.Y);
+        if (mode == "quarry-low-ceiling")
+        {
+            var at = Terrain.ToCell(p.ComponentBody.Position);
+            if (terrain.Terrain.GetChunkAtCell(at.X, at.Z)?.State != TerrainChunkState.Valid) return;
+            var offered = PlaySurvivalProduction.QuarrySites(memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)));
+            Passed = offered.Length == 0 && terrain.Terrain.GetCellContents(at.X, at.Y - 1, at.Z) == DirtBlock.Index
+                && p.ComponentHealth.Health >= 0.95f;
+            Done = true;
+            Gate.Log(new { kind = "quarry_low_ceiling_result", Passed, offers = offered.Length, modelCalls = 0 });
+            return;
+        }
         fixtureQuarry ??= PlaySurvivalProduction.QuarrySites(memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)))
             .FirstOrDefault(site => site.Direction.X == 1);
         if (fixtureQuarry is null)
@@ -71,16 +91,20 @@ sealed partial class Runner
         }
         string[] tasks = [PlaySurvivalProduction.Quarry, PlaySurvivalProduction.Axe, PlaySurvivalProduction.StoneSupply,
             PlaySurvivalProduction.VisitTable, PlaySurvivalProduction.Furnace, PlaySurvivalProduction.Cook];
+        if (mode == "quarry-kitchen-auto") tasks = tasks.Where(task => task != PlaySurvivalProduction.VisitTable).ToArray();
+        if (roundTrip) tasks = [PlaySurvivalProduction.Quarry, PlaySurvivalProduction.Axe, PlaySurvivalProduction.VisitQuarry,
+            PlaySurvivalProduction.StoneSupply, PlaySurvivalProduction.Furnace, PlaySurvivalProduction.Cook];
         if (quarryFixtureStep == tasks.Length)
         {
             int slot = Enumerable.Range(0, carry.SlotsCount).FirstOrDefault(i => carry.GetSlotCount(i) > 0
                 && Terrain.ExtractContents(carry.GetSlotValue(i)) == CookedMeatBlock.Index, -1);
             var eat = slot < 0 ? null : actions.Start(new Eat(slot, carry.GetSlotValue(slot), 1));
             fixtureCookingTrial!.Sample(now, true);
-            Passed = eat?.Result.Status == AtomicActionStatus.Succeeded && fixturePreparedMeal && quarryReturnedWithSample;
+            Passed = eat?.Result.Status == AtomicActionStatus.Succeeded && fixturePreparedMeal && quarryReturnedWithSample
+                && (!roundTrip || (p.ComponentBody.Position - fixtureQuarry.Entry).XZ.Length() > 6f);
             Done = true;
             Gate.Log(new { kind = "quarry_kitchen_result", Passed, fixturePreparedMeal, quarryReturnedWithSample,
-                maximumDepth = fixtureQuarryEntry.Y - quarryLowest, noStoneGift = true, modelCalls = 0 });
+                maximumDepth = fixtureQuarryEntry.Y - quarryLowest, noStoneGift = true, workstationRoundTrip = roundTrip, modelCalls = 0 });
             return;
         }
         production ??= new(p, actions, forageTools!, tasks[quarryFixtureStep], now, Gate.Log, productionStations,
@@ -97,15 +121,16 @@ sealed partial class Runner
         if (mode is "quarry-depth-limit" or "quarry-water")
         {
             Passed = production.Status == "failed" && surface && footing && !fixtureQuarry.StoneSeen
-                && p.ComponentHealth.Health >= 0.95f && fixtureQuarry.DepthReached <= 3.1f
+                && p.ComponentHealth.Health >= 0.95f && fixtureQuarry.DepthReached <= PlaySurvivalProduction.MaximumQuarryDepth - 0.9f
                 && (mode == "quarry-water" ? production.Reason == "quarry_liquid_or_missing_support"
-                    : production.Reason == "no_stone_within_shallow_limit" && fixtureQuarry.DepthReached >= 2.9f);
+                    : production.Reason == "no_stone_within_shallow_limit" && fixtureQuarry.DepthReached >= PlaySurvivalProduction.MaximumQuarryDepth - 1.1f);
             Done = true;
         }
         else if (production.Status != "succeeded") Done = true;
         else if (!kitchen)
         {
-            Passed = quarryReturnedWithSample && footing && fixtureQuarry.DepthReached <= 4.1f
+            Passed = quarryReturnedWithSample && footing && fixtureQuarry.DepthReached <= PlaySurvivalProduction.MaximumQuarryDepth + 0.1f
+                && (mode != "quarry-deeper-stone" || fixtureQuarry.DepthReached >= 4.9f)
                 && p.ComponentHealth.Health >= 0.95f;
             Done = true;
         }

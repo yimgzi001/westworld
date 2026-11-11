@@ -15,7 +15,7 @@ internal sealed partial class PlaySurvivalProduction
     private PlaySurvivalTravel? projectRoute;
     private Point3? approachingMaterial;
     private readonly HashSet<Point3> triedMaterialApproaches = new();
-    private int projectStages;
+    private int projectStages, materialFailures;
     private int? projectBird;
     private bool warmthReady;
     private double projectReadyAt;
@@ -35,11 +35,6 @@ internal sealed partial class PlaySurvivalProduction
 
     private void AdvanceProject(double gameTime)
     {
-        if (Task == StoneSupply && Stock(player, Stone) >= 8 || Task == EarthSupply && Stock(player, Earth) >= 40)
-        {
-            Finish(true, "stock_target_already_met");
-            return;
-        }
         var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         if (!startedAtNight && PlaySurvivalRest.NightCoverDue(calendar) || player.ComponentSleep.IsSleeping)
         {
@@ -83,6 +78,20 @@ internal sealed partial class PlaySurvivalProduction
             projectStep = null;
             if (step.Status != "succeeded")
             {
+                if (Task is WoodSupply or StoneSupply or EarthSupply && materialFailures++ < 3
+                    && PlaySurvivalSenses.OnDryGround(body) && Math.Abs(body.Velocity.Y) < 0.6f
+                    && player.ComponentHealth.Health >= 0.45f)
+                {
+                    if (step.material is { } failed)
+                    {
+                        missedMaterials.Add(failed.Cell);
+                        triedMaterialApproaches.Add(failed.Cell);
+                    }
+                    log(new { kind = "play_production_material_retry", actor = player.PlayerData.Name, project = Task,
+                        step.Reason, failures = materialFailures, missedDrops = missedMaterialDrops.Count, gameTime });
+                    projectReadyAt = gameTime + 0.18;
+                    return;
+                }
                 Finish(false, step.Reason ?? "project_step_failed");
                 return;
             }
@@ -91,10 +100,14 @@ internal sealed partial class PlaySurvivalProduction
             projectReadyAt = gameTime + 0.18;
             return;
         }
-        if (Added >= (Task == WoodSupply ? 3 : Task == StoneSupply ? Math.Max(1, 8 - before)
+        bool stockEnough = Task == StoneSupply && Stock(player, Stone) >= 8
+            || Task == EarthSupply && Stock(player, Earth) >= 40;
+        if (stockEnough || Added >= (Task == WoodSupply ? 3 : Task == StoneSupply ? Math.Max(1, 8 - before)
             : Task == EarthSupply ? Math.Max(1, 40 - before) : 1))
         {
-            Finish(true, Task == WarmthProject ? "native_campfire_confirmed" : "project_inventory_goal_confirmed");
+            if (!PlaySurvivalSenses.OnDryGround(body) || Math.Abs(body.Velocity.Y) >= 0.6f) return;
+            Finish(true, stockEnough ? "stock_target_already_met"
+                : Task == WarmthProject ? "native_campfire_confirmed" : "project_inventory_goal_confirmed");
             return;
         }
         if (!PlaySurvivalSenses.OnDryGround(player.ComponentBody))
@@ -135,12 +148,16 @@ internal sealed partial class PlaySurvivalProduction
             projectRoute = new(player, owner, bearing, delta.Length(), next.Bird.HasValue ? "prey" : "work", false, gameTime,
                 () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log, permitLandLeg: permitLandLeg,
                 observedPath: path,
+                shelterTarget: next.Bird.HasValue ? null : destination,
+                arrived: next.Bird.HasValue ? null : () => Math.Abs(body.Position.Y - destination.Y) < 0.15f
+                    && (body.Position - destination).XZ.LengthSquared() < 0.45f * 0.45f,
                 readMovingTarget: next.Bird is int target ? () => ReadFoodBirdPoint(target, ProjectBirdReach) : null,
                 movingTargetReach: HuntApproachReach - 1f);
             return;
         }
         projectStep = new(player, owner, tools, next.Task, gameTime, log, stations, readDryWindow, permitLandLeg, next.Bird,
             ownFarm: ownFarm, camp: camp, preserveGround: preserveGround);
+        projectStep.missedMaterialDrops = missedMaterialDrops;
         if (Task is StoneSupply or EarthSupply) projectStep.missedMaterials.Add(materialEntryFooting);
     }
 
@@ -223,11 +240,12 @@ internal sealed partial class PlaySurvivalProduction
         Func<Vector3, bool>? permitted, IReadOnlySet<Point3>? triedMaterials, IReadOnlySet<Point3>? protectedMaterials = null)
     {
         var origin = player.ComponentBody.Position;
+        float verticalReach = task == Stone ? MaximumQuarryDepth : 3f;
         if (FindMaterial(panorama, origin, task, protectedMaterials) is not null) return new(task);
         var ground = panorama.Blocks.Where(block => block.BareTop && PlaySurvivalSenses.IsDryTerrain(block.Value))
             .ToLookup(block => (block.Cell.X, block.Cell.Z));
         foreach (var material in panorama.Blocks.Where(block => IsMaterial(block.Value, task)
-            && MathF.Abs(block.Cell.Y - origin.Y) <= 4f && triedMaterials?.Contains(block.Cell) != true
+            && MathF.Abs(block.Cell.Y - origin.Y) <= (task == Stone ? MaximumQuarryDepth : 4f) && triedMaterials?.Contains(block.Cell) != true
             && protectedMaterials?.Contains(block.Cell) != true).OrderBy(block => block.Distance))
         {
             var cell = material.Cell;
@@ -237,7 +255,7 @@ internal sealed partial class PlaySurvivalProduction
                           where dx != 0 || dz != 0
                           from support in ground[(cell.X + dx, cell.Z + dz)]
                           let feet = support.Cell.Y + 1
-                          where feet >= cell.Y - 1 && feet <= cell.Y + (task is Earth or Stone ? 1 : 0) && MathF.Abs(feet - origin.Y) <= 3f
+                          where feet >= cell.Y - 1 && feet <= cell.Y + (task is Earth or Stone ? 1 : 0) && MathF.Abs(feet - origin.Y) <= verticalReach
                           let stand = new Vector3(support.Cell.X + 0.5f, feet, support.Cell.Z + 0.5f)
                           let distance = (stand - origin).XZ.LengthSquared()
                           where distance is >= 0.25f and <= ProjectReach * ProjectReach

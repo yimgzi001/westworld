@@ -82,9 +82,10 @@ sealed partial class Runner
             var eggs = (EggBlock)BlocksManager.Blocks[EggBlock.Index];
             int type = eggs.EggTypes.First(egg => egg.NutritionalValue > 0.15f).EggTypeIndex;
             goalEggValue = Terrain.MakeBlockValue(EggBlock.Index, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, type), true));
+            if (mode == "survival-goal-recover") goalEggValue = WoodenSpearBlock.Index;
             if (mode is "survival-goal-sequence" or "survival-goal-plan-failure")
                 goalEggValue = Terrain.ReplaceData(goalEggValue, EggBlock.SetIsCooked(Terrain.ExtractData(goalEggValue), true));
-            if (mode is "survival-goal-target" or "survival-goal-urgent-food" or "survival-goal-hearing" or "survival-goal-sequence" or "survival-goal-plan-failure" or "survival-goal-choose-wait")
+            if (mode is "survival-goal-target" or "survival-goal-urgent-food" or "survival-goal-hearing" or "survival-goal-sequence" or "survival-goal-plan-failure" or "survival-goal-choose-wait" or "survival-goal-recover")
             {
                 var drops = p.Project.FindSubsystem<SubsystemPickables>(true);
                 goalEgg = drops.AddPickable(goalEggValue, 1, goalOrigin + new Vector3(mode is "survival-goal-target" or "survival-goal-sequence" or "survival-goal-plan-failure" ? 9f : 6f, 0.2f, 0),
@@ -166,7 +167,7 @@ sealed partial class Runner
             }
         }
         if (!pendingVitalsChanged && goalQueue.IsPending(goalActor!.Id)
-            && mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold" or "survival-goal-pending-egg")
+            && mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold" or "survival-goal-pending-egg" or "survival-goal-pending-raw")
         {
             pendingVitalsChanged = true;
             if (mode == "survival-goal-pending-cold")
@@ -178,8 +179,9 @@ sealed partial class Runner
             {
                 var carry = p.ComponentMiner.Inventory;
                 int pumpkin = Terrain.MakeBlockValue(PumpkinBlock.Index, 0, BasePumpkinBlock.SetSize(0, 7));
-                carry.AddSlotItems(0, mode == "survival-goal-pending-egg" ? goalEggValue : pumpkin, 1);
-                p.ComponentVitalStats.Food = 0.04f;
+                carry.AddSlotItems(0, mode == "survival-goal-pending-egg" ? goalEggValue
+                    : mode == "survival-goal-pending-raw" ? RawMeatBlock.Index : pumpkin, 1);
+                p.ComponentVitalStats.Food = mode == "survival-goal-pending-raw" ? 0.03f : 0.04f;
             }
         }
         if (mode == "survival-goal-plan-failure" && goalAcquiredDecoy && goalEgg is not null) goalEgg.ToRemove = true;
@@ -218,6 +220,8 @@ sealed partial class Runner
         bool fallback = goalEvents.Any(entry => Kind(entry) == "play_survival_goal_started" && Text(entry, "source") == "model_fallback");
         bool success = mode switch
         {
+            "survival-goal-recover" => goalAcquiredExact && goalQueue.Issued == 1
+                && goalEvents.Any(entry => Kind(entry) == "play_equipment_recovered"),
             "survival-goal-choose-wait" => goalQueue.Issued == 1 && now - goalStarted > 4.5 && !goalAcquiredExact
                 && goalEvents.Any(entry => Kind(entry) == "play_survival_goal_started" && Text(entry.GetProperty("choice"), "id") == "wait"),
             "survival-goal-sequence" => goalAcquiredExact && goalAcquiredDecoy && goalQueue.Issued == 1
@@ -273,6 +277,9 @@ sealed partial class Runner
                 && !goalEvents.Any(entry => Kind(entry) == "play_survival_request_interrupted"),
             "survival-goal-pending-egg" => pendingVitalsChanged && p.ComponentVitalStats.Food > 0.18f && goalQueue.Issued == 1
                 && goalEvents.Any(entry => Kind(entry) == "play_survival_emergency_meal"),
+            "survival-goal-pending-raw" => pendingVitalsChanged && p.ComponentVitalStats.Food > 0.15f && goalQueue.Issued == 1
+                && NativeAcquisitionAudit.InventoryCount(p.ComponentMiner.Inventory, RawMeatBlock.Index) == 0
+                && goalEvents.Any(entry => Kind(entry) == "play_survival_emergency_meal"),
             "survival-goal-pending-hunger" => pendingVitalsChanged && p.ComponentVitalStats.Food > 0.15f && goalQueue.Issued == 1
                 && goalEvents.Any(entry => Kind(entry) == "play_survival_emergency_meal"),
             _ => false
@@ -318,7 +325,7 @@ sealed partial class Runner
 
     private void ReplyToGoalRequest()
     {
-        if (mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold" or "survival-goal-pending-egg") return;
+        if (mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold" or "survival-goal-pending-egg" or "survival-goal-pending-raw") return;
         if (mode == "survival-goal-cold-persistent" && p.Project.FindSubsystem<SubsystemTime>(true).GameTime - goalStarted < 6f) return;
         foreach (string requestPath in Directory.EnumerateFiles(goalControlRoot!, "request.json", SearchOption.AllDirectories))
         {
@@ -344,6 +351,7 @@ sealed partial class Runner
                     && (mode != "survival-goal-fire-burning" || onFire.GetBoolean());
             }
             var selected = new List<JsonElement>();
+            if (mode == "survival-goal-recover") selected.Add(options.First(option => Text(option, "id") == "recover_spear_1"));
             if (mode == "survival-goal-quarry") selected.Add(options.First(option => Text(option, "id") == "quarry_1"));
             if (mode == "survival-goal-fire-care")
             {

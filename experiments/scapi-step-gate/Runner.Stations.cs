@@ -11,11 +11,14 @@ sealed partial class Runner
     private Point3 stationFixtureFire;
     private Vector3 stationFixtureOrigin;
     private int stationFixtureCleared, stationFixtureProgress, stationFixtureStage;
+    private bool stationFixtureWorkbenchReady;
 
     private void RunStationFixture()
     {
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
-        bool returning = mode == "worksite-hidden";
+        bool replacing = mode == "station-replace-distant";
+        bool crafting = mode == "station-craft-return" || replacing;
+        bool returning = mode == "worksite-hidden" || crafting;
         bool fuel = mode.StartsWith("station-fire-", StringComparison.Ordinal);
         var carry = p.ComponentMiner.Inventory;
         if (stage == 0)
@@ -41,11 +44,13 @@ sealed partial class Runner
             // 初态只在夹具中布置；正式过程只用角色观察、原生移动、挖掘、放置、交互和库存动作。
             if (returning)
             {
-                var furnace = cell + new Point3(18, 1, 0);
-                terrain.ChangeCell(furnace.X, furnace.Y, furnace.Z, FurnaceBlock.Index);
-                productionStations[FurnaceBlock.Index] = furnace;
-                carry.AddSlotItems(0, RawMeatBlock.Index, 1);
-                carry.AddSlotItems(1, OakWoodBlock.Index, 1);
+                var furnace = cell + (replacing ? new Point3(80, 0, 0) : new Point3(18, 1, 0));
+                int station = crafting ? CraftingTableBlock.Index : FurnaceBlock.Index;
+                // 远站仅作为过去的记忆，不在未加载的远处读写地形；新台必须在当前地面实际建成。
+                if (!replacing) terrain.ChangeCell(furnace.X, furnace.Y, furnace.Z, station);
+                productionStations[station] = furnace;
+                carry.AddSlotItems(0, crafting ? CobblestoneBlock.Index : RawMeatBlock.Index, 1);
+                carry.AddSlotItems(1, OakWoodBlock.Index, crafting ? 2 : 1);
             }
             else if (fuel)
             {
@@ -70,8 +75,12 @@ sealed partial class Runner
             return;
         }
         if (elapsed < 1) return;
-        string task = returning ? stationFixtureStage == 0 ? PlaySurvivalProduction.VisitFurnace : PlaySurvivalProduction.Cook
+        string task = replacing && stationFixtureStage == 0 ? PlaySurvivalProduction.Workbench : crafting ? PlaySurvivalProduction.Axe
+            : returning ? stationFixtureStage == 0 ? PlaySurvivalProduction.VisitFurnace : PlaySurvivalProduction.Cook
             : fuel ? PlaySurvivalProduction.TendFire : PlaySurvivalProduction.Warm;
+        if (replacing && stationFixtureStage == 0 && production is null)
+            stationFixtureWorkbenchReady = PlaySurvivalProduction.AvailableTasks(p, actions.Queries.ReadPanorama(32f),
+                productionStations, routineWork: true, allowProjects: false, permitted: null).Contains(PlaySurvivalProduction.Workbench);
         production ??= new(p, actions, forageTools!, task, now, record =>
         {
             var e = JsonSerializer.SerializeToElement(record);
@@ -82,13 +91,19 @@ sealed partial class Runner
         production.Update(now);
         if (production.Status is null) return;
         Gate.Log(new { kind = "station_fixture_task", mode, production.Task, production.Status, production.Reason, production.Added });
-        if (returning && stationFixtureStage++ == 0 && production.Status == "succeeded") { production = null; return; }
+        if (replacing && stationFixtureStage++ == 0 && production.Status == "succeeded") { production = null; return; }
+        if (returning && !crafting && stationFixtureStage++ == 0 && production.Status == "succeeded") { production = null; return; }
         float moved = (p.ComponentBody.Position - stationFixtureOrigin).XZ.Length();
         var fireCell = fuel ? stationFixtureFire : productionStations.GetValueOrDefault(CampfireBlock.Index);
         int fireSize = returning || !fuel && !productionStations.ContainsKey(CampfireBlock.Index) ? 0
             : Terrain.ExtractData(terrain.Terrain.GetCellValue(fireCell.X, fireCell.Y, fireCell.Z));
         int fuelStock = NativeAcquisitionAudit.InventoryCount(carry, OakWoodBlock.Index) ?? 0;
-        Passed = returning ? production.Status == "succeeded" && stationFixtureProgress > 0 && moved > 10
+        Passed = replacing ? production.Status == "succeeded" && stationFixtureWorkbenchReady
+                && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Axe) == 1
+                && (new Vector3(productionStations[CraftingTableBlock.Index]) - p.ComponentBody.Position).XZ.Length() < 5f
+            : crafting ? production.Status == "succeeded" && stationFixtureProgress > 0 && moved > 10
+                && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Axe) == 1
+            : returning ? production.Status == "succeeded" && stationFixtureProgress > 0 && moved > 10
                 && NativeAcquisitionAudit.InventoryCount(carry, CookedMeatBlock.Index) == 1
             : mode == "station-crop" ? production.Status == "failed" && stationFixtureCleared == 0
                 && NativeAcquisitionAudit.InventoryCount(carry, CampfireBlock.Index) == 1

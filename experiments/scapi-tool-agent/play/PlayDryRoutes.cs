@@ -201,6 +201,13 @@ internal static class PlayDryRoutes
         ObservedStepRoutes.Project(window, allowObservedSandAndGravel: true, openCell: OpenCell, plannedOrigin: plannedOrigin)
             .Where(step => step.MaximumAge <= 1.25).ToArray();
 
+    public static bool HasObservedReturnStep(LocalObservationWindow window, Vector3 lower, Vector3 upper) =>
+        ReadSteps(window, new(lower.X, lower.Y, lower.Z)).Any(step => step.Kind == StepKind.Up
+            && (PositionOf(step.Destination) - upper).LengthSquared() < 0.01f);
+
+    public static Leg[] ObservedUpSteps(LocalObservationWindow window) => ReadSteps(window)
+        .Where(step => step.Kind == StepKind.Up).Select(StepLeg).ToArray();
+
     public static Vector3? ShallowExit(LocalObservationWindow window, int surface) => ReadSteps(window)
         .FirstOrDefault(step => step.Kind == StepKind.Up && step.Destination.Y == surface) is { } exit
             ? PositionOf(exit.Destination) : null;

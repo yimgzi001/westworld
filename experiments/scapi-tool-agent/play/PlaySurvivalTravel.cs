@@ -48,7 +48,7 @@ internal sealed class PlaySurvivalTravel
     private Vector3? escapeOutlet;
     private long proofStarted;
     private int scans, legs;
-    private readonly HashSet<(int X, int Z)> visitedGoalCells = new();
+    private readonly HashSet<(int X, int Y, int Z)> visitedGoalCells = new();
     private readonly HashSet<Vector3> refusedDryEndpoints = new();
     private int goalDetours;
     private int nextWaypoint;
@@ -458,7 +458,7 @@ internal sealed class PlaySurvivalTravel
         dryLeg = true;
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
-        if (KeepsTarget) visitedGoalCells.Add(CellXZ(player.ComponentBody.Position));
+        if (KeepsTarget) visitedGoalCells.Add(CellXYZ(player.ComponentBody.Position));
         bool preciseCenter = goalRange < 0.2f && CellXZ(surveyTarget) == CellXZ(player.ComponentBody.Position)
             && (surveyTarget - player.ComponentBody.Position).XZ.LengthSquared() < 0.5f * 0.5f;
         var route = preciseCenter ? PlayDryRoutes.Alignment(window) : DryRoute(window, remaining, !aligned, towardLowerDrop, gameTime);
@@ -561,9 +561,12 @@ internal sealed class PlaySurvivalTravel
         || seek is "work" or "search" || seek == "shelter" && shelterTarget is not null;
 
     private static (int X, int Z) CellXZ(Vector3 point) => (Terrain.ToCell(point.X), Terrain.ToCell(point.Z));
+    private static (int X, int Y, int Z) CellXYZ(Vector3 point) =>
+        (Terrain.ToCell(point.X), Terrain.ToCell(point.Y + 0.05f), Terrain.ToCell(point.Z));
 
     private bool CanUseLandLeg(Vector3 end, double gameTime) => !refusedDryEndpoints.Contains(end)
-        && (!KeepsTarget || !visitedGoalCells.Contains(CellXZ(end)))
+        // 不同高度的同一列是不同落脚点，不能因走过下层就禁止跳回上层。
+        && (!KeepsTarget || !visitedGoalCells.Contains(CellXYZ(end)))
         && permitLandLeg?.Invoke(end, gameTime) != false;
 
     private (MoveAlongObservedRoute Route, Action Accepted)? ContinueFlat(double gameTime)
@@ -592,7 +595,7 @@ internal sealed class PlaySurvivalTravel
             float turn = velocity.LengthSquared() > 0.01f
                 ? MathUtils.RadToDeg(Vector2.Angle(velocity, (next.Points[0] - body.Position).XZ)) : 0f;
             traveled += progress;
-            if (KeepsTarget) visitedGoalCells.Add(CellXZ(body.Position));
+            if (KeepsTarget) visitedGoalCells.Add(CellXYZ(body.Position));
             legOrigin = body.Position;
             dryProof = route;
             proofStarted = Stopwatch.GetTimestamp();

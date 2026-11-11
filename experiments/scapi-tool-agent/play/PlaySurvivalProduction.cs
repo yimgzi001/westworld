@@ -47,6 +47,8 @@ internal sealed partial class PlaySurvivalProduction
     private PlaySurvivalTravel? materialPickupRoute;
     private bool approachedMaterialDrop;
     private readonly HashSet<Point3> missedMaterials = new();
+    private HashSet<Guid> missedMaterialDrops = new();
+    private Guid? lastMaterialDrop;
     private double collectUntil, nextPoll;
     private double? groundContactMissingSince;
 
@@ -54,7 +56,7 @@ internal sealed partial class PlaySurvivalProduction
         double gameTime, Action<object> log, Dictionary<int, Point3> stations, Func<LocalObservationWindow> readDryWindow,
         Func<Vector3, double, bool>? permitLandLeg = null, int? selectedBird = null, bool resumeGear = false,
         Dictionary<Point3, Patch>? ownFarm = null, CampSite? camp = null, QuarrySite? quarrySite = null,
-        IReadOnlySet<Point3>? preserveGround = null)
+        IReadOnlySet<Point3>? preserveGround = null, NearbyPickableView? selectedPickup = null)
     {
         this.player = player;
         this.owner = owner;
@@ -76,12 +78,14 @@ internal sealed partial class PlaySurvivalProduction
             for (int y = camp.Y - 1; y <= camp.Y + 2; y++) missedMaterials.Add(new(x, y, z));
         triedMaterialApproaches.UnionWith(missedMaterials);
         Task = task;
+        if (task == RecoverSpear && selectedPickup is not null) BindEquipment(selectedPickup);
         before = Stock(player, task);
         materialEntryFooting = Terrain.ToCell(player.ComponentBody.Position) - Up;
         startedAtNight = PlaySurvivalRest.NightCoverDue(player.Project.FindSubsystem<SubsystemTimeOfDay>(true));
         if (task is StoneSupply or EarthSupply)
             triedMaterialApproaches.Add(materialEntryFooting);
-        deadline = gameTime + (task is Quarry or BuildCamp or ReturnCamp or LeaveCamp or VisitTable or VisitFurnace or VisitFire || IsProject(task) ? 180 : 36);
+        deadline = gameTime + (task == RecoverSpear ? 90 : task is Quarry or VisitQuarry or BuildCamp or ReturnCamp or LeaveCamp or VisitTable or VisitFurnace or VisitFire
+            or Furnace or Spear or Rake or Axe or Cook || IsProject(task) ? 180 : 36);
         log(new { kind = "play_production_started", actor = player.PlayerData.Name, task, before, gameTime });
     }
 
@@ -89,13 +93,16 @@ internal sealed partial class PlaySurvivalProduction
     public string? Status { get; private set; }
     public string? Reason { get; private set; }
     public int Added => Task is VisitTable or VisitFurnace or VisitFire ? worksiteReached ? 1 : 0
+        : Task == VisitQuarry ? quarryVisited ? 1 : 0
+        : Task == RecoverSpear ? equipmentRecovered
         : Task == TendFire ? fireFuelAdded
         : Task is BuildCamp or ReturnCamp or LeaveCamp ? campComplete ? 1 : 0
         : Task == PlantPumpkins ? plantedCount : Task == WarmthProject ? warmthReady ? 1 : 0 : Math.Max(0, Stock(player, Task) - before);
     public string? CurrentStage { get; private set; }
     public Vector3? ActiveLandEndpoint => projectRoute?.ActiveLandEndpoint ?? projectStep?.ActiveLandEndpoint
         ?? huntApproach?.ActiveLandEndpoint ?? materialPickupRoute?.ActiveLandEndpoint ?? campRoute?.ActiveLandEndpoint
-        ?? quarryRoute?.ActiveLandEndpoint ?? quarryChild?.ActiveLandEndpoint;
+        ?? quarryRoute?.ActiveLandEndpoint ?? quarryChild?.ActiveLandEndpoint ?? stationApproach?.ActiveLandEndpoint
+        ?? equipmentRoute?.ActiveLandEndpoint ?? quarryDirectLeg?.End;
 
     public static ToolOffer? Offer(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
         bool routineWork, bool allowProjects = true, Func<Vector3, bool>? permitted = null)
@@ -123,11 +130,13 @@ internal sealed partial class PlaySurvivalProduction
         WarmAtFire => "在本人营火旁连续取暖晾干，达到安全体温与湿度后结束",
         Cook => "把现有生肉烧熟，并从熔炉取出",
         Hunt => "用木矛追猎一只看得见的食用鸟，取得生肉后保留",
+        RecoverSpear => "沿已见地形回收这根可见投矛，核对本人实际入包，避免每次重新造矛",
         Wood => "取得可见的木材",
         Stone => "取得可见的圆石",
         WoodSupply => "连续采集三块木材，沿已见地形接近树干并逐块核对入包",
         StoneSupply => "连续取得八块圆石，材料够八块即完成",
-        Quarry => "从选定的已见土面浅挖阶梯找石，最多下探四格，保留退路并带一块样本回到地面；不保证地下有石头",
+        Quarry => "从选定的已见土面浅挖阶梯找石，最多六格，每次下探先核对回跳净空，保留退路并带一块样本回地面；不保证地下有石头",
+        VisitQuarry => "回本人已经发现石层的浅探入口，逐段核对地形，到达后重新观察石料",
         PumpkinSeeds => "用一只成熟南瓜按原生配方制三粒种子；消耗这只南瓜",
         PlantPumpkins => "在身边已见的向阳土面播种，最多三株；自带木耙时先耕地，苗不计作粮食",
         Rake => "在工作台制作木耙，用于改善南瓜种植土面",
@@ -151,12 +160,14 @@ internal sealed partial class PlaySurvivalProduction
         Furnace => "已放置工作台和八块圆石",
         Cook => "熔炉、生肉和非爆炸燃料；熟肉必须取回背包",
         Hunt => "可见且掉肉的鸟、木矛、自己站在安全干地；命中伤害由原生结算",
+        RecoverSpear => "本人已见的具体投矛掉落与安全路线；目标被遮住或消失则重新评估",
         Fire => "一块原木或两块木板或四根木棒",
         Warm => "自带营火和可见安全地面",
         TendFire => "先回到仍有火苗的营火；一份非爆炸燃料。已熄灭的灰烬不能靠添柴重新点燃",
         WarmAtFire => "先回自己的燃烧营火，必要时添柴；站在三格内安全距离，不踩火",
         StoneSupply or Stone => "本人已经见到的花岗岩及安全落脚位置",
         Quarry => "已见四格平整软土地面与净空；逐层观察，不读取地下地图；不可拆营地、农地或旧矿口退路",
+        VisitQuarry => "本人已开挖且发现过石头的矿口，四十格内；记住矿口不等于地下资源仍然可采",
         PumpkinSeeds => "成熟南瓜一只；应先保留吃的南瓜，再考虑留种",
         PlantPumpkins => "背包南瓜种子、可见向阳土面；温暖季节生长较快，幼苗需等待自然成熟",
         Rake => "原生工作台、木板和木棒",
@@ -221,8 +232,7 @@ internal sealed partial class PlaySurvivalProduction
             if (woodNearby && Stock(player, Wood) < 3) available.Add(Wood);
             if (FindMaterial(panorama, player.ComponentBody.Position, Stone) is not null && Stock(player, Stone) < 8) available.Add(Stone);
             bool hasBoards = HasIngredient(player, "wood", 1) || HasIngredient(player, "planks", 4);
-            if ((woodNearby || hasBoards) && Stock(player, Workbench) == 0
-                && !stations.ContainsKey(CraftingTableBlock.Index)) available.Add(Workbench);
+            if (hasBoards && Stock(player, Workbench) == 0) available.Add(Workbench);
             bool hasTable = Stock(player, Workbench) > 0 || SeenStation(panorama, stations, CraftingTableBlock.Index) is not null;
             int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
             int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
@@ -271,7 +281,7 @@ internal sealed partial class PlaySurvivalProduction
         Fire => Terrain.ExtractContents(value) == CampfireBlock.Index,
         Furnace => Terrain.ExtractContents(value) == FurnaceBlock.Index,
         Cook or CookedFoodProject => IsCookedMeat(value),
-        Spear or SpearProject => IsSpear(value),
+        Spear or SpearProject or RecoverSpear => IsSpear(value),
         Hunt => PlaySurvivalFood.IsRawMeat(value),
         PumpkinSeeds => IsPumpkinSeed(value),
         Rake => Terrain.ExtractContents(value) == WoodenRakeBlock.Index,
@@ -298,6 +308,19 @@ internal sealed partial class PlaySurvivalProduction
     public void Update(double gameTime)
     {
         if (Status is not null) return;
+        if (Task == VisitQuarry) { AdvanceQuarryVisit(gameTime); return; }
+        if (Task == RecoverSpear) { AdvanceEquipment(gameTime); return; }
+        if (stationApproach is { } approach)
+        {
+            if (gameTime >= deadline || player.ComponentSleep.IsSleeping)
+            { Finish(false, "station_approach_interrupted"); return; }
+            approach.Update(gameTime);
+            if (approach.Status is null) return;
+            stationApproach = null;
+            if (approach.Status != "succeeded") { Finish(false, approach.Reason ?? "own_station_approach_failed"); return; }
+            phase = Phase.Start;
+            return;
+        }
         if (Task == Quarry) { AdvanceQuarry(gameTime); return; }
         if (IsProject(Task))
         {
@@ -329,6 +352,17 @@ internal sealed partial class PlaySurvivalProduction
             if (native.Result.Status != AtomicActionStatus.Succeeded)
             {
                 if (RetryCampPlacement(native, gameTime)) return;
+                if (native.Action is Place && phase == Phase.AimStation && placementFloor is { } refused
+                    && native.Result.Failure is AtomicActionFailure.Blocked or AtomicActionFailure.TargetChanged
+                    && refusedStationFloors.Count < 6)
+                {
+                    // 原生拒绝尚未落地的工作站时，换一个已见地面，避免下一轮又挑到同一遮挡点。
+                    refusedStationFloors.Add(refused.Cell);
+                    log(new { kind = "play_station_native_placement_rejected", actor = player.PlayerData.Name,
+                        cell = refused.Cell.ToString(), failure = native.Result.Failure.ToString(), gameTime });
+                    phase = Phase.Start;
+                    return;
+                }
                 if (Task == Hunt && native.Action is PickUp && native.Result.Failure == AtomicActionFailure.OutOfReach)
                 {
                     if (!TryApproachPreyDrop(gameTime)) Finish(false, "prey_meat_out_of_reach");
@@ -423,7 +457,6 @@ internal sealed partial class PlaySurvivalProduction
 
     private void AdvanceMaterialPickup(double gameTime)
     {
-        if (Added > 0 && PlaySurvivalSenses.OnDryGround(player.ComponentBody)) { Finish(true, "material_acquired"); return; }
         if (materialPickupRoute is { } route)
         {
             route.Update(gameTime);
@@ -437,12 +470,21 @@ internal sealed partial class PlaySurvivalProduction
                 return;
             }
         }
+        if (Added > 0)
+        {
+            // 入包可能发生在下台阶途中，先让这一段原生移动落稳再交接制作等下一步。
+            if (PlaySurvivalSenses.OnDryGround(player.ComponentBody) && Math.Abs(player.ComponentBody.Velocity.Y) < 0.6f)
+                Finish(true, "material_acquired");
+            return;
+        }
         if (gameTime >= collectUntil) { Finish(false, "material_drop_not_acquired"); return; }
         if (gameTime < nextPoll) return;
         nextPoll = gameTime + 0.25;
-        var drop = owner.Queries.FindVisibleObjectsAround(6f).Pickables.FirstOrDefault(item => Task == Wood
-            ? IsMaterial(item.Value, Wood) : Terrain.ExtractContents(item.Value) == (Task == Earth ? DirtBlock.Index : CobblestoneBlock.Index));
+        var drop = owner.Queries.FindVisibleObjectsAround(6f).Pickables.FirstOrDefault(item =>
+            !missedMaterialDrops.Contains(NativeAcquisitionAudit.IdentityFor(item.CreatePickup(1).Target)) && (Task == Wood
+                ? IsMaterial(item.Value, Wood) : Terrain.ExtractContents(item.Value) == (Task == Earth ? DirtBlock.Index : CobblestoneBlock.Index)));
         if (drop is null) return;
+        lastMaterialDrop = NativeAcquisitionAudit.IdentityFor(drop.CreatePickup(1).Target);
         var pickup = owner.Start(drop.CreatePickup(1));
         if (pickup.Result.Failure is not (AtomicActionFailure.OutOfReach or AtomicActionFailure.Blocked)) return;
         if (approachedMaterialDrop)
@@ -585,6 +627,9 @@ internal sealed partial class PlaySurvivalProduction
     public void Stop()
     {
         StopQuarry();
+        StopEquipment();
+        stationApproach?.Stop();
+        stationApproach = null;
         projectStep?.Stop();
         projectStep = null;
         projectRoute?.Stop();
@@ -603,6 +648,7 @@ internal sealed partial class PlaySurvivalProduction
 
     private void Finish(bool success, string reason)
     {
+        if (!success && Task is Wood or Stone or Earth && lastMaterialDrop is Guid missed) missedMaterialDrops.Add(missed);
         Stop();
         Status = success ? "succeeded" : "failed";
         Reason = reason;

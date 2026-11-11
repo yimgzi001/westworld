@@ -757,7 +757,8 @@ internal sealed partial class PlayableActor
         return true;
     }
 
-    private void StartProduction(string task, double gameTime, int? bird = null, PlaySurvivalProduction.QuarrySite? quarry = null)
+    private void StartProduction(string task, double gameTime, int? bird = null, PlaySurvivalProduction.QuarrySite? quarry = null,
+        NearbyPickableView? pickup = null)
     {
         if (quarry is not null && !ownQuarries.Contains(quarry)) ownQuarries.Add(quarry);
         bool resumeGear = false;
@@ -769,7 +770,7 @@ internal sealed partial class PlayableActor
         }
         production = new(player, owner, tools, task, gameTime, log, placedStations, ReadDryWindow, PermitSurvivalLeg,
             selectedBird: bird, resumeGear: resumeGear, ownFarm: ownFarm, camp: campSite,
-            quarrySite: quarry, preserveGround: ProtectedOwnedCells());
+            quarrySite: quarry, preserveGround: ProtectedOwnedCells(), selectedPickup: pickup);
     }
 
     private HashSet<Point3> ProtectedOwnedCells() => ownQuarries.SelectMany(site => site.Supports)
@@ -1069,7 +1070,9 @@ internal sealed partial class PlayableActor
         {
             actor = Name,
             strategyNotes = PlaySurvivalKnowledge.ForSituation(player, campSite?.Built == true,
-                placedStations.ContainsKey(FurnaceBlock.Index)),
+                placedStations.ContainsKey(FurnaceBlock.Index),
+                placedStations.TryGetValue(CraftingTableBlock.Index, out var oldWorkbench)
+                    && (new Vector2(oldWorkbench.X + 0.5f, oldWorkbench.Z + 0.5f) - body.Position.XZ).LengthSquared() > 1600f),
             situation = new
             {
                 timeOfDay = Math.Round(calendar.TimeOfDay, 3),

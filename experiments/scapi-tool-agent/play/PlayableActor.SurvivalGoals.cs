@@ -74,6 +74,13 @@ internal sealed partial class PlayableActor
                     allowProjects: false, permitted: end => PermitSurvivalLeg(end, now));
                 var tasks = PlaySurvivalProduction.PlanningTasks(player, sweep.Panorama, placedStations,
                     end => PermitSurvivalLeg(end, now));
+                choices.AddRange(sweep.Panorama.Objects.Pickables
+                    .Where(item => PlaySurvivalProduction.RecoverableSpear(item.Value) && PermitSurvivalLeg(item.Position, now))
+                    .OrderBy(item => item.Distance).Take(3).Select((item, i) => new Choice($"recover_spear_{i + 1}", GoalKind.Supply,
+                        new { goal = "回收这根已见投矛，节省木材与返回工作台的时间", distance = Math.Round(item.Distance, 1),
+                            height = Math.Round(item.Position.Y - body.Position.Y, 1), item.InReach,
+                            prerequisites = "沿实际地形接近并核对这根矛入包；不会自动追踪遮挡后的掉落" },
+                        Supply: PlaySurvivalProduction.RecoverSpear, Pickup: item)));
                 choices.AddRange(tasks.Where(task => task != PlaySurvivalProduction.Hunt && (refusedSupply is not { } refused
                     || refused.Task != task || now >= refused.Until || refused.Inventory != InventoryStamp()
                     || (refused.Origin - body.Position).XZ.LengthSquared() > 1f))
@@ -89,6 +96,13 @@ internal sealed partial class PlayableActor
                         prerequisites = "先持有木矛，猎物仍可见时再执行" }, Supply: PlaySurvivalProduction.Hunt, Bird: bird.EntityId)));
                 if (!InOwnCamp())
                 {
+                    choices.AddRange(ownQuarries.Where(site => site.Worked && site.StoneSeen
+                            && (site.Entry - body.Position).XZ.LengthSquared() is > 1f and <= 1600f
+                            && PermitSurvivalLeg(site.Entry, now)).Take(3).Select((site, i) =>
+                        new Choice($"return_quarry_{i + 1}", GoalKind.Supply,
+                            new { goal = "回到本人发现过石层的浅探入口，重新核对可采石料",
+                                distance = Math.Round((site.Entry - body.Position).XZ.Length(), 1), site.DepthReached,
+                                rememberedOnly = true }, Supply: PlaySurvivalProduction.VisitQuarry, Quarry: site)));
                     var sites = PlaySurvivalProduction.QuarrySites(ReadDryWindow(), ProtectedOwnedGround)
                         .Where(site => PermitSurvivalLeg(new Vector3(site.Column(4).X + 0.5f, site.EntryCell.Y, site.Column(4).Z + 0.5f), now))
                         .Take(3).ToArray();
@@ -118,7 +132,7 @@ internal sealed partial class PlayableActor
         }
         if (dry && vitals.Food < 0.98f)
             choices.Add(new("eat", GoalKind.Eat, new { goal = "吃背包中一份适合当前身体状态的食物",
-                readyNow = HasMeal(), prerequisites = "先持有可以吃的食物；生肉不直接吃，生蛋仅在饥饿时应急" }));
+                readyNow = HasMeal(), prerequisites = "先持有可吃食物；生肉优先留待烤制，饱食不超过4%且尚未患病时才作濒饿应急，仍有患病风险" }));
         if (cover && CanRestHere())
             choices.Add(new("rest", GoalKind.Rest, "在掩体里睡觉，太湿时先晾干"));
         if (inShelter && !InOwnCamp() && CanLeaveHere(cover, night, recovering || cold, now))
@@ -284,7 +298,7 @@ internal sealed partial class PlayableActor
             case GoalKind.Supply when dry && earthSite?.Contains(body) != true && now >= nextProduction
                 && choice.Supply is { } task:
                 if (choice.Camp is { } home) campSite = home;
-                StartProduction(task, now, choice.Bird, choice.Quarry);
+                StartProduction(task, now, choice.Bird, choice.Quarry, choice.Pickup);
                 return;
             case GoalKind.Eat when dry:
                 DispatchIntent(PlaySurvivalIntents.Eat, queue, now);

@@ -29,8 +29,11 @@ internal static class PlaySurvivalFood
         var vitals = player.ComponentVitalStats;
         bool sick = player.ComponentSickness.IsSick;
         float nutrition = block.GetNutritionalValue(value);
-        if (nutrition <= 0f || vitals.Food >= 0.98f || IsRawMeat(value)
-            || !AcceptableRisk(block.GetSicknessProbability(value), vitals.Food, sick)) return false;
+        float risk = block.GetSicknessProbability(value);
+        // 生肉仍优先留给熔炉；只在濒饿且尚未患病时作为原生应急食物，不计作可靠储粮。
+        bool emergencyRaw = IsRawMeat(value) && vitals.Food <= 0.04f && !sick && risk <= 0.25f;
+        if (nutrition <= 0f || vitals.Food >= 0.98f || IsRawMeat(value) && !emergencyRaw
+            || !emergencyRaw && !AcceptableRisk(risk, vitals.Food, sick)) return false;
 
         // 原生按方块种类累计同类食物。提前排除这次进食就会超过原生致病线的食物。
         float added = Math.Max(0.5f, nutrition * (sick ? 0.75f : 1f));
