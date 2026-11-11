@@ -95,6 +95,7 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 - `survival-goal-hearing` 将灰狼置于墙后，触发原生攻击声音，核对停下朝声源的路线、等待、重新看到同一枚蛋并实际取到。夹具固定动物移动能力。
 - `survival-goal-fallback` 让控制器任务抛出暂时性异常，再核对本地重新观察和沿已确认路线行动。
 - `survival-goal-night` 在角色正在走路时进入日落前窗口，核对取消探索、停稳居中、完成第一处掩体并原生睡眠。
+- `survival-goal-night-through` 继续完整跑过原生加速睡眠，按本场实际日出区间确认自然醒来，记录实际睡眠秒数，并且只睡一次；不以发出睡眠动作作为整夜完成。它同时覆盖加速期间观察票据仍受正常保留上限约束的情况。
 - `survival-goal-warming` 从无木材库存开始，核对走近已见木材、采集、制作和放置营火，以及原生目标温度与实际体温上升。
 - `survival-goal-pending-hunger` 与 `survival-goal-pending-cold` 不提供控制器回复，核对真实需求变急时撤销请求并进食或生火回暖。
 - `production-resume-gear` 在猎物已被遮住、备矛尚未完成时中断，从真实库存和工作台继续，最终持有木矛。

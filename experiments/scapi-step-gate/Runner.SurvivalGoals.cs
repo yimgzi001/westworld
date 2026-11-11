@@ -29,6 +29,8 @@ sealed partial class Runner
     private float? targetBeforeFire;
     private bool pendingVitalsChanged;
     private bool goalFireWasBurning, goalFireKnowledgeChecked, goalFireRouteChecked;
+    private bool goalSleptThrough;
+    private float? goalFireHealthAtControl;
 
     private void RunSurvivalGoal()
     {
@@ -146,6 +148,8 @@ sealed partial class Runner
         }
         if (now - goalStarted < 1) return;
         goalInterest!.Sync();
+        if (mode is "survival-goal-fire-contact" or "survival-goal-fire-burning" && !goalFireHealthAtControl.HasValue)
+            goalFireHealthAtControl = p.ComponentHealth.Health;
         if (!goalFireRouteChecked && mode is "survival-goal-fire-contact" or "survival-goal-fire-burning")
         {
             var heat = PlayFireSafety.Observe(memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)));
@@ -184,14 +188,19 @@ sealed partial class Runner
             goalSoundIssued = true;
             goalWolfSounds!.PlayAttackSound();
         }
-        if (mode == "survival-goal-night" && !goalNightIssued && moved >= 4f)
+        if (mode is "survival-goal-night" or "survival-goal-night-through" && !goalNightIssued && moved >= 4f)
         {
             goalNightIssued = true;
             var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
             calendar.TimeOfDayOffset += calendar.DuskStart - 35f / calendar.DayDuration - calendar.TimeOfDay;
         }
+        var currentCalendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
+        if (mode == "survival-goal-night-through" && goalActor!.VoluntarySleeps > 0 && !p.ComponentSleep.IsSleeping
+            && now - goalStarted > 200 && IntervalUtils.IsBetween(currentCalendar.TimeOfDay,
+                currentCalendar.DayStart, IntervalUtils.Add(currentCalendar.DuskStart, -0.1f)))
+            goalSleptThrough = true;
         goalActor!.Update(goalQueue, now);
-        goalActor.Request(goalQueue, goalController, now, delayFirst: false, smokeSpeaker: false);
+        if (!goalSleptThrough) goalActor.Request(goalQueue, goalController, now, delayFirst: false, smokeSpeaker: false);
         ReplyToGoalRequest();
 
         bool warmingConfirmed = goalEvents.Any(entry => Kind(entry) == "play_survival_warming_result"
@@ -223,6 +232,7 @@ sealed partial class Runner
             "survival-goal-contract" => goalContractChecked,
             "survival-goal-fire-contact" => moved >= 2.5f && goalFireKnowledgeChecked && goalFireRouteChecked
                 && goalEvents.Any(entry => Kind(entry) == "play_fire_escape")
+                && !goalEvents.Any(entry => Kind(entry) == "play_fire_state" && entry.GetProperty("burning").GetBoolean())
                 && p.Entity.FindComponent<ComponentOnFire>(true) is { IsOnFire: false }
                 && now - goalStarted >= 8,
             "survival-goal-fire-burning" => goalFireWasBurning && goalFireKnowledgeChecked && goalFireRouteChecked && moved >= 2.5f
@@ -240,6 +250,7 @@ sealed partial class Runner
                     && Text(entry, "status") != "succeeded")
                 && goalEvents.Any(entry => Kind(entry) == "play_survival_goal_finished"
                     && Text(entry.GetProperty("goal"), "reason") == "return_before_dark"),
+            "survival-goal-night-through" => goalNightIssued && goalSleptThrough && goalActor.VoluntarySleeps == 1,
             "survival-goal-warming" => warmingConfirmed && p.ComponentVitalStats.Temperature > goalWarmingBefore + 0.4
                 && targetBeforeFire.HasValue && p.ComponentVitalStats.m_targetTemperature > targetBeforeFire.Value + 1f,
             "survival-goal-pending-cold" => pendingVitalsChanged && warmingConfirmed && goalQueue.Issued == 1,
@@ -251,12 +262,18 @@ sealed partial class Runner
                 && goalEvents.Any(entry => Kind(entry) == "play_survival_emergency_meal"),
             _ => false
         };
-        if (!success && now - goalStarted < 76 && !goalActor.Died && !goalActor.Retired) return;
+        if (!success && now - goalStarted < (mode == "survival-goal-night-through" ? 1450 : 76)
+            && !goalActor.Died && !goalActor.Retired) return;
         Done = true;
-        Passed = success && p.ComponentHealth.Health >= (mode == "survival-goal-fire-burning" ? 0.35f : 0.95f);
+        // 接触火焰夹具在交接控制前已受原生伤害；撤离后允许最后一次延迟接触伤害，不允许继续燃烧。
+        float minimumHealth = mode == "survival-goal-fire-burning" ? 0.35f
+            : mode == "survival-goal-fire-contact" ? Math.Max(0.85f, (goalFireHealthAtControl ?? 1f) - 0.06f) : 0.95f;
+        Passed = success && p.ComponentHealth.Health >= minimumHealth;
         Gate.Log(new { kind = "survival_goal_fixture_result", mode, Passed, goalAcquiredExact, goalAcquiredDecoy,
             goalSections, moved, requests = goalQueue.Issued, goalContractChecked, heardPaused, resumed, fallback,
-            goalNightIssued, sleeps = goalActor.VoluntarySleeps, warmingConfirmed,
+            goalNightIssued, sleeps = goalActor.VoluntarySleeps, goalSleptThrough,
+            nativeSleptSeconds = p.PlayerStats.TimeSlept, timeOfDay = currentCalendar.TimeOfDay, warmingConfirmed,
+            goalFireHealthAtControl,
             temperature = p.ComponentVitalStats.Temperature, targetBeforeFire,
             targetTemperature = p.ComponentVitalStats.m_targetTemperature, pendingVitalsChanged, health = p.ComponentHealth.Health,
             modelCalls = 0, windowVisible = Window.m_gameWindow.IsVisible, nativeSoundListenerFailures = NativePredatorAcoustics.ListenerFailures });
@@ -328,9 +345,9 @@ sealed partial class Runner
                     ? options.First(option => Text(option, "id") == "wait")
                 : mode is "survival-goal-urgent-food" or "survival-goal-hearing" or "survival-goal-crop"
                     ? options.First(option => Text(option, "activity") == "collect")
-                : mode == "survival-goal-night" && goalNightIssued && options.Any(option => Text(option, "id") == "build")
+                : mode is "survival-goal-night" or "survival-goal-night-through" && goalNightIssued && options.Any(option => Text(option, "id") == "build")
                     ? options.First(option => Text(option, "id") == "build")
-                : mode == "survival-goal-night" && goalNightIssued && options.Any(option => Text(option, "id") == "rest")
+                : mode is "survival-goal-night" or "survival-goal-night-through" && goalNightIssued && options.Any(option => Text(option, "id") == "rest")
                     ? options.First(option => Text(option, "id") == "rest")
                 : mode == "survival-goal-target"
                 ? options.First(option => Text(option, "activity") == "collect"

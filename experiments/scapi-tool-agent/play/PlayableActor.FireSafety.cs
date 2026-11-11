@@ -7,7 +7,7 @@ internal sealed partial class PlayableActor
 {
     private PlaySurvivalTravel? heatEscape;
     private PlayFireSafety.Heat[] observedHeat = [];
-    private double nextFireObservation, nextFireEscape;
+    private double nextFireEscape;
     private bool wasOnFire, wasTouchingFire;
 
     private bool CheckFireDanger(PlayDecisionQueue queue, double now)
@@ -21,12 +21,9 @@ internal sealed partial class PlayableActor
         bool newlyBurning = burning && !wasOnFire;
         wasOnFire = burning;
         wasTouchingFire = touching;
-        if (now >= nextFireObservation)
-        {
-            observedHeat = PlayFireSafety.Observe(ReadDryWindow());
-            nextFireObservation = now + 0.5;
-        }
         if (heatEscape is not null || now < nextFireEscape || !touching && !newlyBurning) return false;
+        // 日常避火复用导航已有的局部观察；睡眠加速时不能按游戏时间额外创建观察票据。
+        ReadDryWindow();
         var body = player.ComponentBody;
         var source = observedHeat.Where(heat => (heat.Center - body.Position).XZ.LengthSquared() <= 16f)
             .MinBy(heat => (heat.Center - body.Position).LengthSquared());

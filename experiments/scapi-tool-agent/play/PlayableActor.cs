@@ -943,8 +943,12 @@ internal sealed partial class PlayableActor
         return (observation, food.Where(item => CanRetryFood(item, player.ComponentBody.Position, gameTime)).ToArray());
     }
 
-    private LocalObservationWindow ReadDryWindow() =>
-        travelMemory!.Observe(travelSenses!.Observe(travelSenses.SessionId, Id, allDirections: true));
+    private LocalObservationWindow ReadDryWindow()
+    {
+        var window = travelMemory!.Observe(travelSenses!.Observe(travelSenses.SessionId, Id, allDirections: true));
+        observedHeat = PlayFireSafety.Observe(window);
+        return window;
+    }
 
     private bool PermitSurvivalLeg(Vector3 end, double gameTime)
     {
