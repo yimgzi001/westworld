@@ -31,6 +31,7 @@ sealed partial class Runner
     private bool passiveShelterCowSeen;
     private bool shelterDirtObservedInBackpack;
     private int shelterPlanksBefore, shelterBuildTransfers, shelterExitTransfers;
+    private bool ChecksFarWolfExit => mode is "shelter-far-wolf-outlet" or "shelter-far-wolf-no-outlet";
     private int exitThreatLevel;
     private Point3 threatOrigin;
     private Vector3 threatPosition;
@@ -388,13 +389,19 @@ sealed partial class Runner
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
             if (foraging && !ForageCorridorReady(cell.X, cell.Z)) return;
-            if (lowerPredator && !(terrain.Terrain.GetChunkAtCell(cell.X + 22, cell.Z)?.State >= TerrainChunkState.InvalidVertices1))
+            if ((lowerPredator || ChecksFarWolfExit)
+                && !(terrain.Terrain.GetChunkAtCell(cell.X + 22, cell.Z)?.State >= TerrainChunkState.InvalidVertices1))
                 return;
-            int endX = cell.X + (foraging ? 39 : lowerPredator ? 22 : mode == "shelter-late-predator" ? 10 : 5);
+            int endX = cell.X + (foraging ? 39 : lowerPredator || ChecksFarWolfExit ? 22 : mode == "shelter-late-predator" ? 10 : 5);
             for (int x = cell.X - 5; x <= endX; x++)
             for (int z = cell.Z - 5; z <= cell.Z + 5; z++)
             for (int y = cell.Y - 4; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y - (lowerPredator && x >= cell.X + 9 ? 1 : 0) ? DirtBlock.Index : 0);
+            if (mode == "shelter-far-wolf-no-outlet")
+                for (int x = cell.X - 4; x <= cell.X - 2; x++)
+                for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
+                for (int y = cell.Y - 4; y < cell.Y; y++)
+                    terrain.ChangeCell(x, y, z, 0);
 
             if (mode == "shelter-illness")
                 for (int x = cell.X - 1; x <= cell.X + 1; x++)
@@ -600,7 +607,7 @@ sealed partial class Runner
         Action<object> shelterLog = backpackEarth ? TrackShelterInventory : Gate.Log;
         bool lowerPredator = mode == "shelter-lower-predator";
         bool middlePredator = lowerPredator || mode == "shelter-middle-predator";
-        bool jumpPredator = middlePredator || mode == "shelter-late-predator";
+        bool jumpPredator = middlePredator || mode == "shelter-late-predator" || ChecksFarWolfExit;
         if (stage == 1)
         {
             if (hungryNight)
@@ -671,7 +678,9 @@ sealed partial class Runner
                         lowerPredatorObserved = threat.GetProperty("Distance").GetSingle() is > 16f and <= 22f
                             && MathF.Abs(threat.GetProperty("Y").GetSingle() - (testSite!.Surface - 1)) < 0.05f;
                     }
-                });
+                }, ChecksFarWolfExit ? (threat, _) => PlayDryRoutes.HasObservedShelterOutlet(
+                    memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), testSite!.Center(testSite.Surface),
+                    new Vector2(threat.X, threat.Z)) : null);
                 stage = 7;
                 return;
             }
@@ -708,7 +717,8 @@ sealed partial class Runner
             if (jumpPredator && !jumpPredatorPlaced && body.Position.Y >= jumpLevel + 0.55f
                 && body.Position.Y < jumpLevel + 1f && body.Velocity.Y > 0f)
             {
-                PlaceShelterThreat(lowerPredator ? 18.6f : middlePredator ? 1.22f : 7.2f, lowerPredator ? 1 : 0);
+                if (ChecksFarWolfExit) PlaceShelterAnimal("Wolf_Gray", 20.1f);
+                else PlaceShelterThreat(lowerPredator ? 18.6f : middlePredator ? 1.22f : 7.2f, lowerPredator ? 1 : 0);
                 jumpPredatorPlaced = true;
             }
             jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
@@ -717,6 +727,19 @@ sealed partial class Runner
             earthShelter!.Update(now);
             if (earthShelter.Status is null) return;
             bool covered = PlaySurvivalRest.HasUsableCover(p);
+            if (ChecksFarWolfExit)
+            {
+                var seen = earthShelter.FarExitThreat ?? earthShelter.LastExitThreat;
+                bool expectOutlet = mode == "shelter-far-wolf-outlet";
+                Passed = jumpPredatorPlaced && seen?.Distance is >= 19f and <= 22f && p.ComponentHealth.Health >= vitalBefore
+                    && (expectOutlet ? earthShelter.FarExitThreat is not null && earthShelter.Reason == "surface_reached"
+                        && body.Position.Y >= site.Surface - 0.05f && PlaySurvivalSenses.OnDryGround(body)
+                        : earthShelter.FarExitThreat is null && earthShelter.Reason == "predator_at_exit_resealed" && covered);
+                Done = true;
+                Gate.Log(new { kind = "shelter_far_wolf_result", Passed, expectOutlet, distance = seen?.Distance,
+                    earthShelter.Status, earthShelter.Reason, covered, floor = body.Position.Y, health = p.ComponentHealth.Health });
+                return;
+            }
             bool retryDelay = PlayEarthShelter.ExitRetryDelay(1, 0.5f) == 48
                 && PlayEarthShelter.ExitRetryDelay(3, 0.5f) == 96
                 && PlayEarthShelter.ExitRetryDelay(8, 0.5f) == 150

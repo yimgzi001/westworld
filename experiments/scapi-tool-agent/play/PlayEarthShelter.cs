@@ -22,6 +22,7 @@ internal sealed class PlayEarthShelter
     private readonly bool leaving;
     private readonly double deadline;
     private readonly Action<object> log;
+    private readonly Func<PlaySurvivalSenses.Threat, double, bool>? permitFarExit;
     private AtomicActionRun? action;
     private Phase phase = Phase.Center;
     private double settleUntil, nextPeek;
@@ -30,19 +31,21 @@ internal sealed class PlayEarthShelter
     private bool opened, retreating;
 
     public PlayEarthShelter(ComponentPlayer player, AtomicActions owner, Site site, bool leaving,
-        double gameTime, Action<object> log)
+        double gameTime, Action<object> log, Func<PlaySurvivalSenses.Threat, double, bool>? permitFarExit = null)
     {
         this.player = player;
         this.owner = owner;
         this.site = site;
         this.leaving = leaving;
         this.log = log;
+        this.permitFarExit = permitFarExit;
         deadline = gameTime + 45;
     }
 
     public string? Status { get; private set; }
     public string? Reason { get; private set; }
     public PlaySurvivalSenses.Threat? LastExitThreat { get; private set; }
+    public PlaySurvivalSenses.Threat? FarExitThreat { get; private set; }
     public bool Leaving => leaving;
     public bool OwnsExitMotion(ComponentBody body) => leaving && site.SameColumn(body)
         && (body.Position.Y < site.Surface - 0.05f || !PlaySurvivalSenses.OnDryGround(body));
@@ -348,9 +351,18 @@ internal sealed class PlayEarthShelter
     {
         var body = player.ComponentBody;
         if (!opened || retreating || !OwnsExitMotion(body)) return false;
-        var threat = observed.FirstOrDefault(animal => animal.Y >= site.Surface - 1.05f
-            && PlaySurvivalSenses.NeedsAvoidance(animal, inWater: false));
+        bool BlocksExit(PlaySurvivalSenses.Threat animal) => animal.Y >= site.Surface - 1.05f
+            && PlaySurvivalSenses.NeedsAvoidance(animal, inWater: false);
+        var threat = observed.FirstOrDefault(BlocksExit);
         if (threat is null) return false;
+        if (level == site.Surface - 1 && threat.Predator && !observed.Any(animal => animal.EntityId != threat.EntityId && BlocksExit(animal))
+            && permitFarExit?.Invoke(threat, gameTime) == true)
+        {
+            if (FarExitThreat?.EntityId != threat.EntityId)
+                log(new { kind = "play_shelter_far_exit_outlet", actor = player.PlayerData.Name, threat, level, gameTime });
+            FarExitThreat = threat;
+            return false;
+        }
         bool duringJump = phase == Phase.Raise;
         Stop();
         LastExitThreat = threat;

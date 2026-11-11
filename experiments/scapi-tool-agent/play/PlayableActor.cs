@@ -152,7 +152,11 @@ internal sealed class PlayableActor
                         log(new { kind = "play_shelter_exit_cooldown", actor = Name, attempts = shelterThreatRetreats, seconds = delay, gameTime });
                     }
                 }
-                if (work.Leaving && result == "succeeded" && TryDepartBlockedExit(gameTime)) return;
+                if (work.Leaving && result == "succeeded")
+                {
+                    if (work.FarExitThreat is { } farThreat) blockedExit = (farThreat, gameTime);
+                    if (TryDepartBlockedExit(gameTime)) return;
+                }
                 Report(work.Leaving ? PlaySurvivalIntents.LeaveShelter : PlaySurvivalIntents.BuildShelter,
                     result, work.Reason, gameTime);
                 FinishStep(result == "succeeded", work.Reason, gameTime);
@@ -458,7 +462,7 @@ internal sealed class PlayableActor
                 travel = new(player, owner, bearing, offset.Length(), "survey", false, gameTime, ObserveSurvival, ReadDryWindow, log);
                 return;
             }
-            shelter = new(player, owner, pit, true, gameTime, log);
+            shelter = new(player, owner, pit, true, gameTime, log, (threat, now) => PermitFarShelterExit(pit, threat, now));
             return;
         }
         if (tool == PlaySurvivalIntents.Rest && dry && RestWindow() && !player.ComponentSleep.IsSleeping
@@ -877,6 +881,15 @@ internal sealed class PlayableActor
             survivalMemory.VisitsTo, escapeFrom: () => threat, permitLandLeg: PermitSurvivalLeg,
             escapeClearance: minimumClearance, allowEscapeTurn: true);
         return true;
+    }
+
+    private bool PermitFarShelterExit(PlayEarthShelter.Site site, PlaySurvivalSenses.Threat threat, double gameTime)
+    {
+        var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
+        if (shelterThreatRetreats < 2 || player.ComponentHealth.Health < 0.65f || player.ComponentVitalStats.Stamina < 0.35f
+            || calendar.TimeOfDay < calendar.DayStart || calendar.TimeOfDay >= calendar.DuskStart - 0.06f) return false;
+        return PlayDryRoutes.HasObservedShelterOutlet(ReadDryWindow(), site.Center(site.Surface), new Vector2(threat.X, threat.Z),
+            end => PermitSurvivalLeg(end, gameTime));
     }
 
     private (JsonElement Observation, JsonElement Inventory) Observe(int blockLimit)

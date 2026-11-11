@@ -99,6 +99,23 @@ internal static class PlayDryRoutes
         bool IsAir(int x, int y, int z) => recent.TryGetValue((x, y, z), out var cell) && OpenCell(cell.Value);
     }
 
+    public static bool HasObservedShelterOutlet(LocalObservationWindow window, Vector3 surface, Vector2 threat,
+        Func<Vector3, bool>? permitted = null)
+    {
+        var away = surface.XZ - threat;
+        if (away.LengthSquared() < 19f * 19f) return false;
+        away = Vector2.Normalize(away);
+        foreach (var axis in Cardinal.Where(axis => Vector2.Dot(axis, away) >= 0.55f))
+        {
+            var entry = surface + new Vector3(axis.X, 0f, axis.Y);
+            var observed = FlatRoute(window, axis, 2, new Position(entry.X, entry.Y, entry.Z));
+            // 最后一跳仍由原生放土验证。这里仅用已观察证据确认相邻落脚和之后两格的干地。
+            if (observed is not null && permitted?.Invoke(entry) != false
+                && permitted?.Invoke(PositionOf(observed.Destination)) != false) return true;
+        }
+        return false;
+    }
+
     public static (Leg Approach, Vector3 Exit)? EscapeTurn(LocalObservationWindow window, Vector2 threat)
     {
         var origin = PositionOf(window.Position);
