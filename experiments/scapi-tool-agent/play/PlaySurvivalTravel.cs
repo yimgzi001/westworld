@@ -460,7 +460,8 @@ internal sealed class PlaySurvivalTravel
                     target = route.End.ToString() });
         }
         if (route is null && allowEscapeTurn && !UsedEscapeTurn && remaining >= 4f && escapeFrom is { } readThreat
-            && PlayDryRoutes.EscapeTurn(window, readThreat()) is { } turn)
+            && PlayDryRoutes.EscapeTurn(window, readThreat()) is { } turn
+            && (!DepartingShelter || CanUseLandLeg(turn.Approach.End, gameTime) && CanUseLandLeg(turn.Exit, gameTime)))
         {
             route = turn.Approach;
             escapeOutlet = turn.Exit;
@@ -468,7 +469,8 @@ internal sealed class PlaySurvivalTravel
             log(new { kind = "play_predator_escape_turn", actor = player.PlayerData.Name, gameTime,
                 corner = route.End.ToString(), outlet = turn.Exit.ToString() });
         }
-        bool exploring = seek == "survey" || seek == "food" && foodTarget is null || seek == "shelter" && shelterTarget is null;
+        bool exploring = !DepartingShelter
+            && (seek == "survey" || seek == "food" && foodTarget is null || seek == "shelter" && shelterTarget is null);
         bool targetedDetour = false;
         if (route is null && KeepsTarget && remaining >= 1f && goalDetours < 3)
         {
@@ -524,6 +526,7 @@ internal sealed class PlaySurvivalTravel
             if ((origin.XZ - threat).LengthSquared() >= EscapeTurnClearanceSquared && offset.LengthSquared() > 0.4f * 0.4f
                 && PlayDryRoutes.Next(window, Vector2.Normalize(offset), Math.Min(remaining, offset.Length() + 0.2f),
                     canAlign, permitted: end => (end.XZ - threat).LengthSquared() >= EscapeTurnClearanceSquared
+                        && (!DepartingShelter || CanUseLandLeg(end, gameTime))
                         && (end - exit).XZ.LengthSquared() < offset.LengthSquared()) is { } side)
                 return side;
             escapeOutlet = null;
@@ -532,7 +535,9 @@ internal sealed class PlaySurvivalTravel
             ? !refusedDryEndpoints.Contains(end) : CanUseLandLeg(end, gameTime));
     }
 
-    private bool KeepsTarget => foodTarget is not null || readMovingTarget is not null
+    private bool DepartingShelter => !Evading && escapeFrom is not null;
+
+    private bool KeepsTarget => foodTarget is not null || readMovingTarget is not null || DepartingShelter
         || seek == "work" || seek == "shelter" && shelterTarget is not null;
 
     private static (int X, int Z) CellXZ(Vector3 point) => (Terrain.ToCell(point.X), Terrain.ToCell(point.Z));
@@ -602,7 +607,7 @@ internal sealed class PlaySurvivalTravel
         Vector3? approach = null;
         if (escapeFrom is { } currentThreat)
         {
-            if ((body.Position - Origin).XZ.Length() >= distance - 0.45f
+            if ((body.Position - Origin).XZ.Length() >= (DepartingShelter ? distance : distance - 0.45f)
                 && (escapeClearance <= 0f || (body.Position.XZ - currentThreat()).Length() >= escapeClearance))
                 return ("escaped_along_supported_ground", null);
         }

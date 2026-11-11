@@ -218,8 +218,10 @@ internal sealed class PlayableActor
                 if (leavingShelterLane)
                 {
                     leavingShelterLane = false;
+                    bool cleared = terminal == "succeeded" && route.Reason == "escaped_along_supported_ground";
                     Report(PlaySurvivalIntents.LeaveShelter, "succeeded",
-                        terminal == "succeeded" ? "surface_reached_and_cleared" : "surface_reached_departure_blocked", gameTime);
+                        cleared ? "surface_reached_and_cleared" : "surface_reached_departure_blocked", gameTime,
+                        movement: (player.ComponentBody.Position - route.Origin).XZ);
                     FinishStep(true, null, gameTime);
                     return;
                 }
@@ -859,7 +861,11 @@ internal sealed class PlayableActor
         if (blockedExit is not { } blocked || gameTime - blocked.SeenAt > 240) return false;
         var body = player.ComponentBody;
         var threat = new Vector2(blocked.Threat.X, blocked.Threat.Z);
-        var exit = PlayDryRoutes.Escape(ReadDryWindow(), threat, 6f, canAlign: false, end => PermitSurvivalLeg(end, gameTime));
+        var window = ReadDryWindow();
+        bool Permitted(Vector3 end) => PermitSurvivalLeg(end, gameTime);
+        var exit = PlayDryRoutes.Escape(window, threat, 6f, canAlign: false, Permitted);
+        if (exit is null && PlayDryRoutes.EscapeTurn(window, threat) is { } turn && Permitted(turn.Approach.End) && Permitted(turn.Exit))
+            exit = turn.Approach;
         if (exit is null) return false;
         var delta = (exit.End - body.Position).XZ;
         if (delta.LengthSquared() < 0.64f) return false;
@@ -868,7 +874,8 @@ internal sealed class PlayableActor
         leavingShelterLane = true;
         log(new { kind = "play_shelter_surface_departure", actor = Name, firstTarget = exit.End.ToString(), minimumClearance, gameTime });
         travel = new(player, owner, bearing, Math.Max(8f, delta.Length()), "survey", false, gameTime, ObserveSurvival, ReadDryWindow, log,
-            survivalMemory.VisitsTo, escapeFrom: () => threat, permitLandLeg: PermitSurvivalLeg, escapeClearance: minimumClearance);
+            survivalMemory.VisitsTo, escapeFrom: () => threat, permitLandLeg: PermitSurvivalLeg,
+            escapeClearance: minimumClearance, allowEscapeTurn: true);
         return true;
     }
 

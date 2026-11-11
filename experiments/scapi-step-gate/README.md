@@ -40,6 +40,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `predator-coast-turn` 使用 `natural34-b` 的真实窄岸地形。原生下船后从卡点开始，约 20 格外放置固定移动能力的灰狼。验证直接退路受阻时，能沿可见干地绕到一格高的出口，并在近处出现威胁时拒绝开始向其靠近。
 
+`predator-shelter-route-detour` 使用同一岸段，按出坑后撤离的准入条件核对两段已看到的退路。通过转弯和台阶后继续移动，只有走出至少八格且距记忆中的堵口位置至少 18 格才完成。
+
 `navigate-vegetation` 在长路线和台阶上铺设无碰撞的草和花。`shelter-shallow` 从背包无土的一格浅坑跳出。`shelter-camp` 在没有随机生成生物的夹具中验证过夜、出坑、走开、沿原生路线返回以及重建实体遮蔽。
 
 `navigate-natural-cotton` 从 `natural34-b` 的真实岸边卡点出发，保留相邻野棉花原始证据，验证一格自动跳和连续移动。`forage-far` 验证同一帧在 48 格范围内看到约 38 格外的蛋，实际用一条通过试玩菜单校验的导航任务接近并取食。

@@ -8,6 +8,7 @@ sealed partial class Runner
     private Point3 navigationOrigin;
     private int continuations, stationaryLooks;
     private int rejectedStepProofs;
+    private int targetedDetours;
     private float slowestContinuation = float.PositiveInfinity;
     private float biggestContinuousTurn;
     private bool insetAtStart, passedThroughPlant;
@@ -344,6 +345,7 @@ sealed partial class Runner
     private void RunPredatorCoastTurn()
     {
         const int terrainKey = 33002;
+        bool shelterDeparture = mode == "predator-shelter-route-detour";
         var body = p.ComponentBody;
         var shore = new Vector3(-100.5172f, 65f, 195.5003f);
         var cell = Terrain.ToCell(shore);
@@ -387,13 +389,14 @@ sealed partial class Runner
             if (direct || seen is null || !rejectsClose || turn is null)
                 throw new InvalidOperationException("同种子岸边应有可见远处灰狼和经过转弯的干地出口。");
             escapeStartDistance = seen.Distance;
-            travel = new(p, actions, 0, 6f, "survey", true, now,
+            travel = new(p, actions, 0, shelterDeparture ? 8f : 6f, "survey", !shelterDeparture, now,
                 () => (JsonSerializer.SerializeToElement(new { }), []),
                 () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation,
                 escapeFrom: () => PlaySurvivalSenses.Threats(p, actions.Queries)
                     .FirstOrDefault(animal => animal.EntityId == pursuingBear.Entity.Id) is { } visible
                     ? new(visible.X, visible.Z) : threat,
-                escapeClearance: 10f, allowEscapeTurn: true);
+                permitLandLeg: shelterDeparture ? (end, _) => (end.XZ - threat).LengthSquared() >= 18f * 18f : null,
+                escapeClearance: shelterDeparture ? 18f : 10f, allowEscapeTurn: true);
         }
         jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
         if (body.ImmersionDepth > 0.08f || body.Position.Y < shore.Y - 0.05f)
@@ -403,11 +406,14 @@ sealed partial class Runner
         terrain.TerrainUpdater.RemoveUpdateLocation(terrainKey);
         float moved = (body.Position - travel.Origin).XZ.Length();
         float clearance = (body.Position.XZ - threat).Length();
-        Passed = travel.UsedEscapeTurn && travel.Status == "succeeded" && jumped && body.Position.Y >= shore.Y + 0.95f
-            && moved >= 5f && clearance >= 14f && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
+        bool reached = shelterDeparture
+            ? travel.UsedEscapeTurn && travel.Reason == "escaped_along_supported_ground" && moved >= 8f && clearance >= 18f
+            : travel.UsedEscapeTurn && jumped && body.Position.Y >= shore.Y + 0.95f && moved >= 5f && clearance >= 14f;
+        Passed = travel.Status == "succeeded" && reached && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
         Done = true;
         Gate.Log(new { kind = "predator_coast_turn_result", Passed, escapeStartDistance, travel.Status, travel.Reason,
-            moved, clearance, jumped, stationaryLooks, end = body.Position.ToString(), health = p.ComponentHealth.Health });
+            moved, clearance, jumped, stationaryLooks, end = body.Position.ToString(), health = p.ComponentHealth.Health,
+            shelterDeparture, targetedDetours });
     }
 
     private bool DismountedForFixture(ComponentBody body)
@@ -439,6 +445,9 @@ sealed partial class Runner
                 break;
             case "play_scout_evidence_expired" when entry.GetProperty("action").GetString() == "StepTo":
                 rejectedStepProofs++;
+                break;
+            case "play_scout_target_detour":
+                targetedDetours++;
                 break;
         }
     }
