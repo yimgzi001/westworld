@@ -54,7 +54,8 @@ namespace Game.Westworld {
 
             Action<PickUp>("Pick up a visible dropped stack or food within reach.", (a, p) => a.Pickup(p),
                 Ref("target", "Reference to a visible dropped stack.", true),
-                Int("food_value", "Exact value of nearby edible food, used in place of target.", true), Count()),
+                Int("food_value", "Exact value of nearby edible food, used in place of target.", true),
+                Int("material_value", "Exact value of reachable dropped wood for the solo producer.", true), Count()),
             Action<Drop>("Drop items from an owned slot.", (_, p) => new Drop(p.OwnItem(), p.Int("count")), Slot(), Value(), Count()),
             Action<SelectItem>("Select a held inventory slot.", (_, p) => new SelectItem(p.Int("slot"), p.Int("value")), Slot(), Value()),
             Action<TransferItems>("Move items between accessible inventory slots.", (a, p) => new TransferItems(
@@ -70,8 +71,7 @@ namespace Game.Westworld {
                     ?? throw new InvalidToolCall("invalid_arguments"), p.Int("value")),
                 Text("equipment_slot", "Named equipment slot from read_equipment."), Value()),
 
-            Action<Dig>("Dig the observed block.", (a, p) =>
-                new Dig(a.BlockReference(p.String("target")), p.Number("timeout", 15f)), Target(), Timeout(15)),
+            Action<Dig>("Dig the observed block with the currently held item.", (a, p) => a.DigCommand(p), Target(), Timeout(15)),
             Action<Place>("Place the held block against an observed face.", (a, p) =>
                 new Place(a.BlockReference(p.String("target")), p.OwnItem()), Target(), Slot(), Value()),
             Action<Interact>("Interact with an observed world target.", (a, p) => new Interact(a.WorldTarget(p.String("target"))), Target()),

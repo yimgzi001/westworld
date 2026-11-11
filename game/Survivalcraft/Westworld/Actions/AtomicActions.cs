@@ -95,15 +95,25 @@ namespace Game.Westworld {
         bool IsSupported(Type type) =>
             m_handlers.TryGetValue(type, out Handler handler) && (handler.Available?.Invoke() ?? true);
 
-        public AtomicActionRun Start(AtomicAction action) {
-            AtomicActionRun run = StartCore(action);
+        public AtomicActionRun Start(AtomicAction action) => Start(action, null);
+
+        internal AtomicActionRun Resume(AtomicActionContinuation continuation) => continuation switch {
+            MotionContinuation motion => Start(motion.Action),
+            WaitContinuation wait => Start(new Wait(wait.Seconds)),
+            SpeechContinuation speech => Start(new Speak(speech.Text, speech.Mode), speech),
+            DigContinuation dig => Start(dig.Action, dig),
+            _ => throw new ArgumentException("Unsupported action continuation.", nameof(continuation))
+        };
+
+        AtomicActionRun Start(AtomicAction action, AtomicActionContinuation continuation) {
+            AtomicActionRun run = StartCore(action, continuation);
 #if WINDOWS
             WorldPanel.RecordAction(m_actor, run);
 #endif
             return run;
         }
 
-        AtomicActionRun StartCore(AtomicAction action) {
+        AtomicActionRun StartCore(AtomicAction action, AtomicActionContinuation continuation) {
             ArgumentNullException.ThrowIfNull(action);
             if (!IsSupported(action.GetType())) {
                 return Reject(action, AtomicActionFailure.UnsupportedAction);
@@ -118,7 +128,11 @@ namespace Game.Westworld {
                 return Reject(action, AtomicActionFailure.PreconditionsNotMet);
             }
             try {
-                return m_handlers[action.GetType()].Start(action);
+                return continuation switch {
+                    SpeechContinuation speech => StartSpeak((Speak)action, speech),
+                    DigContinuation dig => StartDig((Dig)action, dig),
+                    _ => m_handlers[action.GetType()].Start(action)
+                };
             }
             catch (Exception error) {
                 Log.Error($"Atomic action {action.GetType().Name}: {error}");
@@ -156,7 +170,8 @@ namespace Game.Westworld {
                     if (m_actor.IsAddedToProject && m_pathfinding.Destination == move.Destination) {
                         m_pathfinding.Stop();
                     }
-                }
+                },
+                () => new MotionContinuation(move.Destination, Remaining(deadline), move.Range)
             );
         }
 
@@ -195,7 +210,7 @@ namespace Game.Westworld {
                     m_locomotion.TurnOrder = new Vector2(Math.Clamp(Vector2.Angle(forward, direction), -1f, 1f), 0f);
                 }
                 return null;
-            });
+            }, capture: () => new MotionContinuation(move.Destination, Remaining(deadline), move.Range));
         }
 
         AtomicActionResult? CheckMove(MoveTo move, double deadline) {
@@ -219,7 +234,8 @@ namespace Game.Westworld {
                 return Reject(wait, AtomicActionFailure.InvalidArgument);
             }
             double deadline = m_time.GameTime + wait.Duration;
-            return StartRunning(wait, () => m_time.GameTime >= deadline ? Completed() : null);
+            return StartRunning(wait, () => m_time.GameTime >= deadline ? Completed() : null,
+                capture: () => new WaitContinuation(Remaining(deadline)));
         }
 
         AtomicActionRun StartSelectItem(SelectItem select) {
@@ -234,10 +250,13 @@ namespace Game.Westworld {
             return inventory.ActiveSlotIndex == select.Slot ? Succeed(select) : Reject(select, AtomicActionFailure.Blocked);
         }
 
-        AtomicActionRun StartRunning(AtomicAction action, Func<AtomicActionResult?> advance, Action cleanup = null) {
+        float Remaining(double deadline) => Math.Max(float.Epsilon, (float)(deadline - m_time.GameTime));
+
+        AtomicActionRun StartRunning(AtomicAction action, Func<AtomicActionResult?> advance, Action cleanup = null,
+            Func<AtomicActionContinuation> capture = null) {
             m_advance = advance;
             m_cleanup = cleanup;
-            m_active = new AtomicActionRun(action, new AtomicActionResult(AtomicActionStatus.Running));
+            m_active = new AtomicActionRun(action, new AtomicActionResult(AtomicActionStatus.Running)) { CaptureContinuation = capture };
             return m_active;
         }
 

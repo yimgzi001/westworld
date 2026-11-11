@@ -73,7 +73,7 @@ namespace Game.Westworld {
         string ObservationStatusJson() => JsonSerializer.Serialize(ReadObservationStatus(), CognitionRunLedger.Json);
 
         object ReadObservationStatus() => new {
-            state = m_fault != null ? "faulted" : m_userPaused ? "userPaused"
+            state = m_fault != null ? "faulted" : m_quotaPause != null ? "quotaPaused" : m_userPaused ? "userPaused"
                 : m_observationEnded ? "draining" : m_observationBudgetLimited ? "budgetLimited" : "running",
             fault = m_fault,
             time = m_time?.GameTime,
@@ -97,7 +97,17 @@ namespace Game.Westworld {
             spent = m_ledger.Spent,
             unknown = m_ledger.Unknown,
             reserved = m_observationRequests.Values.Sum(request => request.Attempt.Reserved),
-            budget = m_ledger.Data.Budget
+            budget = FeeLimit,
+            quota = m_quota == null ? null : new {
+                reason = m_quotaPause?.Reason,
+                saved = m_quotaSaved,
+                otherFees = OtherExperimentFees,
+                availableFees = AvailableFees,
+                storageUsed = m_quota.StorageUsed,
+                storageLimit = m_quota.StorageLimit,
+                storageReserve = m_quota.StorageReserve,
+                diskFree = m_quota.DiskFree
+            }
         };
 
 #if WINDOWS
@@ -128,10 +138,12 @@ namespace Game.Westworld {
         void PumpObservation() {
             long started = m_observationMetrics != null ? Stopwatch.GetTimestamp() : 0;
             try {
+                CheckQuota();
                 ProcessObservation();
                 if (m_fault == null) {
-                    SaveObservationCheckpointWhenReady();
+                    if (m_quotaPause == null) SaveObservationCheckpointWhenReady();
                     WriteObservationBatch();
+                    SaveQuotaPause();
                 }
             }
             finally {
@@ -143,8 +155,8 @@ namespace Game.Westworld {
             if (m_fault != null || (m_userPaused && !m_observationEnded)) {
                 return;
             }
-            ProcessObservationTaskEvents();
-            if (m_observationEnded && m_observationFollowUps.Count > 0) {
+            if (m_quotaPause == null) ProcessObservationTaskEvents();
+            if (m_quotaPause == null && m_observationEnded && m_observationFollowUps.Count > 0) {
                 foreach (ObservationFollowUp followUp in m_observationFollowUps.Values) {
                     InstallObservationReply(followUp.Request, followUp.Settled, followUp.Recovered);
                 }
@@ -158,7 +170,7 @@ namespace Game.Westworld {
             ConfirmObservationBatch();
             ProcessRestoredReplies();
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            if (m_observationEnded || m_checkpointTime == null || m_recoveryLedgerPending
+            if (m_quotaPause != null || m_observationEnded || m_checkpointTime == null || m_recoveryLedgerPending
                 || now < m_observationBackoff || now < m_observationRateBackoff
                 || m_observationRequests.Count >= m_parallelism) {
                 return;
@@ -172,8 +184,7 @@ namespace Game.Westworld {
             if (idleInFlight >= idleLimit && m_observationLookAheadReady.Count == 0) {
                 return;
             }
-            long available = m_ledger.Data.Budget - m_ledger.Spent - m_ledger.Unknown
-                - m_observationRequests.Values.Sum(request => request.Attempt.Reserved);
+            long available = AvailableFees;
             IEnumerable<int> candidates = idleInFlight < idleLimit ? m_actors.Keys : m_observationLookAheadReady;
             foreach (int actorId in candidates.OrderBy(id => id <= m_lastObservationActor).ToArray()) {
                 Actor actor = m_actors[actorId];
@@ -183,7 +194,7 @@ namespace Game.Westworld {
                     || m_nextObservationRequest.GetValueOrDefault(actorId) > now
                     || m_observationFollowUps.ContainsKey(actorId) || !actor.Tools.CognitiveWorldIsCurrent
                     || (lookAhead ? lookAheadInFlight >= lookAheadLimit : idleInFlight >= idleLimit)
-                    || (lookAhead ? !m_observationLookAheadReady.Contains(actorId) : actor.Tools.CognitiveActionRunning)
+                    || (lookAhead ? actor.Tools.HasProduction || !m_observationLookAheadReady.Contains(actorId) : actor.Tools.CognitiveActionRunning)
                     || actor.Cognition.PrepareTurn(checkpointable: true, lookAhead: lookAhead) is not string input) {
                     continue;
                 }
@@ -192,9 +203,14 @@ namespace Game.Westworld {
                 long estimate = checked((Encoding.UTF8.GetByteCount(input) + Encoding.UTF8.GetByteCount(schema) + 4096L)
                     * m_ledger.Data.InputPrice + OutputTokenLimit * m_ledger.Data.OutputPrice);
                 if (available < estimate) {
-                    actor.Cognition.AbandonTurn(turnId);
-                    m_observationBudgetLimited = true;
-                    m_observationBackoff = now.AddSeconds(1);
+                    if (m_quota != null && m_observationRequests.Count == 0) {
+                        PauseForQuota("budget", estimate);
+                    }
+                    else {
+                        actor.Cognition.AbandonTurn(turnId);
+                        m_observationBudgetLimited = true;
+                        m_observationBackoff = now.AddSeconds(1);
+                    }
                     break;
                 }
                 if (!actor.Cognition.TryClaimModelTurn(turnId)) {
@@ -225,6 +241,15 @@ namespace Game.Westworld {
             int actorId = request.Attempt.ActorId;
             Actor actor = m_actors[actorId];
             bool rateLimited = DateTimeOffset.UtcNow < m_observationRateBackoff;
+            if (m_quotaPause != null) {
+                actor.Cognition.ReleaseUnsentModelTurn(request.TurnId);
+                if (request.Attempt.PrecedingTask is Guid task && actor.Tools.CognitiveActiveTaskId == task) {
+                    m_observationLookAheadReady.Add(actorId);
+                }
+                SaveObservationAttempt(request.Attempt with { State = "unsent", Error = "quota_paused_before_send" },
+                    () => m_observationRequests.Remove(actorId));
+                return;
+            }
             if (m_observationEnded || !actor.Tools.CognitiveWorldIsCurrent
                 || actor.Tools.CognitiveActiveTaskId != request.Attempt.PrecedingTask
                 || (request.Attempt.PrecedingTask == null && actor.Tools.CognitiveActionRunning) || rateLimited) {
@@ -307,6 +332,10 @@ namespace Game.Westworld {
             if (settled.Error != null) {
                 RejectObservation(request, now);
             }
+            else if (m_quotaPause != null) {
+                m_observationFollowUps.Add(request.Attempt.ActorId, new ObservationFollowUp(request, settled));
+                m_restoredRepliesPending = true;
+            }
             else if (!m_observationEnded && AwaitingHandoff(request)) {
                 m_observationFollowUps.Add(request.Attempt.ActorId, new ObservationFollowUp(request, settled));
                 m_lookAheadBuffered++;
@@ -363,10 +392,20 @@ namespace Game.Westworld {
                 m_observationTaskEvents.Clear();
                 m_observationLookAheadReady.Clear();
             }
+            if (m_nativeObservation) {
+                HashSet<string> inFlight = m_observationData.Attempts.Where(attempt => attempt.State == "inFlight")
+                    .Select(attempt => attempt.Id).ToHashSet();
+                foreach (ObservationRequest request in m_observationRequests.Values) {
+                    if (inFlight.Contains(request.Attempt.Id) && request.Task is { IsCompletedSuccessfully: true } completed
+                        && completed.Result is { } reply) {
+                        CompleteObservation(request, reply);
+                    }
+                }
+            }
             foreach (ObservationRequest request in m_observationRequests.Values.Concat(m_observationFollowUps.Values.Select(reply => reply.Request))) {
                 m_actors[request.Attempt.ActorId].Cognition.AbandonTurn(request.TurnId);
             }
-            HashSet<string> discarded = m_observationFollowUps.Values.Select(reply => reply.Settled.Id).ToHashSet();
+            HashSet<string> discarded = m_nativeObservation ? [] : m_observationFollowUps.Values.Select(reply => reply.Settled.Id).ToHashSet();
             HashSet<string> unsent = m_observationRequests.Values.Where(request => request.Task == null)
                 .Select(request => request.Attempt.Id).ToHashSet();
             CognitionLedgerData final = ObservationLedgerPending || m_observationRequests.Count != 0 || discarded.Count != 0

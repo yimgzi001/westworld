@@ -9,6 +9,7 @@ namespace Game.Westworld {
         readonly List<Action> m_observationConfirmations = [];
         ObservationPublication m_observationPublication;
         Task<string> m_observationRecovery;
+        double m_nextObservationWrite;
 
         bool ObservationLedgerPending => m_observationPublication != null || !ReferenceEquals(m_observationData, m_ledger.Data);
 
@@ -20,7 +21,8 @@ namespace Game.Westworld {
         }
 
         void WriteObservationBatch() {
-            if (m_observationPublication != null || ReferenceEquals(m_observationData, m_ledger.Data)) {
+            if (m_observationPublication != null || ReferenceEquals(m_observationData, m_ledger.Data)
+                || m_quotaWriteFailed && Engine.Time.RealTime < m_nextObservationWrite) {
                 return;
             }
             CognitionLedgerData data = m_observationData;
@@ -31,8 +33,9 @@ namespace Game.Westworld {
 
         long WriteObservationSnapshot(CognitionLedgerData data) {
             long started = Stopwatch.GetTimestamp();
-            CheckStorage();
-            m_ledger.WriteSnapshot(data);
+            if (m_quota == null) CheckStorage();
+            long revision = m_ledger.WriteSnapshot(data);
+            m_quota?.Record(data, revision);
             return Stopwatch.GetTimestamp() - started;
         }
 
@@ -40,7 +43,21 @@ namespace Game.Westworld {
             if (m_observationPublication is not { Write.IsCompleted: true } publication) {
                 return;
             }
-            long elapsed = publication.Write.GetAwaiter().GetResult();
+            long elapsed;
+            try {
+                elapsed = publication.Write.GetAwaiter().GetResult();
+            }
+            catch (Exception error) when (m_quota != null && error is (IOException or UnauthorizedAccessException)) {
+                // No send callback has been acknowledged. Retry the same reservations and settlements.
+                m_observationConfirmations.InsertRange(0, publication.Confirmed);
+                m_observationPublication = null;
+                m_quotaWriteFailed = true;
+                m_nextObservationWrite = Engine.Time.RealTime + 2;
+                PauseForQuota("storage", 0);
+                Engine.Log.Warning("Westworld could not publish the shared usage ledger: " + error.GetType().Name);
+                return;
+            }
+            m_quotaWriteFailed = false;
             m_ledger.Publish(publication.Data);
             m_observationMetrics?.BackgroundWrite(elapsed);
             m_observationPublication = null;
@@ -75,7 +92,7 @@ namespace Game.Westworld {
         }
 
         void FinishObservationLedger(Task previous, CognitionLedgerData final = null) {
-            _ = Task.Run(async () => {
+            Task closing = Task.Run(async () => {
                 try {
                     if (previous != null) {
                         await previous.ConfigureAwait(false);
@@ -91,6 +108,10 @@ namespace Game.Westworld {
                     m_ledger.Dispose();
                 }
             });
+            if (m_nativeObservation) {
+                // A normal close can immediately reopen the same world or exit the process.
+                closing.GetAwaiter().GetResult();
+            }
         }
     }
 }

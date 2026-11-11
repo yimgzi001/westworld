@@ -3,6 +3,7 @@ using System.Text.Json;
 namespace Game.Westworld {
     internal sealed record CognitiveMessage(string Id, ActorSocialView Value, bool Considered) {
         internal bool Ready => Value.SpeechComplete != false;
+        public bool Recorded { get; init; }
     }
     internal sealed record CognitiveNote(string Id, string Source, string Kind, string Text, double At, JsonElement Evidence) {
         internal CognitiveNoteView View() => new(Id, Source, Kind, Text, At);
@@ -23,13 +24,15 @@ namespace Game.Westworld {
     internal sealed record CognitiveContext(string Id, long Version, double GameTime, string[] Reasons,
         string Profile, string Goal, CognitiveBody Body, ActorTaskView Task, ActorTaskView LastOutcome, CognitiveNoteView[] Commitments,
         JsonElement Observation, InventoryView Inventory, EnvironmentView Environment,
-        CognitiveMessage[] Messages, CognitiveNoteView[] Memories, string[] Actions);
+        CognitiveMessage[] Messages, CognitiveNoteView[] Memories, string[] Actions) {
+        public ActorCognition.RecentProcess[] RecentProcess { get; init; }
+    }
 
     internal static class ActorCognitiveContext {
         // Sources are captured in one game-thread call. Only the requested optional sections are read.
         internal static CognitiveContext Assemble(ActorTools tools, long version, double now, string[] reasons, string profile,
             string goal, CognitiveBody body, ActorTaskView task, ActorTaskView lastOutcome, IEnumerable<CognitiveMessage> inbox,
-            IReadOnlyList<CognitiveNote> commitments, IReadOnlyList<CognitiveNote> memory) {
+            IReadOnlyList<CognitiveNote> commitments, IReadOnlyList<CognitiveNote> memory, IReadOnlyList<ActorCognition.RecentProcess> recent) {
             CognitiveMessage[] messages = inbox.Where(message => message.Ready).OrderBy(message => message.Considered).Take(6).ToArray();
             bool social = reasons.Contains("social");
             bool review = reasons.Contains("review");
@@ -44,7 +47,7 @@ namespace Game.Westworld {
             return new CognitiveContext(Guid.NewGuid().ToString("N"), version, now, reasons, profile, goal, body,
                 task.Status == ActorTaskStatus.Idle ? null : task, lastOutcome, commitments.Select(note => note.View()).ToArray(), tools.CognitiveObservation(),
                 needsInventory ? tools.CognitiveInventory() : null, environment == null ? null : environment with { GameTime = now },
-                messages, recalled, tools.CognitiveActions());
+                messages, recalled, tools.CognitiveActions()) { RecentProcess = recent.ToArray() };
         }
     }
 }

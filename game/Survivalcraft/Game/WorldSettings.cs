@@ -11,6 +11,12 @@ namespace Game {
 
         public GameMode GameMode = GameMode.Survival;
 
+        internal int WestworldFoundingVersion { get; set; }
+        internal string WestworldRunId { get; set; }
+        internal int WestworldPlayerIndex { get; set; }
+        internal string WestworldFoundingState { get; set; }
+        internal bool WestworldInitialArchive { get; set; }
+
         public EnvironmentBehaviorMode EnvironmentBehaviorMode;
 
         public TimeOfDayMode TimeOfDayMode;
@@ -105,6 +111,11 @@ namespace Game {
             OriginalSerializationVersion = valuesDictionary.GetValue("OriginalSerializationVersion", string.Empty);
             Seed = valuesDictionary.GetValue("WorldSeedString", string.Empty);
             GameMode = valuesDictionary.GetValue("GameMode", GameMode.Challenging);
+            WestworldFoundingVersion = valuesDictionary.GetValue("WestworldFoundingVersion", 0);
+            WestworldRunId = valuesDictionary.GetValue("WestworldRunId", string.Empty);
+            WestworldPlayerIndex = valuesDictionary.GetValue("WestworldPlayerIndex", 0);
+            WestworldFoundingState = valuesDictionary.GetValue("WestworldFoundingState", string.Empty);
+            WestworldInitialArchive = valuesDictionary.GetValue("WestworldInitialArchive", false);
             EnvironmentBehaviorMode = valuesDictionary.GetValue("EnvironmentBehaviorMode", EnvironmentBehaviorMode.Living);
             TimeOfDayMode = valuesDictionary.GetValue("TimeOfDayMode", TimeOfDayMode.Changing);
             AreSeasonsChanging = valuesDictionary.GetValue("AreSeasonsChanging", true);
@@ -146,6 +157,13 @@ namespace Game {
             valuesDictionary.SetValue("AreSupernaturalCreaturesEnabled", AreSupernaturalCreaturesEnabled);
             valuesDictionary.SetValue("IsFriendlyFireEnabled", IsFriendlyFireEnabled);
             if (!liveModifiableParametersOnly) {
+                if (WestworldFoundingVersion != 0) {
+                    valuesDictionary.SetValue("WestworldFoundingVersion", WestworldFoundingVersion);
+                    valuesDictionary.SetValue("WestworldRunId", WestworldRunId ?? string.Empty);
+                    valuesDictionary.SetValue("WestworldPlayerIndex", WestworldPlayerIndex);
+                    valuesDictionary.SetValue("WestworldFoundingState", WestworldFoundingState ?? string.Empty);
+                    valuesDictionary.SetValue("WestworldInitialArchive", WestworldInitialArchive);
+                }
                 valuesDictionary.SetValue("WorldSeedString", Seed);
                 valuesDictionary.SetValue("TerrainGenerationMode", TerrainGenerationMode);
                 valuesDictionary.SetValue("IslandSize", IslandSize);

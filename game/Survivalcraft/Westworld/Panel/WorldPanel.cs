@@ -200,6 +200,8 @@ namespace Game.Westworld {
         static object ActionView(AtomicAction action) => action switch {
             null => null,
             MoveTo move => new { name = nameof(MoveTo), target = Position(move.Destination) },
+            Dig { Target: not null } dig => new { name = nameof(Dig), cell = new { dig.Target.Cell.X, dig.Target.Cell.Y, dig.Target.Cell.Z },
+                value = dig.Target.ExpectedValue },
             PickUp { Target: not null } pick => new { name = nameof(PickUp), target = Position(pick.Target.Position), pick.Count, item = ItemName(pick.Target.Value) },
             Eat eat => new { name = nameof(Eat), eat.Slot, eat.Count, item = ItemName(eat.ExpectedValue) },
             _ => new { name = action.GetType().Name }
@@ -218,7 +220,7 @@ namespace Game.Westworld {
             Add(actor, "action", GameTime(actor), () => new {
                 action = ActionView(run.Action), run.Result.Status, run.Result.Failure, run.Result.AffectedCount, run.Result.OfferId,
                 taskId = m_bindings.TryGetValue(actor, out Binding binding) ? binding.Tools.CognitiveActiveTaskId : null,
-                items = run.Result.ReceivedItems?.Take(16).Select(item => new { item.Slot, item.Count, name = ItemName(item.Value) }).ToArray()
+                items = run.Result.ReceivedItems?.Take(16).Select(item => new { item.Slot, item.Count, item.Value, name = ItemName(item.Value) }).ToArray()
             });
         }
 
@@ -234,7 +236,7 @@ namespace Game.Westworld {
         internal static void RecordTransfer(Entity actor, Entity recipient, Guid offerId, string status, int value, int count) {
             if (m_project == null || actor.Project != m_project) return;
             Add(actor, "transfer", GameTime(actor), () => new {
-                recipient = new { recipient.Id, name = Name(recipient) }, offerId, status, item = ItemName(value), count
+                recipient = new { recipient.Id, name = Name(recipient) }, offerId, status, item = ItemName(value), value, count
             });
         }
 

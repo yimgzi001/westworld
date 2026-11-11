@@ -74,7 +74,8 @@ namespace Game.Westworld {
                     if (m_time.GameTime == orderTime && m_locomotion.TurnOrder == order) {
                         m_locomotion.TurnOrder = previousOrder;
                     }
-                });
+                },
+                () => new MotionContinuation(action.Point, Remaining(deadline)));
         }
 
         AtomicActionRun StartPosture(SetPosture action) {

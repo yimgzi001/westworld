@@ -106,13 +106,14 @@ namespace Game.Westworld {
         AtomicActionRun StartPickUp(PickUp action) {
             Pickable target = action.Target;
             Vector3 center = m_body.Position + new Vector3(0f, m_body.StanceBoxSize.Y * 0.5f, 0f);
-            if (action.FoodValue is int foodValue) {
-                if (target != null || foodValue <= 0
-                    || BlocksManager.Blocks[Terrain.ExtractContents(foodValue)].GetNutritionalValue(foodValue) <= 0f) {
+            if ((action.FoodValue ?? action.WoodValue) is int observedValue) {
+                Block block = BlocksManager.Blocks[Terrain.ExtractContents(observedValue)];
+                if (target != null || observedValue <= 0 || action.FoodValue.HasValue && action.WoodValue.HasValue
+                    || (action.WoodValue.HasValue ? block is not WoodBlock : block.GetNutritionalValue(observedValue) <= 0f)) {
                     return Reject(action, AtomicActionFailure.InvalidArgument);
                 }
                 target = WorldPickables.Pickables
-                    .Where(item => !item.ToRemove && item.Count > 0 && item.Value == foodValue
+                    .Where(item => !item.ToRemove && item.Count > 0 && item.Value == observedValue
                         && Vector3.DistanceSquared(center, item.Position) <= item.DistanceToPick * item.DistanceToPick)
                     .MinBy(item => Vector3.DistanceSquared(center, item.Position));
                 if (target == null) {

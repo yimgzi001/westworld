@@ -14,18 +14,60 @@ namespace Game.Westworld {
 
     public sealed record AtomicSocialEvent(AtomicSocialEventKind Kind, double GameTime, Entity Source,
         string Text = null, Guid? OfferId = null, int ItemValue = 0, int Count = 0) {
+        internal Vector3? SourcePosition { get; init; }
+        internal string SourceName { get; init; }
         internal Guid? SpeechId { get; init; }
         internal bool? SpeechComplete { get; init; }
         internal int? SpeechChunk { get; init; }
     }
 
     public sealed partial class AtomicActions {
-        sealed record PendingItemOffer(Guid Id, Entity Sender, Entity Recipient, OwnItemSlot Item, int Count, double ExpiresAt);
+        internal sealed record PendingItemOffer(Guid Id, Entity Sender, Entity Recipient, OwnItemSlot Item, int Count, double ExpiresAt);
+        internal sealed record SavedItemOffer(Guid Id, int Sender, int Recipient, int Slot, int Value, int Count, double ExpiresAt);
+
+        internal static SavedItemOffer[] CaptureItemOffers(Project project, double gameTime) {
+            if (!m_socialWorlds.TryGetValue(project, out SocialWorld social)) return [];
+            social.PruneOffers(gameTime, null);
+            return social.Offers.Values.Select(offer => new SavedItemOffer(offer.Id, offer.Sender.Id, offer.Recipient.Id,
+                offer.Item.Slot, offer.Item.ExpectedValue, offer.Count, offer.ExpiresAt)).ToArray();
+        }
+
+        internal static void RestoreItemOffers(Project project, double gameTime, SavedItemOffer[] saved) {
+            if (saved == null) return;
+            SocialWorld social = m_socialWorlds.GetValue(project, _ => new SocialWorld());
+            if (saved.Length > social.Inboxes.Count || saved.Select(offer => offer?.Id).Distinct().Count() != saved.Length
+                || saved.Select(offer => offer?.Sender).Distinct().Count() != saved.Length) {
+                throw new InvalidDataException("Invalid saved item offers.");
+            }
+            List<PendingItemOffer> restored = [];
+            foreach (SavedItemOffer offer in saved) {
+                if (offer == null || offer.Id == Guid.Empty || offer.Sender == offer.Recipient || offer.Slot < 0
+                    || offer.Value <= 0 || offer.Count <= 0 || !double.IsFinite(offer.ExpiresAt)) {
+                    throw new InvalidDataException("Invalid saved item offer.");
+                }
+                Entity sender = project.FindEntity(offer.Sender), recipient = project.FindEntity(offer.Recipient);
+                if (sender == null || recipient == null || !social.Inboxes.ContainsKey(sender) || !social.Inboxes.ContainsKey(recipient)) {
+                    throw new InvalidDataException("The saved offer references an unavailable participant.");
+                }
+                if (offer.ExpiresAt > gameTime) restored.Add(new PendingItemOffer(offer.Id, sender, recipient,
+                    new OwnItemSlot(offer.Slot, offer.Value), offer.Count, offer.ExpiresAt));
+            }
+            social.Offers.Clear();
+            foreach (PendingItemOffer offer in restored) social.RestoreOffer(offer);
+        }
 
         sealed class SocialWorld {
             public readonly Dictionary<Entity, Queue<AtomicSocialEvent>> Inboxes = [];
             public readonly Dictionary<Guid, PendingItemOffer> Offers = [];
             long m_offerSequence;
+
+            public void RestoreOffer(PendingItemOffer offer) {
+                Offers.Add(offer.Id, offer);
+                byte[] bytes = offer.Id.ToByteArray();
+                if (bytes.Skip(8).All(value => value == 0)) {
+                    m_offerSequence = Math.Max(m_offerSequence, BinaryPrimitives.ReadInt64LittleEndian(bytes));
+                }
+            }
 
             public Guid NextOfferId() {
                 Span<byte> bytes = stackalloc byte[16];
@@ -57,7 +99,7 @@ namespace Game.Westworld {
             m_social = m_socialWorlds.GetValue(m_actor.Project, _ => new SocialWorld());
             m_social.Inboxes.Add(m_actor, new Queue<AtomicSocialEvent>());
             m_socialTerrain = m_actor.Project.FindSubsystem<SubsystemTerrain>(true);
-            Register<Speak>(StartSpeak, () => m_body != null);
+            Register<Speak>(speak => StartSpeak(speak, null), () => m_body != null);
             Register<OfferItem>(StartOfferItem, () => m_body != null && m_miner?.Inventory != null);
             Register<RespondToOffer>(StartRespondToOffer, () => m_body != null && m_miner?.Inventory != null);
         }
@@ -80,7 +122,7 @@ namespace Game.Westworld {
             return events;
         }
 
-        AtomicActionRun StartSpeak(Speak speak) {
+        AtomicActionRun StartSpeak(Speak speak, SpeechContinuation saved) {
             if (string.IsNullOrWhiteSpace(speak.Text) || speak.Text.Length > 512 || !Enum.IsDefined(speak.Mode)
                 || speak.Recipient == m_actor) {
                 return Reject(speak, AtomicActionFailure.InvalidArgument);
@@ -95,16 +137,20 @@ namespace Game.Westworld {
                 _ => 16f
             };
             int[] starts = StringInfo.ParseCombiningCharacters(speak.Text);
-            int start = 0;
-            int end = Math.Min(starts.Length, SpeechUnitsPerChunk);
-            int delivered = 0;
-            Guid speechId = Guid.NewGuid();
-            int chunkNumber = 0;
+            int chunkNumber = saved?.Chunk ?? 0;
+            if (chunkNumber > (starts.Length - 1) / SpeechUnitsPerChunk) {
+                return Reject(speak, AtomicActionFailure.InvalidArgument);
+            }
+            int start = chunkNumber * SpeechUnitsPerChunk;
+            int end = Math.Min(starts.Length, start + SpeechUnitsPerChunk);
+            int delivered = saved?.Delivered ?? 0;
+            Guid speechId = saved?.Id ?? Guid.NewGuid();
 #if WINDOWS
             bool speechCompleted = false;
 #endif
-            double chunkEnd = m_time.GameTime + end / SpeechUnitsPerSecond;
-            HashSet<Entity> listeners = FindListeners(radius);
+            double chunkEnd = m_time.GameTime + (saved?.Seconds ?? (end - start) / SpeechUnitsPerSecond);
+            HashSet<Entity> listeners = saved == null ? FindListeners(radius)
+                : saved.Listeners.Select(m_actor.Project.FindEntity).Where(entity => entity != null).ToHashSet();
             return StartRunning(speak, () => {
                 listeners.RemoveWhere(listener => !CanHear(listener, radius));
                 if (m_time.GameTime < chunkEnd) {
@@ -113,6 +159,8 @@ namespace Game.Westworld {
                 int lastChar = end < starts.Length ? starts[end] : speak.Text.Length;
                 string chunk = speak.Text[starts[start]..lastChar];
                 AtomicSocialEvent heard = new(AtomicSocialEventKind.HeardSpeech, m_time.GameTime, m_actor, Text: chunk) {
+                    SourcePosition = m_body.Position,
+                    SourceName = m_actor.FindComponent<ComponentCreature>()?.DisplayName,
                     SpeechId = speechId,
                     SpeechChunk = chunkNumber++,
                     SpeechComplete = end == starts.Length
@@ -142,6 +190,8 @@ namespace Game.Westworld {
                 }
             }
 #endif
+            , capture: speak.Recipient != null ? null : () => new SpeechContinuation(speak.Text, speak.Mode, speechId,
+                chunkNumber, delivered, Math.Max(0, chunkEnd - m_time.GameTime), listeners.Select(listener => listener.Id).ToArray())
             );
         }
 
@@ -181,9 +231,17 @@ namespace Game.Westworld {
             }
 
             double now = m_time.GameTime;
+            m_social.PruneOffers(now, m_actor);
+            PendingItemOffer pending = m_social.Offers.Values.FirstOrDefault(offer => offer.Sender == m_actor
+                && offer.Recipient == action.Recipient && offer.Item == action.Item && offer.Count == action.Count);
+            if (pending != null) {
+                return Succeed(action, offerId: pending.Id);
+            }
             m_social.PruneOffers(now, m_actor, replaceOutgoing: true);
-            Guid id = m_social.NextOfferId();
-            m_social.Offers.Add(id, new PendingItemOffer(id, m_actor, action.Recipient, action.Item, action.Count, now + OfferLifetime));
+            bool producer = m_actor.ValuesDictionary.DatabaseObject.Name == FoundingWorld.ProducerTemplate;
+            Guid id = producer ? Guid.NewGuid() : m_social.NextOfferId();
+            double lifetime = producer ? 60.0 : OfferLifetime;
+            m_social.Offers.Add(id, new PendingItemOffer(id, m_actor, action.Recipient, action.Item, action.Count, now + lifetime));
             PublishSocialEvent(action.Recipient, new AtomicSocialEvent(
                 AtomicSocialEventKind.ItemOffered, now, m_actor, OfferId: id, ItemValue: action.Item.ExpectedValue, Count: action.Count));
 #if WINDOWS
@@ -234,6 +292,13 @@ namespace Game.Westworld {
             WorldPanel.RecordTransfer(offer.Sender, m_actor, offer.Id, "transferred", offer.Item.ExpectedValue, moved);
 #endif
             return Succeed(action, moved, offer.Id);
+        }
+
+        internal bool CanReceiveItemOffers(Entity entity) => TryGetHandoffPartner(entity, out _, out _);
+
+        internal IReadOnlyList<PendingItemOffer> ReadOutgoingItemOffers() {
+            m_social.PruneOffers(m_time.GameTime, m_actor);
+            return m_social.Offers.Values.Where(offer => offer.Sender == m_actor).ToArray();
         }
 
         bool TryGetHandoffPartner(Entity entity, out ComponentBody body, out IInventory inventory) {

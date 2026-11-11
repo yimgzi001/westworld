@@ -22,6 +22,9 @@ namespace Game {
 
         public ButtonWidget m_playButton;
 
+        readonly ButtonWidget m_westworldButton;
+        readonly ButtonWidget m_westworldSoloButton;
+
         public Random m_random = new();
 
         public WorldSettings m_worldSettings;
@@ -41,6 +44,8 @@ namespace Game {
             m_descriptionLabel = Children.Find<LabelWidget>("Description");
             m_errorLabel = Children.Find<LabelWidget>("Error");
             m_playButton = Children.Find<ButtonWidget>("Play");
+            m_westworldButton = Children.Find<ButtonWidget>("Westworld", false);
+            m_westworldSoloButton = Children.Find<ButtonWidget>("WestworldSolo", false);
             m_nameTextBox.TextChanged += delegate { m_worldSettings.Name = m_nameTextBox.Text; };
             m_nameTextBox.MaximumLength = 128;
             m_seedTextBox.TextChanged += delegate { m_worldSettings.Seed = m_seedTextBox.Text; };
@@ -96,6 +101,12 @@ namespace Game {
             m_gameModeButton.Text = LanguageControl.Get("GameMode", m_worldSettings.GameMode.ToString());
             m_startingPositionButton.Text = LanguageControl.Get("StartingPositionMode", m_worldSettings.StartingPositionMode.ToString());
             m_playButton.IsVisible = flag;
+            if (m_westworldButton != null) {
+                m_westworldButton.IsVisible = flag && m_worldSettings.GameMode == GameMode.Survival;
+            }
+            if (m_westworldSoloButton != null) {
+                m_westworldSoloButton.IsVisible = flag && m_worldSettings.GameMode == GameMode.Survival;
+            }
             m_errorLabel.IsVisible = !flag;
             m_blankSeedLabel.IsVisible = string.IsNullOrEmpty(m_worldSettings.Seed) && !m_seedTextBox.HasFocus;
             m_blankSeedLabel.Text = m_worldSettings.CustomWorldSeed
@@ -105,7 +116,13 @@ namespace Game {
             if (m_worldOptionsButton.IsClicked) {
                 ScreensManager.SwitchScreen("WorldOptions", m_worldSettings, false);
             }
-            if (m_playButton.IsClicked
+            if (m_westworldSoloButton is { IsVisible: true, IsClicked: true }) {
+                ScreensManager.SwitchScreen("GameLoading", Westworld.FoundingWorld.CreateSolo(m_worldSettings), null);
+            }
+            else if (m_westworldButton is { IsVisible: true, IsClicked: true }) {
+                ScreensManager.SwitchScreen("GameLoading", Westworld.FoundingWorld.Create(m_worldSettings), null);
+            }
+            else if (m_playButton.IsClicked
                 && WorldsManager.ValidateWorldName(m_nameTextBox.Text)) {
                 if (m_worldSettings.GameMode != 0) {
                     m_worldSettings.ResetOptionsForNonCreativeMode(null);

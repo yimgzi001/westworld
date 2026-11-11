@@ -357,10 +357,13 @@ namespace Game {
                     return false;
                 }
             );
-            if (m_subsystemGameInfo.WorldSettings.GameMode != GameMode.Creative && disableCreativeFlyInSurvivalMode) {
+            WorldSettings settings = m_subsystemGameInfo.WorldSettings;
+            int playerIndex = m_componentPlayer?.ValuesDictionary.GetValue("PlayerIndex", 0) ?? 0;
+            if (settings.GameMode != GameMode.Creative && disableCreativeFlyInSurvivalMode
+                && !Westworld.FoundingWorld.CanFly(settings, playerIndex)) {
                 IsCreativeFlyEnabled = false;
             }
-            if (Entity.FindComponent<ComponentPlayer>() == null) {
+            if (m_componentPlayer == null && !Westworld.FoundingWorld.IsFounder(Entity)) {
                 WalkSpeed *= mobWalkSpeedFactor;
                 FlySpeed *= mobFlySpeedFactor;
                 SwimSpeed *= mobSwimSpeedFactor;

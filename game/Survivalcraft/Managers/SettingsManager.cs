@@ -35,12 +35,12 @@ namespace Game {
         public const string fName = "SettingsManager";
 
         public static float SoundsVolume {
-            get => m_soundsVolume;
+            get => Environment.GetEnvironmentVariable("WENMING_TEST_MUTE") == "1" ? 0f : m_soundsVolume;
             set => m_soundsVolume = MathUtils.Saturate(value);
         }
 
         public static float MusicVolume {
-            get => m_musicVolume;
+            get => Environment.GetEnvironmentVariable("WENMING_TEST_MUTE") == "1" ? 0f : m_musicVolume;
             set => m_musicVolume = MathUtils.Saturate(value);
         }
 

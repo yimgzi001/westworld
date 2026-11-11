@@ -3372,6 +3372,18 @@
           <Parameter Name="Class" Guid="4db960c1-f660-4be4-b2b4-75a7e260c00f" Value="Game.Westworld.ComponentActorNutrition" Type="string" />
         </MemberComponentTemplate>
       </EntityTemplate>
+      <EntityTemplate Name="WestworldFounderMale" Guid="a0c34e6e-c781-44d3-bd38-d3009e057c31" InheritanceParent="4db960c1-f660-4be4-b2b4-75a7e260c001" />
+      <EntityTemplate Name="WestworldProducer" Guid="b1876307-08ee-4212-8d0b-59c13e8cfc01" InheritanceParent="a0c34e6e-c781-44d3-bd38-d3009e057c31">
+        <MemberComponentTemplate Name="CraftingTable" Guid="b1876307-08ee-4212-8d0b-59c13e8cfc02" InheritanceParent="48fdc8bb-8ca8-4d0f-af8d-25bfe9b56a19">
+          <Parameter Name="SlotsCount" Guid="b1876307-08ee-4212-8d0b-59c13e8cfc03" Value="6" Type="int" />
+        </MemberComponentTemplate>
+      </EntityTemplate>
+      <EntityTemplate Name="WestworldFounderFemale" Guid="a0c34e6e-c781-44d3-bd38-d3009e057c32" InheritanceParent="4db960c1-f660-4be4-b2b4-75a7e260c001">
+        <MemberComponentTemplate Name="HumanModel" Guid="a0c34e6e-c781-44d3-bd38-d3009e057c33" InheritanceParent="0566662e-bb24-45f9-84d8-f3c1e5d083df">
+          <Parameter Name="ModelName" Guid="a0c34e6e-c781-44d3-bd38-d3009e057c34" Value="Models/HumanFemale" Type="string" />
+          <Parameter Name="TextureOverride" Guid="a0c34e6e-c781-44d3-bd38-d3009e057c35" Value="Textures/Creatures/HumanFemale1" Type="string" />
+        </MemberComponentTemplate>
+      </EntityTemplate>
       <EntityTemplate Name="Chest" Guid="08550017-af17-4955-81fa-aafaf97b92bd">
         <MemberComponentTemplate Name="Chest" Guid="0f192a00-ac7d-4b4c-97c7-df652ca11b51" InheritanceParent="7312ec8c-10c7-4133-85b4-4a35bd44c956" />
         <MemberComponentTemplate Name="BlockEntity" Guid="a0d7dc3e-980d-461e-87ac-4358ed7d41b5" InheritanceParent="09a85cba-d94e-41b8-9497-f20ed942c17e" />

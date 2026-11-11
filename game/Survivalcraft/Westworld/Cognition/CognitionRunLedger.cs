@@ -9,7 +9,7 @@ namespace Game.Westworld {
         string Decision = null);
     internal sealed record CognitionLedgerData(int Format, string ExperimentId, long Budget, long InputPrice, long OutputPrice,
         string PriceVersion, string SourceIdentity, int Parallelism, CognitionAttempt[] Attempts,
-        [property: JsonPropertyName("batch")] JsonElement? LegacyBatch = null);
+        [property: JsonPropertyName("batch")] JsonElement? LegacyBatch = null, long Revision = 0);
 
     // Each publication is one durable replacement under an exclusive run lock.
     internal sealed class CognitionRunLedger : IDisposable {
@@ -19,6 +19,7 @@ namespace Game.Westworld {
         };
         readonly FileStream m_lock;
         readonly string m_path;
+        long m_writtenRevision;
         internal string DirectoryPath { get; }
         internal bool Exists => File.Exists(m_path);
         internal CognitionLedgerData Data { get; private set; }
@@ -39,6 +40,7 @@ namespace Game.Westworld {
                 if (Data.LegacyBatch != null) {
                     throw new InvalidDataException("This ledger belongs to the retired frozen scheduler.");
                 }
+                m_writtenRevision = Data.Revision;
             }
             catch {
                 m_lock.Dispose();
@@ -47,13 +49,16 @@ namespace Game.Westworld {
         }
 
         // Observation writes on one worker and publishes the acknowledged snapshot on the game thread.
-        internal void WriteSnapshot(CognitionLedgerData data) {
+        internal long WriteSnapshot(CognitionLedgerData data) {
+            long revision = checked(m_writtenRevision + 1);
             string temporary = m_path + ".tmp";
             using (FileStream file = new(temporary, FileMode.Create, FileAccess.Write, FileShare.None)) {
-                JsonSerializer.Serialize(file, data, Json);
+                JsonSerializer.Serialize(file, data with { Revision = revision }, Json);
                 file.Flush(flushToDisk: true);
             }
             File.Move(temporary, m_path, overwrite: true);
+            m_writtenRevision = revision;
+            return revision;
         }
 
         internal void Publish(CognitionLedgerData data) => Data = data;

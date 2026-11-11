@@ -37,6 +37,7 @@ const number = value => value == null ? '未提供' : Number(value).toLocaleStri
 const simTime = value => value == null ? '未提供' : `${number(value)} 模拟秒`;
 const wallTime = value => value ? new Date(value).toLocaleString('zh-CN', {hour12: false}) : '未记录';
 const usd = value => value == null ? '未提供' : `$${(value / 1e9).toFixed(6)}`;
+const gigabytes = value => `${number(value / 1e9)} GB`;
 const coords = point => point ? `${number(point.x)} / ${number(point.y)} / ${number(point.z)}` : '未提供';
 const line = (key, html) => `<div class="fact"><dt>${key}</dt><dd>${html}</dd></div>`;
 const optionalLine = (key, value, format = escape) => value == null ? '' : line(key, format(value));
@@ -66,6 +67,10 @@ function worldTime(world) {
 function dispatchStatus(model) {
   if (!model) return '认知调度未接入';
   const state = model.status.state;
+  if (state === 'quotaPaused') {
+    const reason = model.status.quota.reason === 'budget' ? '累计模型额度不足' : '存储余量不足';
+    return `${reason} · ${model.status.quota.saved ? '已保存并暂停' : '已暂停，等待保存'}`;
+  }
   if (state !== 'running') return dispatchLabels[state] ?? state;
   if (model.rateLimitedUntil) return `限流等待至 ${wallTime(model.rateLimitedUntil)}`;
   if (model.preparingCheckpoint) return '等待检查点或恢复账本';
@@ -319,9 +324,12 @@ function renderWorld(world, model, dispatch) {
 function renderModel(model, dispatch) {
   if (!model) return paint('model',empty('当前世界未绑定全局认知调度，暂无请求和费用账本'));
   const status = model.status;
+  const quota = status.quota;
   paint('model', group('调度',`<dl>${line('派发状态',escape(dispatch))}${line('网络请求 / 并发上限',`${status.networkInFlight} / ${model.parallelism}`)}
     ${line('占用的调度槽位',status.inFlight)}${line('本次进程已发送',status.requests)}${line('已采纳决定',status.applied)}${line('账本写入中',status.ledgerPending ? '是' : '否')}${status.fault ? line('故障',escape(status.fault)) : ''}</dl>`)
-    + group('费用 · 美元估算',`<dl>${line('预算',usd(status.budget))}${line('已知费用',usd(status.spent))}${line('在途预留',usd(status.reserved))}${line('未知用量预留',usd(status.unknown))}${line('价格版本',escape(model.priceVersion))}</dl>`)
+    + group('费用 · 美元估算',`<dl>${line(quota ? '共享费用上限' : '预算',usd(status.budget))}${line('本实验已知费用',usd(status.spent))}${line('本实验在途预留',usd(status.reserved))}${line('本实验未知用量预留',usd(status.unknown))}${optionalLine('其他实验已占额度',quota?.otherFees,usd)}${optionalLine('共享剩余额度',quota?.availableFees,usd)}${line('价格版本',escape(model.priceVersion))}</dl>`)
+    + (quota ? group('共享存储',`<dl>${line('已占用',gigabytes(quota.storageUsed))}${line('容量上限',gigabytes(quota.storageLimit))}
+      ${line('保存与在途写入预留',gigabytes(quota.storageReserve))}${line('磁盘可用空间',gigabytes(quota.diskFree))}</dl>`) : '')
     + group('最近 32 次已入账尝试',model.recentAttempts.length ? [...model.recentAttempts].reverse().map(attempt => {
       const name = snapshot.actors.find(actor => actor.id === attempt.actorId)?.name ?? `#${attempt.actorId}`;
       const details = [attempt.model && escape(attempt.model), attempt.inputTokens == null ? null : `输入 ${number(attempt.inputTokens)} token`,

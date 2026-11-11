@@ -4,7 +4,10 @@ function Invoke-GameSmoke {
         [string]$ResultFile,
         [hashtable]$Environment,
         [scriptblock]$Prepare,
-        [int]$TimeoutSeconds = 70
+        [int]$TimeoutSeconds = 70,
+        [switch]$WaitForExit,
+        [switch]$Visible,
+        [switch]$WithSound
     )
 
     $mutex = [System.Threading.Mutex]::new($false, 'Local\WenmingGameSmoke')
@@ -24,6 +27,13 @@ function Invoke-GameSmoke {
             Select-Object -First 1
         if ($runningGame) { throw "A game instance is already running (PID $($runningGame.ProcessId)). Close it before starting a smoke test." }
 
+        if (!$Environment) { $Environment = @{} }
+        if (!$Environment.ContainsKey('WENMING_TEST_BACKGROUND')) {
+            $Environment.WENMING_TEST_BACKGROUND = if ($Visible) { '0' } else { '1' }
+        }
+        if (!$Environment.ContainsKey('WENMING_TEST_MUTE')) {
+            $Environment.WENMING_TEST_MUTE = if ($WithSound) { '0' } else { '1' }
+        }
         & $Prepare
         $marker = Join-Path $Runtime $ResultFile
         if (Test-Path -LiteralPath $marker) { Remove-Item -LiteralPath $marker }
@@ -37,6 +47,10 @@ function Invoke-GameSmoke {
         $result = Get-Content -Raw -LiteralPath $marker
         Write-Output $result
         if (($result | ConvertFrom-Json).result -ne 'passed') { throw "Game smoke test failed. See $marker." }
+        if ($WaitForExit) {
+            if (!$process.WaitForExit(30000)) { throw 'The game did not close normally.' }
+            if ($process.ExitCode -ne 0) { throw "The game exited with code $($process.ExitCode)." }
+        }
     } finally {
         try {
             if ($process) {

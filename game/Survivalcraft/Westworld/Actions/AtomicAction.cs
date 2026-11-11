@@ -21,6 +21,7 @@ namespace Game.Westworld {
 
     public sealed record PickUp(Pickable Target, int Count) : AtomicAction {
         public int? FoodValue { get; init; }
+        public int? WoodValue { get; init; }
     }
     public sealed record Drop(OwnItemSlot Item, int Count) : AtomicAction;
     public sealed record SelectItem(int Slot, int ExpectedValue) : AtomicAction;
@@ -93,6 +94,7 @@ namespace Game.Westworld {
         public AtomicAction Action { get; }
 
         public AtomicActionResult Result { get; internal set; }
+        internal Func<AtomicActionContinuation> CaptureContinuation { get; init; }
 
         internal AtomicActionRun(AtomicAction action, AtomicActionResult result) {
             Action = action;

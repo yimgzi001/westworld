@@ -11,7 +11,16 @@ namespace Game {
             LoadContents(this, node);
             IsDrawRequired = true;
             Window.Deactivated += delegate { GameManager.SaveProject(true, false); };
-            Window.Closed += delegate { GameManager.DisposeProject(); };
+            Window.Closed += delegate {
+                try {
+                    if (Westworld.FoundingWorld.HasFounders(GameManager.Project)) {
+                        GameManager.SaveProject(true, false);
+                    }
+                }
+                finally {
+                    GameManager.DisposeProject();
+                }
+            };
         }
 
         public override void Enter(object[] parameters) {

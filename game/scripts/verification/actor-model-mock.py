@@ -1,6 +1,8 @@
+import argparse
 import json
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -11,12 +13,12 @@ class Handler(BaseHTTPRequestHandler):
             assert payload["model"] == "gpt-6-luna"
             if self.path.endswith("/responses"):
                 assert payload["store"] is False
-                assert payload["max_output_tokens"] == 768
+                assert payload["max_output_tokens"] == 1536
                 assert payload["text"]["format"]["type"] == "json_object"
                 message = payload["input"]
             else:
                 assert self.path == "/v1/chat/completions"
-                assert payload["max_completion_tokens"] == 768
+                assert payload["max_completion_tokens"] == 1536
                 assert [item["role"] for item in payload["messages"]] == ["system", "user"]
                 message = payload["messages"][1]["content"]
             context_json, schema_json = message.split("\nAvailable action schemas JSON:\n")
@@ -44,12 +46,52 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, {"model": "gpt-6-luna",
                     "choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": decision}}],
                     "usage": {"prompt_tokens": 800, "completion_tokens": 60}})
-        except (AssertionError, KeyError, StopIteration, ValueError):
+        except (AssertionError, KeyError, StopIteration, ValueError) as error:
+            if self.path.startswith("/global/solo-production/"):
+                self.log_error("solo production fixture: %s %s", type(error).__name__, error)
             self.send_json(400, {"error": {"message": "mock request did not satisfy the contract"}})
 
     def global_reply(self, context):
         mode = self.path.split("/")[2]
         actor = context["profile"]
+        if mode == "solo-production":
+            self.solo_production(context)
+            return
+        if mode == "founding-quota":
+            marker = Path("quota-test-unknown")
+            unknown = actor.startswith("你叫杉1，") and "initial" in context["reasons"] and not marker.exists()
+            if unknown:
+                marker.touch()
+            self.send_global_decision({"reason": "Review on the next turn", "task": "keep", "reviewAfter": 1}, not unknown)
+            return
+        if mode == "founding-resume":
+            assert actor.startswith("你叫") and "部落成员" in actor
+            decision = {"reason": "Keep the existing task", "task": "keep", "reviewAfter": 120}
+            if "initial" in context["reasons"] and not Path("founding-resume").is_file():
+                food = next(item for item in context["inventory"]["slots"] if item["slot"] == 0 and item["count"] == 3)
+                eat = {"tool": "act_Eat", "arguments": {"slot": 0, "value": food["value"], "count": 1}}
+                middle = {"tool": "act_Wait", "arguments": {"duration": 12}}
+                if actor.startswith("你叫杉1，"):
+                    middle = {"tool": "act_Speak", "arguments": {"mode": "shout",
+                        "text": "These words begin before saving. The rest of the sentence is spoken after reopening the same world."}}
+                elif actor.startswith("你叫禾1，"):
+                    middle = {"tool": "act_FaceTowards", "arguments": {"bearing": 90, "timeout": 12}}
+                decision.update(task="start", steps=[eat, middle, eat])
+            self.send_global_decision(decision)
+            return
+        if mode == "founding":
+            assert actor.startswith("你叫") and "部落成员" in actor
+            decision = {"reason": "Wait for the next review", "task": "keep", "reviewAfter": 4}
+            food = next((item for item in context["inventory"]["slots"] if item["slot"] == 0 and item["count"] == 1), None)
+            if Path("founding-player-away").is_file():
+                decision["reviewAfter"] = 120
+                if food and "act_Eat" in context["actions"] and "act_MoveTo" in context["actions"]:
+                    decision.update(task="start", steps=[
+                        {"tool": "act_Eat", "arguments": {"slot": 0, "value": food["value"], "count": 1}},
+                        {"tool": "act_MoveTo", "arguments": {"bearing": 0, "distance": 1, "range": .25}},
+                    ])
+            self.send_global_decision(decision)
+            return
         if mode == "observe-ahead":
             self.observation_reply(context)
             return
@@ -102,10 +144,57 @@ class Handler(BaseHTTPRequestHandler):
                 assert context["lastOutcome"]["status"] == "succeeded"
         self.send_global_decision(decision)
 
-    def send_global_decision(self, decision):
-        self.send_json(200, {"model": "gpt-6-luna", "status": "completed",
-            "output": [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": json.dumps(decision)}]}],
-            "usage": {"input_tokens": 800, "output_tokens": 60}})
+    def solo_production(self, context):
+        production = context["observation"]["production"]
+        carried = production["carried"]
+        grid = {slot["slot"]: slot for slot in production["personalGrid"]}
+        decision = {"reason": "Review the real inventory and surroundings", "task": "keep", "reviewAfter": .3}
+        if "nextTask" in context["reasons"]:
+            self.send_global_decision(decision)
+            return
+
+        def step(tool, **arguments):
+            return {"tool": f"act_{tool}", "arguments": arguments}
+
+        steps = []
+        bread = next((item for item in carried if item["item"] == "BreadBlock"), None)
+        axe = next(item for item in carried if item["item"] == "StoneAxeBlock")
+        has_table = any(item["item"] == "CraftingTableBlock" for item in carried)
+        if bread:
+            steps = [step("Eat", slot=bread["slot"], value=bread["value"], count=1)]
+        elif not has_table:
+            for name, ingredient_id in (("CraftingTableBlock", "planks"), ("PlanksBlock", "wood")):
+                ingredient = next((item for item in carried if item["craftingId"] == ingredient_id), None)
+                if not ingredient:
+                    continue
+                recipe = next(item for item in production["recipes"] if item["name"] == name)
+                steps = [step("TransferItems", source="carried", source_slot=ingredient["slot"], source_value=ingredient["value"],
+                              destination="personal", destination_slot=part["slot"], destination_value=0, count=1)
+                         for part in recipe["ingredients"] if part["slot"] not in grid]
+                steps.append(step("Craft", workspace="personal", result_value=recipe["resultValue"]))
+                break
+            if not steps and production["materials"]:
+                material = production["materials"][0]
+                pickup = step("PickUp", material_value=material["value"], count=1)
+                if material["inReach"]:
+                    steps = [pickup]
+                else:
+                    steps = [step("MoveTo", bearing=material["bearing"],
+                                  distance=max(1, min(4, material["horizontalDistance"] - .45)), range=.25)]
+            if not steps and production["logs"]:
+                log = production["logs"][0]
+                steps = [step("SelectItem", slot=axe["slot"], value=axe["value"]), step("Dig", target=log["target"])] if log["inReach"] else [
+                    step("MoveTo", bearing=log["bearing"], distance=2, range=.35)]
+        if steps:
+            decision.update(task="start", steps=steps)
+        self.send_global_decision(decision)
+
+    def send_global_decision(self, decision, known_usage=True):
+        reply = {"model": "gpt-6-luna", "status": "completed",
+            "output": [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": json.dumps(decision)}]}]}
+        if known_usage:
+            reply["usage"] = {"input_tokens": 800, "output_tokens": 60}
+        self.send_json(200, reply)
 
     def read_body(self):
         if self.headers.get("Transfer-Encoding") != "chunked":
@@ -136,4 +225,6 @@ class MockServer(ThreadingHTTPServer):
 
 
 if __name__ == "__main__":
-    MockServer(("127.0.0.1", 18759), Handler).serve_forever()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=18759)
+    MockServer(("127.0.0.1", parser.parse_args().port), Handler).serve_forever()

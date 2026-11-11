@@ -7,7 +7,8 @@ using XmlUtilities;
 using GameStorage = Engine.Storage;
 
 namespace Game.Westworld {
-    internal sealed record ActorTaskSnapshot(int Format, int ActorId, double GameTime, ActorPlanStep[] Plan, ActorTaskView View);
+    internal sealed record ActorTaskSnapshot(int Format, int ActorId, double GameTime, ActorPlanStep[] Plan, ActorTaskView View,
+        AtomicActionContinuation Continuation = null);
 
     public sealed partial class ActorTools {
         const string CheckpointElement = "WestworldTask";
@@ -95,33 +96,42 @@ namespace Game.Westworld {
             return project;
         }
 
-        internal ActorTaskSnapshot CaptureWorldTask() {
-            if (m_actions.IsActionRunning) {
+        internal ActorTaskSnapshot CaptureWorldTask(bool nativeSave = false) {
+            if (!nativeSave && m_actions.IsActionRunning) {
                 throw new InvalidOperationException("A running atomic action cannot be checkpointed.");
             }
             if (!TaskActive) {
                 return null;
             }
-            ActorTaskSnapshot snapshot = m_tasks.Capture(checkpointable: true);
-            if (snapshot.Plan.Skip(snapshot.View.CurrentStep.Value).Any(step => !IsRestorable(step))) {
+            ActorTaskSnapshot snapshot = nativeSave ? m_tasks.CaptureForNativeSave() : m_tasks.Capture(checkpointable: true);
+            if (snapshot != null && snapshot.Plan.Skip(snapshot.View.CurrentStep.Value).Any(step => !IsRestorable(step))) {
                 throw new InvalidOperationException("The task contains session-bound steps.");
             }
             return snapshot;
         }
 
-        internal bool RestoreWorldTask(ActorTaskSnapshot snapshot) => snapshot == null ||
-            (snapshot.Format == 1 && snapshot.ActorId == m_tasks.ActorId && IsValidSnapshot(snapshot)
-                && m_tasks.Restore(CompilePlan(snapshot.Plan, snapshot.View.CurrentStep.Value, restoring: true), snapshot));
+        internal bool RestoreWorldTask(ActorTaskSnapshot snapshot, bool nativeSave) => snapshot == null ||
+            ((snapshot.Format == 1 || nativeSave && snapshot.Format == 2)
+                && snapshot.ActorId == m_tasks.ActorId && IsValidSnapshot(snapshot)
+                && m_tasks.Restore(CompilePlan(snapshot.Plan, snapshot.View.CurrentStep.Value, restoring: true,
+                    continuing: snapshot.Continuation != null), snapshot));
 
         static bool IsValidSnapshot(ActorTaskSnapshot snapshot) {
             ActorTaskView view = snapshot.View;
             ActorPlanStep[] plan = snapshot.Plan;
             if (view == null || plan == null || plan.Length is < 1 or > 12 || view.Steps == null
                 || view.Steps.Count != plan.Length || view.TotalSteps != plan.Length || view.TaskId == Guid.Empty
-                || view.Version < 1 || view.Status != ActorTaskStatus.Waiting || view.Failure != ActorTaskFailure.None
+                || view.Version < 1 || view.Failure != ActorTaskFailure.None
                 || view.CurrentStep is not int cursor || cursor < 0 || cursor >= plan.Length
                 || !double.IsFinite(snapshot.GameTime) || snapshot.GameTime < 0
                 || view.LastProgressTime is double time && (!double.IsFinite(time) || time > snapshot.GameTime)) {
+                return false;
+            }
+            if (snapshot.Format == 1 ? view.Status != ActorTaskStatus.Waiting || snapshot.Continuation != null
+                : view.Status is not (ActorTaskStatus.Running or ActorTaskStatus.Blocked)
+                    || view.Status == ActorTaskStatus.Running && snapshot.Continuation == null
+                    || view.Status == ActorTaskStatus.Blocked && snapshot.Continuation is not (null or MotionContinuation)
+                    || snapshot.Continuation != null && !snapshot.Continuation.Matches(plan[cursor]?.Tool)) {
                 return false;
             }
 
@@ -134,6 +144,13 @@ namespace Game.Westworld {
                     || result.Attempts < 0 || result.Attempts > step.Retries + 1 || result.RetriesRemaining < 0
                     || result.RetriesRemaining > step.Retries || result.AffectedCount < 0) {
                     return false;
+                }
+                if (index == cursor && snapshot.Format == 2) {
+                    if (result.Status != view.Status || result.Attempts == 0 || result.AffectedCount != 0 || result.ReceivedItems != null
+                        || view.Status == ActorTaskStatus.Blocked && result.RetriesRemaining == 0) {
+                        return false;
+                    }
+                    continue;
                 }
                 if (index >= cursor || index < next) {
                     ActorTaskStatus expected = index >= cursor ? ActorTaskStatus.Waiting : ActorTaskStatus.Skipped;
@@ -173,7 +190,8 @@ namespace Game.Westworld {
                 && result.ReceivedItems.Sum(item => (long)item.Count) == result.AffectedCount;
         }
 
-        internal static void WriteTaskArchive(Project project, string destination, string task, string cognition, string observation = null) {
+        internal static void WriteTaskArchive(Project project, string destination, string task, string cognition,
+            string observation = null, bool overwrite = true) {
             SubsystemTerrain terrain = project.FindSubsystem<SubsystemTerrain>(true);
             ProjectData projectData = TerrainSerializer23.SaveForCheckpoint(project.Save);
             if (terrain.Terrain.AllocatedChunks.Any(chunk => chunk.ModificationCounter > 0)) {
@@ -230,7 +248,7 @@ namespace Game.Westworld {
                         throw new InvalidDataException("The checkpoint payload could not be verified.");
                     }
                 }
-                File.Move(temporary, destination, overwrite: true);
+                File.Move(temporary, destination, overwrite);
             }
             finally {
                 if (File.Exists(temporary)) {

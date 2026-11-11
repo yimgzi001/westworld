@@ -52,9 +52,13 @@
 
       <CanvasWidget HorizontalAlignment="Center" Margin="0, 2">
         <LabelWidget Name="Error" Text="[NewWorldScreen:9]" Color="255, 0, 0" VerticalAlignment="Far" HorizontalAlignment="Center" />
-        <BevelledButtonWidget Name="Play" Style="{Styles/ButtonStyle_310x60}" Text="[NewWorldScreen:10]" VerticalAlignment="Far" HorizontalAlignment="Center">
-          <BevelledRectangleWidget Name="BevelledButton.Rectangle" CenterColor="50, 150, 35" BevelColor="50, 150, 35" />
-        </BevelledButtonWidget>
+        <StackPanelWidget Direction="Vertical" HorizontalAlignment="Center">
+          <BevelledButtonWidget Name="Play" Style="{Styles/ButtonStyle_310x60}" Text="[NewWorldScreen:10]" HorizontalAlignment="Center">
+            <BevelledRectangleWidget Name="BevelledButton.Rectangle" CenterColor="50, 150, 35" BevelColor="50, 150, 35" />
+          </BevelledButtonWidget>
+          <BevelledButtonWidget Name="Westworld" Style="{Styles/ButtonStyle_310x60}" Text="西部世界 · 50 AI" Margin="0, 5" />
+          <BevelledButtonWidget Name="WestworldSolo" Style="{Styles/ButtonStyle_310x60}" Text="西部世界 · 单人生产" Margin="0, 5" />
+        </StackPanelWidget>
       </CanvasWidget>
 
     </StackPanelWidget>

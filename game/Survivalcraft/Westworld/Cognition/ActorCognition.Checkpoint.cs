@@ -4,7 +4,11 @@ namespace Game.Westworld {
     public sealed partial class ActorCognition {
         internal sealed record Snapshot(int Format, int ActorId, double Time, long Version, string Profile, string Goal,
             CognitiveBody Body, Guid SeenTask, ActorTaskView LastTask, double ReviewIn, double NextTurnIn, int DroppedMessages,
-            CognitiveMessage[] Inbox, CognitiveNote[] Memory, CognitiveNote[] Commitments);
+            CognitiveMessage[] Inbox, CognitiveNote[] Memory, CognitiveNote[] Commitments) {
+            public PersonalPlan PersonalPlan { get; init; }
+            public EventWait WaitingFor { get; init; }
+            public RecentProcess[] RecentProcess { get; init; }
+        }
 
         double m_timeOffset;
         double Now => m_tools.CognitiveTime + m_timeOffset;
@@ -22,11 +26,13 @@ namespace Game.Westworld {
             ActorTaskView lastTask = LatestOutcome();
             // Session references cannot be used after a world reload. Keep the actual received message.
             CognitiveMessage[] inbox = m_inbox.Select(message => message with {
-                Value = message.Value with { Source = null, OfferReference = null }
+                Value = m_tools.HasProduction ? message.Value : message.Value with { Source = null, OfferReference = null }
             }).ToArray();
             return new Snapshot(1, m_tools.CognitiveActorId, now, m_version, m_profile, m_goal, m_body, m_seenTask, lastTask,
                 Math.Max(0, m_reviewAt - now), Math.Max(0, m_nextTurnAt - now), m_droppedMessages, inbox,
-                m_memory.ToArray(), m_commitments.ToArray());
+                m_memory.ToArray(), m_commitments.ToArray()) {
+                PersonalPlan = m_plan, WaitingFor = m_wait, RecentProcess = m_recentProcess.ToArray()
+            };
         }
 
         public bool RestoreCheckpoint() {
@@ -70,6 +76,10 @@ namespace Game.Westworld {
             m_inbox.AddRange(snapshot.Inbox);
             m_memory.AddRange(snapshot.Memory);
             m_commitments.AddRange(snapshot.Commitments);
+            m_plan = snapshot.PersonalPlan;
+            m_wait = snapshot.WaitingFor;
+            m_recentProcess.Clear();
+            m_recentProcess.AddRange(snapshot.RecentProcess ?? []);
         }
 
         static bool ValidSnapshot(Snapshot snapshot) => snapshot.Version >= 0
@@ -82,9 +92,15 @@ namespace Game.Westworld {
             && (snapshot.LastTask == null || IsTerminal(snapshot.LastTask))
             && snapshot.Inbox is { Length: <= InboxLimit }
             && snapshot.Inbox.All(message => message?.Value != null && Guid.TryParseExact(message.Id, "N", out _)
-                && message.Value.Source == null && message.Value.OfferReference == null && message.Value.Text is not { Length: > 320 })
+                && (message.Value.Source == null || TryPersonReference(message.Value.Source))
+                && (message.Value.OfferReference == null || Guid.TryParseExact(message.Value.OfferReference, "N", out _))
+                && message.Value.Text is not { Length: > 320 })
             && snapshot.Inbox.Select(message => message.Id).Distinct(StringComparer.Ordinal).Count() == snapshot.Inbox.Length
-            && ValidNotes(snapshot.Memory, MemoryLimit) && ValidNotes(snapshot.Commitments, CommitmentLimit);
+            && ValidNotes(snapshot.Memory, MemoryLimit) && ValidNotes(snapshot.Commitments, CommitmentLimit)
+            && ValidPersonalState(snapshot.PersonalPlan, snapshot.WaitingFor, snapshot.RecentProcess);
+
+        static bool TryPersonReference(string value) => value.StartsWith("person:", StringComparison.Ordinal)
+            && int.TryParse(value.AsSpan(7), out int id) && id > 0;
 
         static bool ValidNotes(CognitiveNote[] notes, int limit) => notes != null && notes.Length <= limit
             && notes.All(note => note != null && Guid.TryParseExact(note.Id, "N", out _) && ValidText(note.Source, 64)

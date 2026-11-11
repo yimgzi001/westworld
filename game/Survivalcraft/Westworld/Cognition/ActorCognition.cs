@@ -11,7 +11,8 @@ namespace Game.Westworld {
 
         sealed record NoteProposal(string Source, string Text);
         sealed record Decision(string Reason, string Task, JsonElement Steps, string Goal, double? ReviewAfter,
-            NoteProposal Remember, NoteProposal Commitment, string ResolveCommitment, string[] Handled);
+            NoteProposal Remember, NoteProposal Commitment, string ResolveCommitment, string[] Handled,
+            PlanProposal Plan, WaitProposal Wait, PlanProposal PersonalPlan);
         internal sealed record Pending(CognitiveContext Context, string Input, int DroppedMessages);
 
         static readonly JsonSerializerOptions m_json = new(JsonSerializerDefaults.Web) {
@@ -51,6 +52,12 @@ namespace Game.Westworld {
             return true;
         }
 
+        internal void ReleaseUnsentModelTurn(string id) {
+            if (m_dispatchedModelTurn == id) {
+                m_dispatchedModelTurn = null;
+            }
+        }
+
         public string LastDecisionJson { get; private set; }
 #if WINDOWS
         internal object ReadPanelState() => new {
@@ -58,6 +65,7 @@ namespace Game.Westworld {
             reviewAt = m_version == 0 ? (double?)null : m_reviewAt,
             memories = m_memory.Select(note => note.View()).ToArray(),
             commitments = m_commitments.Select(note => note.View()).ToArray(),
+            personalPlan = m_plan, waitingFor = m_wait, recentProcess = m_recentProcess,
             decision = LastDecisionJson is { Length: <= 32768 } ? LastDecisionJson : null,
             decisionTruncated = LastDecisionJson is { Length: > 32768 }
         };
@@ -70,6 +78,7 @@ namespace Game.Westworld {
             }
             m_tools = tools;
             tools.BindCognition(PeekInbox);
+            tools.CognitiveStepFinished += RecordStep;
 #if WINDOWS
             WorldPanel.Register(m_tools.PanelActor, m_tools, this);
 #endif
@@ -91,7 +100,11 @@ namespace Game.Westworld {
             CognitiveBody body = CognitiveBody.From(self);
             ActorTaskView task = AtCognitiveTime(m_tools.CognitiveTask);
             ActorTaskView outcome = LatestOutcome();
+            UpdateEventWait(body, outcome);
+            if (!lookAhead && m_wait?.Status == "pending"
+                && !m_inbox.Any(message => message.Ready && !message.Considered)) return null;
             List<string> reasons = [];
+            if (m_wait is { Status: not "pending", Considered: false }) reasons.Add("eventWait");
             if (lookAhead) {
                 reasons.Add("nextTask");
             }
@@ -118,13 +131,14 @@ namespace Game.Westworld {
 
             ActorTaskView earlierOutcome = outcome?.TaskId != task.TaskId && (lookAhead || reasons.Contains("taskEnded")) ? outcome : null;
             CognitiveContext context = ActorCognitiveContext.Assemble(m_tools, m_version, now, reasons.ToArray(), m_profile,
-                m_goal, body, task, earlierOutcome, m_inbox, m_commitments, m_memory);
+                m_goal, body, task, earlierOutcome, m_inbox, m_commitments, m_memory, m_recentProcess);
             if (checkpointable) {
                 context = context with { Actions = m_tools.CognitiveActions(checkpointable: true) };
             }
             string input = JsonSerializer.Serialize(new { context.Id, context.Version, context.GameTime, context.Reasons,
                 context.Profile, context.Goal, context.Body, context.Task, context.LastOutcome, context.Commitments, context.Observation,
                 context.Inventory, context.Environment, context.Messages, context.Memories, context.Actions,
+                personalPlan = m_plan, waitingFor = m_wait, context.RecentProcess,
                 nextTaskInstruction = lookAhead
                     ? "Use start for a separate follow-up after the current task succeeds, or keep if there is no useful follow-up. "
                         + "Do not repeat the current task. The game will recheck the follow-up before starting it."
@@ -210,6 +224,8 @@ namespace Game.Westworld {
             }
 
             double now = Now;
+            if (m_wait is { Status: not "pending" } && decision.Wait == null) m_wait = m_wait with { Considered = true };
+            InstallPersonalPlan(decision, context);
             m_version++;
             m_body = context.Body;
             m_reviewAt = now + decision.ReviewAfter.Value;
@@ -256,7 +272,10 @@ namespace Game.Westworld {
 
         static Decision DecodeDecision(string response) {
             try {
-                return response is { Length: > 0 and <= 32768 } ? JsonSerializer.Deserialize<Decision>(response, m_json) : null;
+                Decision decision = response is { Length: > 0 and <= 32768 } ? JsonSerializer.Deserialize<Decision>(response, m_json) : null;
+                if (decision == null || decision.Plan != null && decision.PersonalPlan != null) return null;
+                return decision with { Plan = decision.Plan ?? decision.PersonalPlan, PersonalPlan = null,
+                    ReviewAfter = decision.ReviewAfter ?? 10 };
             }
             catch (JsonException) {
                 return null;
@@ -277,7 +296,8 @@ namespace Game.Westworld {
                     CognitiveMessage message = m_inbox[previous];
                     string separator = view.SpeechChunk == message.Value.SpeechChunk + 1 ? "" : " ... ";
                     m_inbox[previous] = message with {
-                        Value = view with { Text = LimitSpeech(message.Value.Text + separator + view.Text), Source = view.Source ?? message.Value.Source }
+                        Value = view with { Text = LimitSpeech(message.Value.Text + separator + view.Text), Source = view.Source ?? message.Value.Source },
+                        Recorded = false
                     };
                     continue;
                 }
@@ -302,17 +322,30 @@ namespace Game.Westworld {
                     m_inbox[index] = message with { Value = message.Value with { SpeechComplete = null, Text = LimitSpeech(message.Value.Text + " ...") } };
                 }
             }
+            RecordReceivedProcess();
+        }
+
+        void RecordReceivedProcess() {
+            for (int index = 0; index < m_inbox.Count; index++) {
+                CognitiveMessage message = m_inbox[index];
+                if (!message.Ready || message.Recorded) continue;
+                RecordRecent("message:" + message.Id, message.Value.GameTime, "received", new { message.Id, message.Value });
+                m_inbox[index] = message with { Recorded = true };
+            }
         }
 
         static string LimitSpeech(string text) => text is { Length: > 320 } ? text[..320] : text;
 
-        static string ValidateDecision(Decision decision, CognitiveContext context) {
+        string ValidateDecision(Decision decision, CognitiveContext context) {
             if (decision == null || !ValidText(decision.Reason, 320) || decision.Task is not ("keep" or "cancel" or "start" or "replace")
                 || decision.Goal is { Length: > 256 } || decision.ReviewAfter is not double delay
                 || !double.IsFinite(delay) || delay is < MinimumThinkInterval or > 120
                 || (decision.Task is "start" or "replace" ? decision.Steps.ValueKind != JsonValueKind.Array
                     : decision.Steps.ValueKind != JsonValueKind.Undefined)) {
                 return "invalid_decision";
+            }
+            if (decision.Task is "start" or "replace" && !m_tools.ProductionTargetsWereObserved(decision.Steps, context.Observation, context.Messages, context.RecentProcess)) {
+                return "unobserved_production_target";
             }
             if (decision.Handled != null && (decision.Handled.Length > context.Messages.Length
                 || decision.Handled.Distinct(StringComparer.Ordinal).Count() != decision.Handled.Length
@@ -325,7 +358,8 @@ namespace Game.Westworld {
             if (decision.Commitment != null && context.Commitments.Length == CommitmentLimit && decision.ResolveCommitment == null) {
                 return "commitments_full";
             }
-            return ValidNote(decision.Remember, context) && ValidNote(decision.Commitment, context) ? null : "invalid_evidence";
+            return ValidatePersonalPlan(decision, context)
+                ?? (ValidNote(decision.Remember, context) && ValidNote(decision.Commitment, context) ? null : "invalid_evidence");
         }
 
         static bool ValidNote(NoteProposal note, CognitiveContext context) =>
@@ -336,8 +370,12 @@ namespace Game.Westworld {
             "body" => "body",
             "task" when context.Task != null => "task",
             "taskOutcome" when context.LastOutcome != null => "task",
-            _ => context.Messages.Any(message => message.Id == source) ? "social" : null
+            _ => context.Messages.Any(message => message.Id == source) ? "social"
+                : RecentEvidence(source, context)?.Kind switch { "received" => "social", "actionResult" => "task", null => null, _ => "observation" }
         };
+
+        static RecentProcess RecentEvidence(string source, CognitiveContext context) => context.RecentProcess?.FirstOrDefault(entry =>
+            entry.Id == source || entry.Kind == "received" && entry.Details.TryGetProperty("id", out JsonElement id) && id.GetString() == source);
 
         static CognitiveNote MakeNote(NoteProposal note, CognitiveContext context) {
             string kind = EvidenceKind(note.Source, context);
@@ -346,9 +384,11 @@ namespace Game.Westworld {
                 "body" => JsonSerializer.SerializeToElement(context.Body, m_json),
                 "task" => JsonSerializer.SerializeToElement(context.Task, m_json),
                 "taskOutcome" => JsonSerializer.SerializeToElement(context.LastOutcome, m_json),
-                _ => JsonSerializer.SerializeToElement(context.Messages.First(message => message.Id == note.Source).Value, m_json)
+                _ => context.Messages.FirstOrDefault(message => message.Id == note.Source) is { } message
+                    ? JsonSerializer.SerializeToElement(message.Value, m_json) : RecentEvidence(note.Source, context).Details
             };
-            string source = kind == "social" ? note.Source : context.Id + ":" + note.Source;
+            string source = kind == "social" || RecentEvidence(note.Source, context) != null
+                ? note.Source : context.Id + ":" + note.Source;
             return new CognitiveNote(Guid.NewGuid().ToString("N"), source, kind, note.Text.Trim(), context.GameTime, evidence);
         }
 
@@ -364,6 +404,10 @@ namespace Game.Westworld {
                 && current.CompletedSteps == expected.CompletedSteps
                 && (current.CurrentStep is not int index || current.Steps[index].Attempts == expected.Steps[index].Attempts);
 
-        static string Result(string error) => JsonSerializer.Serialize(new { ok = error == null, error }, m_json);
+        string Result(string error) {
+            if (error != null) RecordRecent("rejected:" + (m_pending?.Context.Id ?? Guid.NewGuid().ToString("N")), Now,
+                "decisionRejected", new { error });
+            return JsonSerializer.Serialize(new { ok = error == null, error }, m_json);
+        }
     }
 }

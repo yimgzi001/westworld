@@ -35,6 +35,7 @@ namespace Game.Westworld {
         ActorTaskStatus m_status;
         ActorTaskFailure m_failure;
         AtomicActionRun m_run;
+        AtomicActionContinuation m_resume;
         MoveTo m_retryMove;
         int m_version;
         int m_completed;
@@ -83,6 +84,7 @@ namespace Game.Westworld {
             }
         }
         internal event Action<int, Guid, bool> TaskActivityChanged;
+        internal event Action<Guid, ActorPlanStep, ActorTaskStepView> StepFinished;
         internal bool IsActionRunning => m_actions.IsActionRunning;
         internal bool OwnsRunningAction => m_run?.Result.Status == AtomicActionStatus.Running;
         internal bool CanCaptureCheckpoint => m_actions.IsTaskActorAvailable && m_scheduler.CanCheckpoint(this);
@@ -127,6 +129,26 @@ namespace Game.Westworld {
             return new ActorTaskSnapshot(1, m_actor.Id, m_time.GameTime, m_steps.Select(step => step.Plan).ToArray(), Status);
         }
 
+        internal ActorTaskSnapshot CaptureForNativeSave() {
+            if (m_run is { Result.Status: not AtomicActionStatus.Running }) {
+                Observe(0f);
+            }
+            if (!IsActive) {
+                return null;
+            }
+            if (m_status == ActorTaskStatus.Waiting) {
+                return Capture(checkpointable: true);
+            }
+            AtomicActionContinuation continuation = m_resume ?? m_run?.CaptureContinuation?.Invoke();
+            if (m_status == ActorTaskStatus.Running && continuation == null) {
+                throw new InvalidOperationException("The running action cannot be saved.");
+            }
+            if (m_retryMove is { } move && m_status == ActorTaskStatus.Blocked) {
+                continuation = new MotionContinuation(move.Destination, move.Timeout, move.Range);
+            }
+            return new ActorTaskSnapshot(2, m_actor.Id, m_time.GameTime, m_steps.Select(step => step.Plan).ToArray(), Status, continuation);
+        }
+
         internal bool Restore(ActorTaskStep[] steps, ActorTaskSnapshot snapshot) {
             ActorTaskView view = snapshot.View;
             if (!Submit(steps, view.TaskId)) {
@@ -135,6 +157,13 @@ namespace Game.Westworld {
             m_version = view.Version;
             m_current = view.CurrentStep.Value;
             m_completed = view.CompletedSteps;
+            m_status = view.Status;
+            if (m_status == ActorTaskStatus.Running) {
+                m_resume = snapshot.Continuation;
+            }
+            else if (snapshot.Continuation is MotionContinuation motion) {
+                m_retryMove = (MoveTo)motion.Action;
+            }
             m_lastProgressTime = view.LastProgressTime is double last ? m_time.GameTime - (snapshot.GameTime - last) : null;
             m_stepViews = view.Steps.Select(step => step with {
                 ReceivedItems = step.ReceivedItems == null ? null : Array.AsReadOnly(step.ReceivedItems.ToArray())
@@ -186,21 +215,25 @@ namespace Game.Westworld {
 
         void StartStep() {
             ActorTaskStepView step = m_stepViews[m_current];
-            m_stepViews[m_current] = step with {
-                Status = ActorTaskStatus.Running,
-                Attempts = step.Attempts + 1,
-                RetriesRemaining = step.Attempts == 0 ? step.RetriesRemaining : step.RetriesRemaining - 1,
-                AtomicFailure = AtomicActionFailure.None
-            };
+            AtomicActionContinuation continuation = m_resume;
+            m_resume = null;
+            if (continuation == null) {
+                m_stepViews[m_current] = step with {
+                    Status = ActorTaskStatus.Running,
+                    Attempts = step.Attempts + 1,
+                    RetriesRemaining = step.Attempts == 0 ? step.RetriesRemaining : step.RetriesRemaining - 1,
+                    AtomicFailure = AtomicActionFailure.None
+                };
+            }
             m_status = ActorTaskStatus.Running;
             ActorTaskFailure failure = ActorTaskFailure.ActionFactoryFailed;
             AtomicActionFailure atomicFailure = AtomicActionFailure.InvalidArgument;
             m_starting = true;
             try {
-                AtomicAction action = m_retryMove ?? m_steps[m_current].CreateAction();
-                if (action != null && !m_detached && !m_cancelRequested) {
+                AtomicAction action = continuation == null ? m_retryMove ?? m_steps[m_current].CreateAction() : null;
+                if ((action != null || continuation != null) && !m_detached && !m_cancelRequested) {
                     failure = ActorTaskFailure.ActionFailed;
-                    m_run = m_actions.Start(action);
+                    m_run = continuation == null ? m_actions.Start(action) : m_actions.Resume(continuation);
                 }
             }
             catch (ActorTaskStepUnavailable error) {
@@ -236,6 +269,11 @@ namespace Game.Westworld {
                 AtomicFailure = result.Failure,
                 ReceivedItems = result.ReceivedItems
             };
+            StepFinished?.Invoke(m_taskId, plan, step with { Status = result.Status switch {
+                AtomicActionStatus.Succeeded => ActorTaskStatus.Succeeded,
+                AtomicActionStatus.Cancelled => ActorTaskStatus.Cancelled,
+                _ => ActorTaskStatus.Failed
+            } });
             if (result.AffectedCount > 0 || result.Status == AtomicActionStatus.Succeeded && result.AffectedCount >= step.MinimumAffectedCount) {
                 m_lastProgressTime = m_time.GameTime;
             }
@@ -304,6 +342,7 @@ namespace Game.Westworld {
             m_failure = failure;
             m_run = null;
             m_steps = [];
+            m_resume = null;
             m_retryMove = null;
             m_cancelRequested = false;
             LastTerminal = Status;

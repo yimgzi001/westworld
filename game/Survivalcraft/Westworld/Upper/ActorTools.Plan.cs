@@ -48,10 +48,14 @@ namespace Game.Westworld {
                 plan.Add(new ActorPlanStep(entry.String("tool"), entry.Json("arguments").Clone(), entry.Int("retries"),
                     entry.Int("minimum_affected"), entry.OptionalInt("item_from_step"), entry.OptionalInt("next"), fallback));
             }
+            if (plan.Any(step => step.Tool == "act_Craft" && step.Arguments.TryGetProperty("prepare", out JsonElement prepare)
+                && prepare.ValueKind == JsonValueKind.True)) {
+                return PrepareProductionCraft(plan);
+            }
             return CompilePlan(plan, firstPendingStep: 0, restoring: false);
         }
 
-        ActorTaskStep[] CompilePlan(IReadOnlyList<ActorPlanStep> plan, int firstPendingStep, bool restoring) {
+        ActorTaskStep[] CompilePlan(IReadOnlyList<ActorPlanStep> plan, int firstPendingStep, bool restoring, bool continuing = false) {
             HashSet<string> supported = m_actions.GetCapabilities().Select(action => action.Name).ToHashSet(StringComparer.Ordinal);
             HashSet<int> boundOutputs = [];
             ActorTaskStep[] steps = new ActorTaskStep[plan.Count];
@@ -87,7 +91,9 @@ namespace Game.Westworld {
                         if (restoring && !IsRestorable(step)) {
                             throw new InvalidToolCall("checkpoint_target_unavailable");
                         }
-                        tool.Create(this, args);
+                        if (!continuing || index != firstPendingStep) {
+                            tool.Create(this, args);
+                        }
                     }
                     create = () => ResolveStep(tool, args);
                 }
@@ -115,7 +121,12 @@ namespace Game.Westworld {
 
         static bool IsRestorable(ActorPlanStep step) => IsRestorableTool(step.Tool)
             || step.Tool is "act_MoveTo" or "act_FaceTowards" && !step.Arguments.TryGetProperty("destination", out _)
-            || step.Tool == "act_PickUp" && step.Arguments.TryGetProperty("food_value", out _)
+            || step.Tool == "act_PickUp" && (step.Arguments.TryGetProperty("food_value", out _) || step.Arguments.TryGetProperty("material_value", out _))
+            || step.Tool == "act_Dig" && StringArgument(step, "target")?.StartsWith(LogPrefix, StringComparison.Ordinal) == true
+            || step.Tool == "act_TransferItems" && IsPersonalTransfer(step)
+            || step.Tool == "act_Craft" && IsPersonalCraft(step)
+            || step.Tool == "act_OfferItem" && TryPersonId(StringArgument(step, "target"), out _)
+            || step.Tool == "act_RespondToOffer" && Guid.TryParseExact(StringArgument(step, "offer"), "N", out _)
             // A session reference cannot be restored, and retrying can repeat words already heard.
             || step.Tool == "act_Speak" && step.Retries == 0 && step.MinimumAffected == 0
                 && !step.Arguments.TryGetProperty("target", out _);

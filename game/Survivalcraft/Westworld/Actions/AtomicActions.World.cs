@@ -13,7 +13,7 @@ namespace Game.Westworld {
         );
 
         void RegisterWorld() {
-            Register<Dig>(StartDig, CanTargetWorld);
+            Register<Dig>(dig => StartDig(dig, null), CanTargetWorld);
             Register<Place>(StartPlace, CanHoldWorldItem);
             Register<Interact>(StartInteract, CanTargetWorld);
             Register<UseItem>(StartUseItem, CanHoldWorldItem);
@@ -27,7 +27,7 @@ namespace Game.Westworld {
 
         bool CanHoldWorldItem() => CanTargetWorld() && HeldInventory is { ActiveSlotIndex: >= 0, VisibleSlotsCount: > 0 };
 
-        AtomicActionRun StartDig(Dig action) {
+        AtomicActionRun StartDig(Dig action, DigContinuation saved) {
             if (!float.IsFinite(action.Timeout) || action.Timeout <= 0f || action.Target == null) {
                 return Reject(action, AtomicActionFailure.InvalidArgument);
             }
@@ -41,8 +41,15 @@ namespace Game.Westworld {
             TerrainRaycastResult terrainHit = (TerrainRaycastResult)hit;
             int tool = m_miner.ActiveBlockValue;
             int? toolSlot = HeldInventory?.ActiveSlotIndex;
+            if (saved != null && (tool != saved.ToolValue || toolSlot != saved.ToolSlot)) {
+                return Reject(action, AtomicActionFailure.TargetChanged);
+            }
             if (!m_miner.IsLevelSufficientForTool(tool) || !float.IsFinite(m_miner.CalculateDigTime(terrainHit.Value, tool))) {
                 return Reject(action, AtomicActionFailure.PreconditionsNotMet);
+            }
+            if (saved != null) {
+                m_miner.DigCellFace = terrainHit.CellFace;
+                m_miner.m_digStartTime = m_time.GameTime - saved.Elapsed;
             }
             if (AdvanceDig(terrainHit) is AtomicActionResult result) {
                 return new AtomicActionRun(action, result);
@@ -71,7 +78,9 @@ namespace Game.Westworld {
                 if (m_miner.DigCellFace is CellFace face && face.Point == action.Target.Cell) {
                     m_miner.DigCellFace = null;
                 }
-            });
+            }, () => new DigContinuation(action.Target.Cell.X, action.Target.Cell.Y, action.Target.Cell.Z,
+                action.Target.ExpectedValue, action.Target.Face, Remaining(deadline),
+                Math.Max(0, m_time.GameTime - m_miner.m_digStartTime), tool, toolSlot));
         }
 
         AtomicActionResult? AdvanceDig(TerrainRaycastResult hit) {

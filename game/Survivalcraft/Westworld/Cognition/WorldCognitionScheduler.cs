@@ -92,7 +92,7 @@ namespace Game.Westworld {
             }
         }
 
-        bool CanAdvance => !m_userPaused && m_fault == null;
+        bool CanAdvance => !m_userPaused && m_fault == null && m_quotaPause == null;
 
         public void Dispose() {
             if (m_disposed) {
@@ -107,14 +107,19 @@ namespace Game.Westworld {
             }
             finally {
                 m_cancel.Dispose();
-                if (m_observationReplies != null) {
-                    CloseObservation();
+                try {
+                    if (m_observationReplies != null) {
+                        CloseObservation();
+                    }
+                    else if (m_observationRecovery != null) {
+                        FinishObservationLedger(m_observationRecovery);
+                    }
+                    else {
+                        m_ledger.Dispose();
+                    }
                 }
-                else if (m_observationRecovery != null) {
-                    FinishObservationLedger(m_observationRecovery);
-                }
-                else {
-                    m_ledger.Dispose();
+                finally {
+                    m_quota?.Dispose();
                 }
             }
         }

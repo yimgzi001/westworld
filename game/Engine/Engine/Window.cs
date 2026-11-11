@@ -385,6 +385,15 @@ namespace Engine {
 
         public static bool IsCreated => m_state != State.Uncreated;
         public static bool IsActive => m_state == State.Active;
+        public static bool IsVisible {
+            get {
+#if MOBILE || BROWSER
+                return IsCreated;
+#else
+                return m_gameWindow?.IsVisible == true;
+#endif
+            }
+        }
 
         public static event Action Created;
 
@@ -530,7 +539,8 @@ namespace Engine {
             width = width == 0 ? screenSize.X * 4 / 5 : width;
             height = height == 0 ? screenSize.Y * 4 / 5 : height;
             WindowOptions windowOptions = WindowOptions.Default with {
-                Title = title, PreferredDepthBufferBits = 24, PreferredStencilBufferBits = 8, API = api, Size = new Vector2D<int>(width, height)
+                Title = title, PreferredDepthBufferBits = 24, PreferredStencilBufferBits = 8, API = api, Size = new Vector2D<int>(width, height),
+                IsVisible = Environment.GetEnvironmentVariable("WENMING_TEST_BACKGROUND") != "1"
             };
             m_gameWindow = Silk.NET.Windowing.Window.Create(windowOptions);
             m_view = m_gameWindow;

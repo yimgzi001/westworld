@@ -9,6 +9,9 @@ namespace Game.Westworld {
     public sealed record ActorActionView(string Action, AtomicActionStatus Status, AtomicActionFailure Failure, int AffectedCount);
     public sealed record ActorSocialView(AtomicSocialEventKind Kind, double GameTime, string Source, string Text,
         string OfferReference, int ItemValue, int Count) {
+        public string SourceName { get; init; }
+        public float? SourceBearing { get; init; }
+        public float? SourceHorizontalDistance { get; init; }
         public Guid? SpeechId { get; init; }
         public bool? SpeechComplete { get; init; }
         public int? SpeechChunk { get; init; }
@@ -100,7 +103,8 @@ namespace Game.Westworld {
         static ToolSpec FindTool(string name) => QueryTools.Concat(ActionTools)
             .FirstOrDefault(spec => spec.Definition.Name == name);
 
-        static ToolSpec FindActionTool(string name) => ActionTools.FirstOrDefault(spec => spec.Definition.Name == name);
+        ToolSpec FindActionTool(string name) => HasProduction && name == "act_Craft"
+            ? m_personalCraftTool : ActionTools.FirstOrDefault(spec => spec.Definition.Name == name);
 
         static ActorToolResult Error(string code) => new(false, ToJson(null), code);
 
@@ -156,17 +160,26 @@ namespace Game.Westworld {
 
         ActorSocialView[] ReadSocial() => m_peekCognitiveInbox?.Invoke() ?? DrainSocialViews();
 
-        ActorSocialView[] DrainSocialViews() => m_actions.DrainSocialEvents().Select(item => new ActorSocialView(
+        ActorSocialView[] DrainSocialViews() {
+            SelfView self = m_actions.Queries.ReadSelf();
+            return m_actions.DrainSocialEvents().Select(item => {
+                (float Bearing, float Distance)? direction = item.SourcePosition is Vector3 position && self != null
+                    ? RelativeDirection(position, self) : null;
+                return new ActorSocialView(
             item.Kind,
             item.GameTime,
-            m_memory.FindObservedEntityReference(item.Source),
+            HasProduction ? PersonReference(item.Source) : m_memory.FindObservedEntityReference(item.Source),
             item.Text,
-            item.Kind == AtomicSocialEventKind.ItemOffered && item.OfferId.HasValue ? PublishOffer(item.OfferId.Value) : null,
+            (HasProduction || item.Kind == AtomicSocialEventKind.ItemOffered) && item.OfferId.HasValue ? PublishOffer(item.OfferId.Value) : null,
             item.ItemValue,
             item.Count
-        ) { SpeechId = item.SpeechId, SpeechComplete = item.SpeechComplete, SpeechChunk = item.SpeechChunk }).ToArray();
+                ) { SpeechId = item.SpeechId, SpeechComplete = item.SpeechComplete, SpeechChunk = item.SpeechChunk,
+                    SourceName = item.SourceName, SourceBearing = direction?.Bearing, SourceHorizontalDistance = direction?.Distance };
+            }).ToArray();
+        }
 
         string PublishOffer(Guid offer) {
+            if (HasProduction) return offer.ToString("N");
             if (m_offers.Count == MaxOfferReferences) {
                 m_offers.Remove(m_offerOrder.Dequeue());
             }
@@ -176,18 +189,31 @@ namespace Game.Westworld {
             return reference;
         }
 
-        Guid ResolveOffer(string reference) => m_offers.TryGetValue(reference, out Guid offer)
+        Guid ResolveOffer(string reference) => (HasProduction && Guid.TryParseExact(reference, "N", out Guid offer)
+            || m_offers.TryGetValue(reference, out offer))
             ? offer : throw new InvalidToolCall("unknown_reference");
 
         BlockTarget BlockReference(string reference) => Need(m_memory.ResolveBlock(reference));
         ActionTarget WorldTarget(string reference) => Need(m_memory.ResolveTarget(reference));
-        Entity Person(string reference) => Need(m_memory.ResolveEntity(reference));
-        IInventory Storage(string reference) => Need(m_memory.ResolveStorage(reference));
+        Entity Person(string reference) => HasProduction && TryPersonId(reference, out int id)
+            ? m_actions.BoundActor.Project.FindEntity(id) : Need(m_memory.ResolveEntity(reference));
+        IInventory Storage(string reference) => Need(HasProduction ? reference switch {
+            CarriedStorage => m_actions.Queries.OwnInventory,
+            PersonalStorage => m_actions.Queries.OwnCrafting,
+            _ => m_memory.ResolveStorage(reference)
+        } : m_memory.ResolveStorage(reference));
         Vector3 Position(string reference) => m_memory.ResolvePosition(reference) ?? throw new InvalidToolCall("unknown_reference");
         Vector3 ObservedPosition(string reference) => m_memory.ResolveObservedPosition(reference) ?? throw new InvalidToolCall("unknown_reference");
         PickUp Pickup(Args args) {
             string target = args.String("target");
             int? foodValue = args.OptionalInt("food_value");
+            int? materialValue = args.OptionalInt("material_value");
+            if (materialValue.HasValue) {
+                if (!HasProduction || target != null || foodValue.HasValue || !IsWood(materialValue.Value)) {
+                    throw new InvalidToolCall("invalid_arguments");
+                }
+                return new PickUp(null, args.Int("count")) { WoodValue = materialValue };
+            }
             if ((target == null) == (foodValue == null) || foodValue is <= 0) {
                 throw new InvalidToolCall("invalid_arguments");
             }
@@ -216,7 +242,7 @@ namespace Game.Westworld {
         }
 
         Vector3 RelativePoint(float bearing, float distance) {
-            if (bearing is < -180f or > 180f || distance is < 1f or > 4f) {
+            if (bearing is < -180f or > 180f || distance < (HasProduction ? .2f : 1f) || distance > 4f) {
                 throw new InvalidToolCall("invalid_arguments");
             }
             SelfView self = m_actions.Queries.ReadSelf() ?? throw new InvalidToolCall("actor_unavailable");

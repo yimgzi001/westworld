@@ -231,6 +231,11 @@ namespace Game {
         }
 
         public virtual void Update(float dt) {
+            WorldSettings worldSettings = m_subsystemGameInfo.WorldSettings;
+            if (worldSettings.WestworldFoundingVersion != 0) {
+                m_creativeFlyButtonWidget.IsVisible = worldSettings.GameMode == GameMode.Creative
+                    || Westworld.FoundingWorld.CanFly(worldSettings, m_componentPlayer.PlayerData.PlayerIndex);
+            }
             HandleInput();
             UpdateWidgets();
             ModsManager.HookAction(
