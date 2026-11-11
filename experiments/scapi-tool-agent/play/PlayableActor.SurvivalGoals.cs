@@ -88,7 +88,8 @@ internal sealed partial class PlayableActor
                     {
                         goal = PlaySurvivalProduction.DescribeTask(task),
                         readyNow = ready.Contains(task),
-                        prerequisites = PlaySurvivalProduction.Prerequisites(task)
+                        prerequisites = PlaySurvivalProduction.Prerequisites(task),
+                        returnJourney = PlaySurvivalProduction.ReturnJourney(task, placedStations, body.Position)
                     }, Supply: task)));
                 choices.AddRange(PlaySurvivalProduction.HuntingTargets(player, sweep.Panorama.Objects.Entities).Select((bird, i) =>
                     new Choice($"prey_{i + 1}", GoalKind.Supply, new { goal = "猎取这只食用鸟并取得生肉", bird.Name,
@@ -124,10 +125,13 @@ internal sealed partial class PlayableActor
                 choices.Add(new(PlaySurvivalProduction.BuildCamp, GoalKind.Supply, new { goal = PlaySurvivalProduction.DescribeTask(PlaySurvivalProduction.BuildCamp),
                     readyNow = PlaySurvivalProduction.CampStock(player) >= 40, site.X, site.Y, site.Z,
                     materials = "四十块土或木板；需要先收够材料" }, Supply: PlaySurvivalProduction.BuildCamp, Camp: site));
-            if (campSite is { Built: true } home)
+            if (campSite is { Built: true } home
+                && (home.Inside - body.Position).XZ.Length() <= PlaySurvivalProduction.KnownReturnReach)
                 choices.Add(new(InOwnCamp() && home.DoorClosed ? PlaySurvivalProduction.LeaveCamp : PlaySurvivalProduction.ReturnCamp,
                     GoalKind.Supply, new { goal = InOwnCamp() && home.DoorClosed ? "打开入口并离开自己的土屋" : "回自己的土屋并封好入口",
-                        distance = Math.Round((home.Inside - body.Position).XZ.Length(), 1) },
+                        distance = Math.Round((home.Inside - body.Position).XZ.Length(), 1),
+                        estimatedTravelSeconds = Math.Ceiling((home.Inside - body.Position).XZ.Length() / 2f),
+                        routeNeedsRechecking = !InOwnCamp() },
                     Supply: InOwnCamp() && home.DoorClosed ? PlaySurvivalProduction.LeaveCamp : PlaySurvivalProduction.ReturnCamp, Camp: home));
         }
         if (dry && vitals.Food < 0.98f)

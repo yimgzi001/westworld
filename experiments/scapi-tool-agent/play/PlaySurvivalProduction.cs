@@ -176,7 +176,7 @@ internal sealed partial class PlaySurvivalProduction
         BuildCamp => "已确认四乘四平整地基、墙和顶共四十块土或木板",
         ReturnCamp => "已经亲自建成并记住的营地、当前可确认的返程路线、封门用土",
         LeaveCamp => "本人已建营地、安全屋外地面和可打开的入口",
-        VisitTable or VisitFurnace or VisitFire => "本人记住的工作站位置及当前可核对的安全路线；不提供地图外寻路",
+        VisitTable or VisitFurnace or VisitFire => "本人记住且一百二十八格内的工作站；逐段重看地形与危险，路线未知时不能保证到达",
         _ => "本人已经见到的树干及安全落脚位置"
     };
 
@@ -211,7 +211,7 @@ internal sealed partial class PlaySurvivalProduction
         if (Count(player.ComponentMiner.Inventory, IsPumpkinSeed) > 0) tasks.Add(PlantPumpkins);
         foreach (string visit in new[] { VisitTable, VisitFurnace, VisitFire })
             if (stations.TryGetValue(WorksiteBlock(visit), out var known)
-                && (Center(known) - player.ComponentBody.Position).XZ.Length() <= 40f
+                && (Center(known) - player.ComponentBody.Position).XZ.Length() <= KnownReturnReach
                 && (visit != VisitFire || !CampfireSeenOut(panorama, stations))) tasks.Add(visit);
         return tasks.Where(task => task != WarmthProject).Distinct().ToArray();
     }
@@ -223,7 +223,7 @@ internal sealed partial class PlaySurvivalProduction
         var available = new List<string>();
         foreach (string visit in new[] { VisitTable, VisitFurnace, VisitFire })
             if (stations.TryGetValue(WorksiteBlock(visit), out var known)
-                && (Center(known) - player.ComponentBody.Position).XZ.Length() <= ProjectReach
+                && (Center(known) - player.ComponentBody.Position).XZ.Length() <= KnownReturnReach
                 && (visit != VisitFire || !CampfireSeenOut(panorama, stations))) available.Add(visit);
         if (CanAdvanceProject(player, WoodSupply, panorama, stations, permitted)) available.Add(WoodSupply);
         if (Stock(player, Stone) < 8 && CanAdvanceProject(player, StoneSupply, panorama, stations, permitted)) available.Add(StoneSupply);

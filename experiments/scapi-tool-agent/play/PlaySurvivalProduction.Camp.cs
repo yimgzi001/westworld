@@ -46,6 +46,8 @@ internal sealed partial class PlaySurvivalProduction
     private bool campJumping, campAwaitingLanding;
     private readonly HashSet<(Point3 Cell, int Face)> refusedCampAnchors = new();
     private double campReadyAt;
+    private int campRouteSegments;
+    private Vector3 campRouteDestination;
 
     public static CampSite? PlanCamp(LocalObservationWindow window)
     {
@@ -84,7 +86,8 @@ internal sealed partial class PlaySurvivalProduction
             moving.Update(now);
             if (moving.Status is null) return;
             campRoute = null;
-            if (moving.Status != "succeeded") { Finish(false, moving.Reason ?? "camp_route_blocked"); return; }
+            if (moving.Status != "succeeded" && !CanContinueKnownReturn(moving, campRouteDestination, now))
+            { Finish(false, moving.Reason ?? "camp_route_blocked"); return; }
             campReadyAt = now + 0.2;
             return;
         }
@@ -113,7 +116,8 @@ internal sealed partial class PlaySurvivalProduction
         if (Task is ReturnCamp or LeaveCamp && campPhase == 0)
         {
             var entry = inside ? camp.Inside : camp.Outside;
-            if ((body.Position - entry).XZ.Length() > 0.45f) { StartCampRoute(entry, now); return; }
+            if ((body.Position - entry).XZ.Length() > 0.45f || Math.Abs(body.Position.Y - entry.Y) > 0.1f)
+            { StartCampRoute(entry, now); return; }
             campPhase = 1;
         }
         if (Task is ReturnCamp or LeaveCamp && campPhase == 1)
@@ -141,7 +145,9 @@ internal sealed partial class PlaySurvivalProduction
         if (Task is ReturnCamp or LeaveCamp && campPhase == 2)
         {
             var destination = Task == LeaveCamp ? camp.Outside : camp.Inside;
-            if ((body.Position - destination).XZ.Length() > 0.45f) { StartCampRoute(destination, now); return; }
+            float reach = Task == ReturnCamp ? 0.15f : 0.45f;
+            if ((body.Position - destination).XZ.Length() > reach || Math.Abs(body.Position.Y - destination.Y) > 0.1f)
+            { StartCampRoute(destination, now); return; }
             if (Task == LeaveCamp) { campComplete = true; Finish(true, "native_camp_departure_confirmed"); return; }
             campPhase = 3;
         }
@@ -227,12 +233,21 @@ internal sealed partial class PlaySurvivalProduction
     {
         var origin = player.ComponentBody.Position;
         var offset = (destination - origin).XZ;
-        if (offset.Length() > 40f) { Finish(false, "camp_beyond_observed_navigation_range"); return; }
+        if (offset.Length() > KnownReturnReach) { Finish(false, "camp_beyond_return_range"); return; }
+        if (campRouteSegments++ >= KnownReturnLegLimit) { Finish(false, "camp_return_segment_limit"); return; }
         var known = owner.Queries.ReadPanorama(40f);
+        // 封门前须真正站到屋内，四十五厘米的到达范围仍可能让身体挡住门格。
+        float reach = destination == camp!.Inside ? 0.15f : 0.45f;
         bool Permit(Vector3 point) => permitLandLeg?.Invoke(point, now) != false;
         var path = PlayObservedPath.Find(known, origin, destination, (_, end) => Permit(end), goalReach: 0.15f);
+        knownReturnStarted = now;
+        knownReturnHealth = player.ComponentHealth.Health;
+        campRouteDestination = destination;
         campRoute = new(player, owner, MathUtils.RadToDeg(Vector2.Angle(player.ComponentBody.Matrix.Forward.XZ, offset)),
             offset.Length(), "work", false, now, () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log,
-            shelterTarget: destination, permitLandLeg: permitLandLeg, observedPath: path);
+            shelterTarget: destination, permitLandLeg: permitLandLeg, observedPath: path,
+            arrived: () => Math.Abs(player.ComponentBody.Position.Y - destination.Y) < 0.1f
+                && (player.ComponentBody.Position - destination).XZ.LengthSquared() < reach * reach,
+            goalRange: reach, finishStepAtDeadline: true);
     }
 }

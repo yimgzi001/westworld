@@ -37,6 +37,8 @@ internal sealed class PlaySurvivalTravel
     private readonly float movingTargetReach;
     private readonly Func<bool>? arrived;
     private readonly float goalRange;
+    private readonly bool finishStepAtDeadline;
+    private bool deadlineStepLogged;
     private Vector3? movingTarget;
     private double nextMovingTargetRead, lastMovingTargetSeen;
     private bool movingTargetVisible;
@@ -67,7 +69,7 @@ internal sealed class PlaySurvivalTravel
         Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null,
         float escapeClearance = 0f, bool allowEscapeTurn = false, PlayObservedPath.Plan? observedPath = null,
         Func<Vector3?>? readMovingTarget = null, float movingTargetReach = 0f, Func<bool>? arrived = null,
-        float goalRange = 0.45f)
+        float goalRange = 0.45f, bool finishStepAtDeadline = false)
     {
         this.player = player;
         this.owner = owner;
@@ -98,6 +100,7 @@ internal sealed class PlaySurvivalTravel
         this.movingTargetReach = movingTargetReach;
         this.arrived = arrived;
         this.goalRange = goalRange;
+        this.finishStepAtDeadline = finishStepAtDeadline;
         Evading = evading;
         Origin = player.ComponentBody.Position;
         initialHealth = player.ComponentHealth.Health;
@@ -149,8 +152,21 @@ internal sealed class PlaySurvivalTravel
             Finish("failed", "land_route_became_wet");
             return;
         }
-        if (gameTime >= deadline || player.ComponentSleep.IsSleeping
-            || (!Evading && player.ComponentHealth.Health < initialHealth - 0.04f))
+        bool interrupted = player.ComponentSleep.IsSleeping || !Evading && player.ComponentHealth.Health < initialHealth - 0.04f;
+        bool expired = gameTime >= deadline;
+        if (expired && !interrupted && finishStepAtDeadline && gameTime < deadline + 3f && leg?.Action is StepTo)
+        {
+            // 返程段到时不截断已开始的原生台阶。只给当前一步最多三秒落稳，不延续探索或掩盖受伤。
+            if (!deadlineStepLogged)
+            {
+                deadlineStepLogged = true;
+                log(new { kind = "play_return_step_finishing", actor = player.PlayerData.Name,
+                    position = body.Position.ToString(), target = dryProof?.End.ToString(), gameTime });
+            }
+            if (leg.Result.Status == AtomicActionStatus.Running) expired = false;
+            else if (!SettledOnLand()) return;
+        }
+        if (expired || interrupted)
         {
             Finish("failed", "travel_interrupted");
             return;

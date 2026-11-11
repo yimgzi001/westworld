@@ -8,8 +8,34 @@ using Game.Westworld;
 internal sealed partial class PlaySurvivalProduction
 {
     public const string VisitTable = "return_to_own_workbench", VisitFurnace = "return_to_own_furnace", VisitFire = "return_to_own_campfire";
+    public const float KnownReturnReach = 128f;
+    private const int KnownReturnLegLimit = 8;
     private bool worksiteReached;
     private int worksiteLegs;
+    private double knownReturnStarted;
+    private float knownReturnHealth;
+
+    public static object? ReturnJourney(string task, Dictionary<int, Point3> stations, Vector3 origin)
+    {
+        if (task is not (VisitTable or VisitFurnace or VisitFire) || !stations.TryGetValue(WorksiteBlock(task), out var cell)) return null;
+        float distance = (Center(cell) - origin).XZ.Length();
+        return new { distance = Math.Round(distance, 1), estimatedTravelSeconds = Math.Ceiling(distance / 2f),
+            routeNeedsRechecking = true, maximumReturnDistance = KnownReturnReach };
+    }
+
+    private bool CanContinueKnownReturn(PlaySurvivalTravel route, Vector3 target, double now)
+    {
+        var body = player.ComponentBody;
+        bool segmentEnded = route.Reason == "navigation_distance_limit"
+            || route.Reason == "travel_interrupted" && now - knownReturnStarted >= 24.5;
+        float progress = (route.Origin - target).XZ.Length() - (body.Position - target).XZ.Length();
+        // 时间段用完且确实走近才续接。受伤、落水、无路或原地绕圈不能靠重试掩盖。
+        if (!segmentEnded || progress < 2f || player.ComponentHealth.Health < knownReturnHealth - 0.001f
+            || !PlaySurvivalSenses.OnDryGround(body) || Math.Abs(body.Velocity.Y) >= 0.6f) return false;
+        log(new { kind = "play_known_return_progress", actor = player.PlayerData.Name, task = Task,
+            progress, remaining = (body.Position - target).XZ.Length(), route.Reason, gameTime = now });
+        return true;
+    }
 
     private static int WorksiteBlock(string task) => task switch
     {
@@ -20,13 +46,13 @@ internal sealed partial class PlaySurvivalProduction
     {
         int block = WorksiteBlock(Task);
         if (!stations.TryGetValue(block, out var known)) { Finish(false, "own_worksite_not_known"); return; }
+        PlaySurvivalTravel? completed = null;
         if (campRoute is { } route)
         {
             route.Update(now);
             if (route.Status is null) return;
             campRoute = null;
-            if (route.Status != "succeeded" && (player.ComponentBody.Position - route.Origin).XZ.LengthSquared() < 0.25f)
-            { Finish(false, route.Reason ?? "worksite_route_blocked"); return; }
+            completed = route;
         }
         var panorama = owner.Queries.ReadPanorama(40f);
         float reach = block == CampfireBlock.Index ? 2.8f : StationReach;
@@ -45,9 +71,9 @@ internal sealed partial class PlaySurvivalProduction
             Finish(true, "own_worksite_reconfirmed_in_reach");
             return;
         }
-        if (worksiteLegs >= 2 || panorama is null) { Finish(false, "own_worksite_not_reconfirmed"); return; }
+        if (worksiteLegs >= KnownReturnLegLimit || panorama is null) { Finish(false, "own_worksite_not_reconfirmed"); return; }
         var origin = player.ComponentBody.Position;
-        if ((Center(known) - origin).XZ.Length() > 40f) { Finish(false, "worksite_beyond_observed_navigation_range"); return; }
+        if ((Center(known) - origin).XZ.Length() > KnownReturnReach) { Finish(false, "worksite_beyond_return_range"); return; }
         bool Permit(Vector3 end) => permitLandLeg?.Invoke(end, now) != false;
         if ((Center(known) - origin).LengthSquared() < 36f)
         {
@@ -60,16 +86,21 @@ internal sealed partial class PlaySurvivalProduction
                 return;
             }
         }
+        if (completed is { Status: "failed" } && !CanContinueKnownReturn(completed, Center(known), now))
+        { Finish(false, completed.Reason ?? "worksite_route_blocked"); return; }
         bool Arrived() => (Center(known) - player.ComponentBody.Position).LengthSquared() <= (reach + 1) * (reach + 1)
             && SeenStation(owner.Queries.ReadPanorama(reach + 0.6f), stations, block, reach) is { } seen
             && WorksiteAccessible(seen, block);
         void StartRoute(Vector3 destination, PlayObservedPath.Plan? path)
         {
             worksiteLegs++;
+            knownReturnStarted = now;
+            knownReturnHealth = player.ComponentHealth.Health;
             var delta = (destination - origin).XZ;
             campRoute = new(player, owner, MathUtils.RadToDeg(Vector2.Angle(player.ComponentBody.Matrix.Forward.XZ, delta)),
                 delta.Length(), "work", false, now, () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log,
-                shelterTarget: destination, observedPath: path, permitLandLeg: permitLandLeg, arrived: Arrived);
+                shelterTarget: destination, observedPath: path, permitLandLeg: permitLandLeg, arrived: Arrived,
+                finishStepAtDeadline: true);
         }
         foreach (var ground in panorama.Blocks.Where(ground => ground.BareTop && PlaySurvivalSenses.IsDryTerrain(ground.Value)
             && ground.Cell.Y + 1 == known.Y
