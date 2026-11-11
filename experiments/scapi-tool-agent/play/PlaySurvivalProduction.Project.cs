@@ -20,7 +20,7 @@ internal sealed partial class PlaySurvivalProduction
     private bool warmthReady;
     private double projectReadyAt;
 
-    public static bool IsProject(string task) => task is CookedFoodProject or SpearProject or WarmthProject or WoodSupply or StoneSupply or EarthSupply;
+    public static bool IsProject(string task) => task is CookedFoodProject or SpearProject or WarmthProject or WoodSupply or StoneSample or StoneSupply or EarthSupply;
 
     public static string? NextStage(ComponentPlayer player, string task, ActorPanorama? panorama,
         Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted) => IsProject(task)
@@ -78,7 +78,7 @@ internal sealed partial class PlaySurvivalProduction
             projectStep = null;
             if (step.Status != "succeeded")
             {
-                if (Task is WoodSupply or StoneSupply or EarthSupply && materialFailures++ < 3
+                if (Task is WoodSupply or StoneSample or StoneSupply or EarthSupply && materialFailures++ < 3
                     && PlaySurvivalSenses.OnDryGround(body) && Math.Abs(body.Velocity.Y) < 0.6f
                     && player.ComponentHealth.Health >= 0.45f)
                 {
@@ -100,12 +100,31 @@ internal sealed partial class PlaySurvivalProduction
             projectReadyAt = gameTime + 0.18;
             return;
         }
-        bool stockEnough = Task == StoneSupply && Stock(player, Stone) >= 8
+        bool stockEnough = Task == StoneSample && Stock(player, Stone) >= 1
+            || Task == StoneSupply && Stock(player, Stone) >= 8
             || Task == EarthSupply && Stock(player, Earth) >= 40;
         if (stockEnough || Added >= (Task == WoodSupply ? 3 : Task == StoneSupply ? Math.Max(1, 8 - before)
             : Task == EarthSupply ? Math.Max(1, 40 - before) : 1))
         {
             if (!PlaySurvivalSenses.OnDryGround(body) || Math.Abs(body.Velocity.Y) >= 0.6f) return;
+            if (Task == StoneSample && body.Position.Y < materialEntryFooting.Y + 0.9f)
+            {
+                // 第一块石料的拾取可能落进刚挖出的凹坑；先带回保留的出发地面，才能交给后续造台制斧。
+                var entry = new Vector3(materialEntryFooting.X + 0.5f, materialEntryFooting.Y + 1f, materialEntryFooting.Z + 0.5f);
+                var offset = (entry - body.Position).XZ;
+                var seen = owner.Queries.ReadPanorama(ProjectReach);
+                bool Permit(Vector3 end) => permitLandLeg?.Invoke(end, gameTime) != false;
+                var path = PlayObservedPath.Find(seen, body.Position, entry, (_, end) => Permit(end), goalReach: 0.3f);
+                CurrentStage = "return_stone_sample_to_entry_surface";
+                projectRoute = new(player, owner, MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset)),
+                    offset.Length(), "work", false, gameTime, () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log,
+                    shelterTarget: entry, observedPath: path, permitLandLeg: permitLandLeg, goalRange: 0.3f,
+                    arrived: () => Math.Abs(body.Position.Y - entry.Y) < 0.1f
+                        && (body.Position - entry).XZ.LengthSquared() < 0.3f * 0.3f,
+                    finishStepAtDeadline: true);
+                log(new { kind = "play_stone_sample_return", actor = player.PlayerData.Name, target = entry.ToString(), gameTime });
+                return;
+            }
             Finish(true, stockEnough ? "stock_target_already_met"
                 : Task == WarmthProject ? "native_campfire_confirmed" : "project_inventory_goal_confirmed");
             return;
@@ -158,7 +177,7 @@ internal sealed partial class PlaySurvivalProduction
         projectStep = new(player, owner, tools, next.Task, gameTime, log, stations, readDryWindow, permitLandLeg, next.Bird,
             ownFarm: ownFarm, camp: camp, preserveGround: preserveGround);
         projectStep.missedMaterialDrops = missedMaterialDrops;
-        if (Task is StoneSupply or EarthSupply) projectStep.missedMaterials.Add(materialEntryFooting);
+        if (Task is StoneSample or StoneSupply or EarthSupply) projectStep.missedMaterials.Add(materialEntryFooting);
     }
 
     private static ProjectStep? NextProjectStep(ComponentPlayer player, string task, ActorPanorama? panorama,
@@ -166,7 +185,7 @@ internal sealed partial class PlaySurvivalProduction
         int? selectedBird = null, bool keepPreparingGear = false, IReadOnlySet<Point3>? protectedMaterials = null)
     {
         if (panorama is null) return null;
-        if (task is WoodSupply or StoneSupply or EarthSupply)
+        if (task is WoodSupply or StoneSample or StoneSupply or EarthSupply)
             return CollectMaterial(player, panorama, task == WoodSupply ? Wood : task == EarthSupply ? Earth : Stone, permitted, triedMaterials, protectedMaterials);
         if (task == WarmthProject)
         {

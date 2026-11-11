@@ -19,6 +19,7 @@ internal sealed partial class PlaySurvivalProduction
     public const string WarmthProject = "secure_warmth";
     public const string Axe = "craft_stone_axe";
     public const string WoodSupply = "collect_three_wood", StoneSupply = "collect_eight_cobblestone";
+    public const string StoneSample = "collect_one_cobblestone";
     private static readonly JsonSerializerOptions RecipeJson = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
@@ -82,7 +83,7 @@ internal sealed partial class PlaySurvivalProduction
         before = Stock(player, task);
         materialEntryFooting = Terrain.ToCell(player.ComponentBody.Position) - Up;
         startedAtNight = PlaySurvivalRest.NightCoverDue(player.Project.FindSubsystem<SubsystemTimeOfDay>(true));
-        if (task is StoneSupply or EarthSupply)
+        if (task is StoneSample or StoneSupply or EarthSupply)
             triedMaterialApproaches.Add(materialEntryFooting);
         deadline = gameTime + (task == RecoverSpear ? 90 : task is Quarry or VisitQuarry or BuildCamp or ReturnCamp or LeaveCamp or VisitTable or VisitFurnace or VisitFire
             or Furnace or Spear or Rake or Axe or Cook || IsProject(task) ? 180 : 36);
@@ -135,6 +136,7 @@ internal sealed partial class PlaySurvivalProduction
         Stone => "取得可见的圆石",
         WoodSupply => "连续采集三块木材，沿已见地形接近树干并逐块核对入包",
         StoneSupply => "连续取得八块圆石，材料够八块即完成",
+        StoneSample => "走近已见石料并只取一块圆石，若拾取落进凹坑先带回出发地面，落稳后结束，便于先制石斧",
         Quarry => "从选定的已见土面浅挖阶梯找石，最多六格，每次下探先核对回跳净空，保留退路并带一块样本回地面；不保证地下有石头",
         VisitQuarry => "回本人已经发现石层的浅探入口，逐段核对地形，到达后重新观察石料",
         PumpkinSeeds => "用一只成熟南瓜按原生配方制三粒种子；消耗这只南瓜",
@@ -165,7 +167,7 @@ internal sealed partial class PlaySurvivalProduction
         Warm => "自带营火和可见安全地面",
         TendFire => "先回到仍有火苗的营火；一份非爆炸燃料。已熄灭的灰烬不能靠添柴重新点燃",
         WarmAtFire => "先回自己的燃烧营火，必要时添柴；站在三格内安全距离，不踩火",
-        StoneSupply or Stone => "本人已经见到的花岗岩及安全落脚位置",
+        StoneSample or StoneSupply or Stone => "本人已经见到的花岗岩及安全落脚位置",
         Quarry => "已见四格平整软土地面与净空；逐层观察，不读取地下地图；不可拆营地、农地或旧矿口退路",
         VisitQuarry => "本人已开挖且发现过石头的矿口，四十格内；记住矿口不等于地下资源仍然可采",
         PumpkinSeeds => "成熟南瓜一只；应先保留吃的南瓜，再考虑留种",
@@ -226,6 +228,7 @@ internal sealed partial class PlaySurvivalProduction
                 && (Center(known) - player.ComponentBody.Position).XZ.Length() <= KnownReturnReach
                 && (visit != VisitFire || !CampfireSeenOut(panorama, stations))) available.Add(visit);
         if (CanAdvanceProject(player, WoodSupply, panorama, stations, permitted)) available.Add(WoodSupply);
+        if (Stock(player, Stone) == 0 && CanAdvanceProject(player, StoneSample, panorama, stations, permitted)) available.Add(StoneSample);
         if (Stock(player, Stone) < 8 && CanAdvanceProject(player, StoneSupply, panorama, stations, permitted)) available.Add(StoneSupply);
         if (routineWork)
         {
@@ -276,7 +279,7 @@ internal sealed partial class PlaySurvivalProduction
     public static int Stock(ComponentPlayer player, string task) => Count(player.ComponentMiner.Inventory, value => task switch
     {
         Wood or WoodSupply => IsMaterial(value, Wood),
-        Stone or StoneSupply or Quarry => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
+        Stone or StoneSample or StoneSupply or Quarry => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
         Workbench => Terrain.ExtractContents(value) == CraftingTableBlock.Index,
         Fire => Terrain.ExtractContents(value) == CampfireBlock.Index,
         Furnace => Terrain.ExtractContents(value) == FurnaceBlock.Index,
