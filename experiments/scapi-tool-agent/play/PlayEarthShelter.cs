@@ -150,7 +150,11 @@ internal sealed class PlayEarthShelter
                 }
                 else if (level == site.Surface - 3 && BlocksManager.Blocks[Terrain.ExtractContents(body.StandingOnValue.Value)].SleepSuitability > 0f)
                     phase = Phase.SurveyWall;
-                else if (level > site.Surface - 3 && SoftEarth(body.StandingOnValue.Value)) phase = Phase.SurveyFloor;
+                else if (level > site.Surface - 3 && SoftEarth(body.StandingOnValue.Value))
+                {
+                    if (level == site.Surface && !CanKeepShelterEarth()) Finish("failed", "no_storage_for_shelter_earth");
+                    else phase = Phase.SurveyFloor;
+                }
                 else Finish("failed", "no_soft_earth_or_sleep_floor");
                 break;
             case Phase.SurveyFloor:
@@ -171,10 +175,16 @@ internal sealed class PlayEarthShelter
                 break;
             case Phase.Seal:
                 if (Focus(site.Cell(site.Surface - 1) + Walls[wall], null) is { } wallTarget
-                    && wallTarget.Face is int side && wallTarget.Cell + CellFace.FaceToPoint3(side) == site.Cell(site.Surface - 1)
-                    && Dirt() is { } cover)
-                    Begin(new Place(wallTarget, cover), retreating ? Phase.Resealed : Phase.Open);
-                else if (++wall < Walls.Length) phase = Phase.SurveyWall;
+                    && wallTarget.Face is int side && wallTarget.Cell + CellFace.FaceToPoint3(side) == site.Cell(site.Surface - 1))
+                {
+                    if (Dirt() is { } cover)
+                    {
+                        Begin(new Place(wallTarget, cover), retreating ? Phase.Resealed : Phase.Open);
+                        break;
+                    }
+                    if (TryStageEarth(Phase.Seal)) break;
+                }
+                if (++wall < Walls.Length) phase = Phase.SurveyWall;
                 else Finish("failed", "no_roof_anchor_or_owned_earth");
                 break;
             case Phase.Resealed:
@@ -214,7 +224,7 @@ internal sealed class PlayEarthShelter
             case Phase.Jump:
                 if (Dirt() is null)
                 {
-                    Finish("failed", "no_earth_for_exit");
+                    if (!TryStageEarth(Phase.Jump)) Finish("failed", "no_earth_for_exit");
                     break;
                 }
                 if (Focus(site.Cell(level - 1), 4) is null)
@@ -270,6 +280,61 @@ internal sealed class PlayEarthShelter
         }
         return null;
     }
+
+    private bool CanKeepShelterEarth()
+    {
+        var inventory = player.ComponentMiner.Inventory;
+        if (Dirt() is not null || EmptyHotbarSlot(inventory) >= 0) return true;
+        int dirtSlot = BackpackDirtSlot(inventory);
+        if (dirtSlot < 0)
+            dirtSlot = BackpackSlots(inventory).FirstOrDefault(slot => inventory.GetSlotCount(slot) == 0, -1);
+        // 快捷栏全满时，确认挖出的土能入包且能腾出一个放置用槽，再开始挖坑。
+        return dirtSlot >= 0 && FindHotbarStorage(inventory, dirtSlot) is not null;
+    }
+
+    private bool TryStageEarth(Phase resume)
+    {
+        var inventory = player.ComponentMiner.Inventory;
+        int source = BackpackDirtSlot(inventory);
+        if (source < 0) return false;
+        int hotbar = EmptyHotbarSlot(inventory);
+        if (hotbar >= 0)
+        {
+            MoveInventory(inventory, source, hotbar, resume);
+            return true;
+        }
+        if (FindHotbarStorage(inventory, source) is not { } storage) return false;
+        // 先把原快捷栏物品整组移到背包，下一帧再搬土。两次都使用原生库存动作。
+        MoveInventory(inventory, storage.Hotbar, storage.Backpack, resume);
+        return true;
+    }
+
+    private static (int Hotbar, int Backpack)? FindHotbarStorage(IInventory inventory, int earthSlot)
+    {
+        for (int hotbar = 0; hotbar < inventory.VisibleSlotsCount; hotbar++)
+        {
+            int value = inventory.GetSlotValue(hotbar);
+            int count = inventory.GetSlotCount(hotbar);
+            int backpack = BackpackSlots(inventory).FirstOrDefault(slot => slot != earthSlot
+                && (inventory.GetSlotCount(slot) == 0 || inventory.GetSlotValue(slot) == value)
+                && inventory.GetSlotCapacity(slot, value) - inventory.GetSlotCount(slot) >= count, -1);
+            if (count > 0 && backpack >= 0) return (hotbar, backpack);
+        }
+        return null;
+    }
+
+    private static IEnumerable<int> BackpackSlots(IInventory inventory) => Enumerable.Range(ComponentInventory.ShortInventorySlotsCount,
+        Math.Max(0, inventory.SlotsCount - ComponentInventory.ShortInventorySlotsCount));
+
+    private static int BackpackDirtSlot(IInventory inventory) => BackpackSlots(inventory).FirstOrDefault(slot =>
+        inventory.GetSlotCount(slot) > 0 && Terrain.ExtractContents(inventory.GetSlotValue(slot)) == DirtBlock.Index, -1);
+
+    private static int EmptyHotbarSlot(IInventory inventory) => Enumerable.Range(0, inventory.VisibleSlotsCount)
+        .FirstOrDefault(slot => inventory.GetSlotCount(slot) == 0, -1);
+
+    private void MoveInventory(IInventory inventory, int source, int destination, Phase resume) => Begin(new TransferItems(
+        new InventorySlot(inventory, source, inventory.GetSlotValue(source)),
+        new InventorySlot(inventory, destination, inventory.GetSlotValue(destination)), inventory.GetSlotCount(source)), resume);
 
     private static bool SoftEarth(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)] is GrassBlock or DirtBlock;
 

@@ -36,6 +36,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `shelter-passive-cow` 验证原生睡眠到天亮后，实际看到坑口约三格外未被招惹的奶牛，仍能满血走出坑口。
 
+`shelter-backpack-earth` 填满快捷栏，确认挖出的土进入背包，通过原生搬运腾出快捷槽并封顶。过夜后把土放回背包，验证原生搬回后垫脚出坑，木板数量保留。`shelter-full-storage` 填满可用库存，确认无法存土时不开挖。
+
 `shelter-night-hungry` 在日落前 30 游戏秒以 9% 饱食开始，检查夜间庇护条件，完成原生搭建、睡到天亮和出坑。
 
 `predator-coast-turn` 使用 `natural34-b` 的真实窄岸地形。原生下船后从卡点开始，约 20 格外放置固定移动能力的灰狼。验证直接退路受阻时，能沿可见干地绕到一格高的出口，并在近处出现威胁时拒绝开始向其靠近。

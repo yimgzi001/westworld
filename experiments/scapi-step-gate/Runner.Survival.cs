@@ -29,6 +29,8 @@ sealed partial class Runner
     private bool jumpPredatorPlaced, exitThreatDuringJump, exitThreatFromHost, lowerPredatorObserved;
     private int? passiveShelterCow;
     private bool passiveShelterCowSeen;
+    private bool shelterDirtObservedInBackpack;
+    private int shelterPlanksBefore, shelterBuildTransfers, shelterExitTransfers;
     private int exitThreatLevel;
     private Point3 threatOrigin;
     private Vector3 threatPosition;
@@ -406,6 +408,8 @@ sealed partial class Runner
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             body.Velocity = Vector3.Zero;
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
+            if (mode is "shelter-backpack-earth" or "shelter-full-storage")
+                FillShelterFixtureInventory(mode == "shelter-full-storage");
             if (foraging)
             {
                 var eggType = ((EggBlock)BlocksManager.Blocks[118]).EggTypes.First(egg => egg.NutritionalValue > 0f);
@@ -592,6 +596,8 @@ sealed partial class Runner
         var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         bool wetTest = mode == "shelter-wet";
         bool hungryNight = mode == "shelter-night-hungry";
+        bool backpackEarth = mode == "shelter-backpack-earth";
+        Action<object> shelterLog = backpackEarth ? TrackShelterInventory : Gate.Log;
         bool lowerPredator = mode == "shelter-lower-predator";
         bool middlePredator = lowerPredator || mode == "shelter-middle-predator";
         bool jumpPredator = middlePredator || mode == "shelter-late-predator";
@@ -613,11 +619,18 @@ sealed partial class Runner
                 refusedOpenCover = !PlaySurvivalRest.HasSecureCover(p);
             }
             testSite = PlayEarthShelter.At(p.ComponentBody) ?? throw new InvalidOperationException("土坑测试地面不可用。");
-            earthShelter = new(p, actions, testSite, false, now, Gate.Log);
+            earthShelter = new(p, actions, testSite, false, now, shelterLog);
             stage = 2;
         }
         if (stage == 2)
         {
+            if (backpackEarth)
+            {
+                var inventory = p.ComponentMiner.Inventory;
+                shelterDirtObservedInBackpack |= NativeAcquisitionAudit.InventoryCount(inventory, DirtBlock.Index) > 0
+                    && Enumerable.Range(0, inventory.VisibleSlotsCount).All(slot => inventory.GetSlotCount(slot) > 0
+                        && Terrain.ExtractContents(inventory.GetSlotValue(slot)) != DirtBlock.Index);
+            }
             if (mode == "shelter-retry" && !changedDigSlot && p.ComponentMiner.DigCellFace is { } face
                 && face.Y == testSite!.Surface - 2)
             {
@@ -633,6 +646,14 @@ sealed partial class Runner
             bool ready = p.ComponentSleep.CanSleep(out string blocker);
             Gate.Log(new { kind = "shelter_built", earthShelter.Status, earthShelter.Reason, ready, blocker,
                 floor = p.ComponentBody.Position.Y, roof = terrain.Terrain.GetCellContents(roof.X, roof.Y, roof.Z) });
+            if (mode == "shelter-full-storage")
+            {
+                bool floorIntact = PlayEarthShelter.At(p.ComponentBody) == testSite && p.ComponentHealth.Health >= 0.99f;
+                Passed = floorIntact && earthShelter.Reason == "no_storage_for_shelter_earth";
+                Done = true;
+                Gate.Log(new { kind = "shelter_storage_full_result", Passed, earthShelter.Reason, floorIntact });
+                return;
+            }
             if (earthShelter.Status != "succeeded") { Done = true; return; }
             if (mode == "shelter-predator" || jumpPredator)
             {
@@ -775,7 +796,8 @@ sealed partial class Runner
             if (!slept) { Done = true; return; }
             if (wetTest) p.ComponentLocomotion.JumpSpeed *= 0.95f;
             if (mode == "shelter-passive-cow") passiveShelterCow = PlaceShelterAnimal("Cow", 3.2f);
-            earthShelter = new(p, actions, testSite!, true, now, Gate.Log);
+            if (backpackEarth) PutShelterEarthBackInBackpack();
+            earthShelter = new(p, actions, testSite!, true, now, shelterLog);
             stage = 5;
         }
         if (stage != 5) return;
@@ -793,6 +815,14 @@ sealed partial class Runner
         Passed = earthShelter.Status == "succeeded" && p.ComponentHealth.Health > 0f && p.ComponentBody.Position.Y >= testSite!.Surface - 0.05f
             && (mode != "shelter-retry" || changedDigSlot)
             && (passiveShelterCow is null || passiveShelterCowSeen && p.ComponentHealth.Health >= 0.99f);
+        if (backpackEarth)
+        {
+            int planks = NativeAcquisitionAudit.InventoryCount(p.ComponentMiner.Inventory, PlanksBlock.Index) ?? -1;
+            Passed &= shelterDirtObservedInBackpack && shelterBuildTransfers == 2 && shelterExitTransfers == 1
+                && planks == shelterPlanksBefore && p.ComponentHealth.Health >= 0.99f;
+            Gate.Log(new { kind = "shelter_backpack_earth_result", Passed, shelterDirtObservedInBackpack,
+                shelterBuildTransfers, shelterExitTransfers, planks, shelterPlanksBefore });
+        }
         Gate.Log(new { kind = "shelter_exit", Passed, earthShelter.Status, earthShelter.Reason, floor = p.ComponentBody.Position.Y,
             passiveShelterCowSeen, health = p.ComponentHealth.Health });
         if (Passed && mode == "shelter-camp")
@@ -806,6 +836,43 @@ sealed partial class Runner
             stage = 8;
         }
         else Done = true;
+    }
+
+    private void FillShelterFixtureInventory(bool completelyFull)
+    {
+        var inventory = p.ComponentMiner.Inventory;
+        // 满快捷栏时只留背包空间。使用不会在过夜期间腐坏的物品核对搬运前后数量。
+        for (int slot = 0; slot < inventory.SlotsCount; slot++)
+        {
+            if (slot >= inventory.VisibleSlotsCount && (!completelyFull || slot < ComponentInventory.ShortInventorySlotsCount)) continue;
+            inventory.RemoveSlotItems(slot, inventory.GetSlotCount(slot));
+            inventory.AddSlotItems(slot, PlanksBlock.Index, completelyFull ? inventory.GetSlotCapacity(slot, PlanksBlock.Index) : 1);
+        }
+        shelterPlanksBefore = NativeAcquisitionAudit.InventoryCount(inventory, PlanksBlock.Index)
+            ?? throw new InvalidOperationException("夹具无法读取准备的背包物品。");
+    }
+
+    private void PutShelterEarthBackInBackpack()
+    {
+        var inventory = p.ComponentMiner.Inventory;
+        int earth = Enumerable.Range(0, inventory.VisibleSlotsCount).First(slot => inventory.GetSlotCount(slot) > 0
+            && Terrain.ExtractContents(inventory.GetSlotValue(slot)) == DirtBlock.Index);
+        int backpack = Enumerable.Range(ComponentInventory.ShortInventorySlotsCount,
+            inventory.SlotsCount - ComponentInventory.ShortInventorySlotsCount).First(slot => inventory.GetSlotCount(slot) == 0);
+        var move = actions.Start(new TransferItems(new InventorySlot(inventory, earth, inventory.GetSlotValue(earth)),
+            new InventorySlot(inventory, backpack, inventory.GetSlotValue(backpack)), inventory.GetSlotCount(earth)));
+        if (move.Result.Status != AtomicActionStatus.Succeeded)
+            throw new InvalidOperationException("出坑夹具没有将垫脚土放回背包。");
+    }
+
+    private void TrackShelterInventory(object entry)
+    {
+        Gate.Log(entry);
+        var record = JsonSerializer.SerializeToElement(entry);
+        if (record.GetProperty("kind").GetString() != "play_shelter_native"
+            || record.GetProperty("action").GetString() != "TransferItems") return;
+        if (record.GetProperty("leaving").GetBoolean()) shelterExitTransfers++;
+        else shelterBuildTransfers++;
     }
 
     private void PlaceShelterThreat(float offset, int belowSurface = 0) =>
