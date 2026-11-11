@@ -17,12 +17,21 @@ internal sealed partial class PlaySurvivalProduction
     private readonly HashSet<Point3> triedMaterialApproaches = new();
     private int projectStages;
     private int? projectBird;
+    private bool warmthReady;
+    private double projectReadyAt;
 
-    public static bool IsProject(string task) => task is CookedFoodProject or SpearProject;
+    public static bool IsProject(string task) => task is CookedFoodProject or SpearProject or WarmthProject;
+
+    public static string? NextStage(ComponentPlayer player, string task, ActorPanorama? panorama,
+        Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted) => IsProject(task)
+        ? NextProjectStep(player, task, panorama, stations, permitted)?.Task : task;
+
+    public bool PreparingGear => Task == CookedFoodProject && Stock(player, Spear) == 0
+        && CurrentStage is Wood or "approach_wood" or Workbench or Spear or "return_to_workbench";
 
     public static bool CanAdvanceProject(ComponentPlayer player, string task, ActorPanorama? panorama,
-        Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted) => IsProject(task)
-        && NextProjectStep(player, task, panorama, stations, permitted) is not null;
+        Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted, bool resumeGear = false) => IsProject(task)
+        && NextProjectStep(player, task, panorama, stations, permitted, keepPreparingGear: resumeGear) is not null;
 
     private void AdvanceProject(double gameTime)
     {
@@ -37,6 +46,12 @@ internal sealed partial class PlaySurvivalProduction
             Finish(false, "project_safety_or_work_limit");
             return;
         }
+        // 采挖后的光照刷新和原生惯性会持续到回执之后，下一阶段先等本人站位与地形恢复可观察。
+        var body = player.ComponentBody;
+        if (gameTime < projectReadyAt || gameTime < projectReadyAt + 0.6 && body.Velocity.XZ.Length() > 0.12f) return;
+        if (projectRoute is null && projectStep is null
+            && player.Project.FindSubsystem<SubsystemTerrain>(true).Terrain
+                .GetChunkAtCell(Terrain.ToCell(body.Position.X), Terrain.ToCell(body.Position.Z))?.State != TerrainChunkState.Valid) return;
         if (projectRoute is { } route)
         {
             route.Update(gameTime);
@@ -53,6 +68,8 @@ internal sealed partial class PlaySurvivalProduction
                     project = Task, material = blocked.ToString(), route.Reason, gameTime });
             }
             approachingMaterial = null;
+            projectReadyAt = gameTime + 0.18;
+            return;
         }
         if (projectStep is { } step)
         {
@@ -64,10 +81,14 @@ internal sealed partial class PlaySurvivalProduction
                 Finish(false, step.Reason ?? "project_step_failed");
                 return;
             }
+            if (Task == WarmthProject && step.Task == Warm && step.Reason == "campfire_lit")
+                warmthReady = true;
+            projectReadyAt = gameTime + 0.18;
+            return;
         }
         if (Added > 0)
         {
-            Finish(true, "project_inventory_goal_confirmed");
+            Finish(true, Task == WarmthProject ? "native_campfire_confirmed" : "project_inventory_goal_confirmed");
             return;
         }
         if (!PlaySurvivalSenses.OnDryGround(player.ComponentBody))
@@ -83,8 +104,9 @@ internal sealed partial class PlaySurvivalProduction
 
         // 每个阶段完成后读取实际库存、工作站和可见资源。中断后从这些事实重新选择前置步骤。
         bool Permitted(Vector3 end) => permitLandLeg?.Invoke(end, gameTime) != false;
-        var next = NextProjectStep(player, Task, owner.Queries.ReadPanorama(ProjectReach), stations, Permitted,
-            triedMaterialApproaches, projectBird, keepPreparingGear: projectStages > 0 && projectBird is null);
+        var panorama = owner.Queries.ReadPanorama(ProjectReach);
+        var next = NextProjectStep(player, Task, panorama, stations, Permitted,
+            triedMaterialApproaches, projectBird, keepPreparingGear: resumeGear || projectStages > 0 && projectBird is null);
         if (next is null)
         {
             Finish(false, "project_missing_visible_prerequisite");
@@ -99,11 +121,13 @@ internal sealed partial class PlaySurvivalProduction
         {
             approachingMaterial = next.Material;
             if (next.Material is { } material) triedMaterialApproaches.Add(material);
-            var body = player.ComponentBody;
             var delta = (destination - body.Position).XZ;
             float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, delta));
+            var path = next.Bird is null ? PlayObservedPath.Find(panorama, body.Position, destination,
+                (_, end) => Permitted(end), goalReach: 0.4f) : null;
             projectRoute = new(player, owner, bearing, delta.Length(), next.Bird.HasValue ? "prey" : "work", false, gameTime,
                 () => (JsonSerializer.SerializeToElement(new { }), []), readDryWindow, log, permitLandLeg: permitLandLeg,
+                observedPath: path,
                 readMovingTarget: next.Bird is int target ? () => ReadFoodBirdPoint(target, ProjectBirdReach) : null,
                 movingTargetReach: HuntApproachReach - 1f);
             return;
@@ -116,6 +140,11 @@ internal sealed partial class PlaySurvivalProduction
         int? selectedBird = null, bool keepPreparingGear = false)
     {
         if (panorama is null) return null;
+        if (task == WarmthProject)
+        {
+            if (Stock(player, Fire) > 0) return new(Warm);
+            return CanCraftFireFromStock(player) ? new(Fire) : CollectMaterial(player, panorama, Wood, permitted, triedMaterials);
+        }
         if (task == SpearProject) return NextSpearStep(player, panorama, stations, permitted, triedMaterials);
 
         var body = player.ComponentBody.Position;

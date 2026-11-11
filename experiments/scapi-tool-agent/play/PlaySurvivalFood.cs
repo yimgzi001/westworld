@@ -74,9 +74,11 @@ internal static class PlaySurvivalFood
         public Vector3 Point => ReadPosition(Position);
         [JsonIgnore]
         public Guid? SourceId { get; init; }
+        [JsonIgnore] public Point3? CropCell { get; init; }
 
         public bool Matches(Food other) => Source == other.Source && Value == other.Value
-            && (SourceId.HasValue && other.SourceId.HasValue ? SourceId == other.SourceId
+            && (CropCell is { } cell && other.CropCell is { } otherCell ? cell == otherCell
+                : SourceId.HasValue && other.SourceId.HasValue ? SourceId == other.SourceId
                 : (Point - other.Point).LengthSquared() <= 1f);
     }
 
@@ -134,7 +136,7 @@ internal static class PlaySurvivalFood
         foreach (var block in panorama.Blocks)
             if (FoodCapabilities.Describe(block.Value)?.TerrainHarvest == true
                 && Describe(block.Value, "harvest", string.Empty, block.Distance, false, () => PointJson(block.Point)) is { } food)
-                yield return food;
+                yield return food with { CropCell = block.Cell };
         foreach (var item in panorama.Objects.Pickables)
             if (DescribeDrop(item) is { } food)
                 yield return food;
@@ -155,7 +157,10 @@ internal static class PlaySurvivalFood
         float distance = entry.GetProperty("distance").GetSingle();
         bool inReach = source == "pickup" ? entry.TryGetProperty("inReach", out var reach) && reach.ValueKind == JsonValueKind.True
             : distance <= 3.1f;
-        return Describe(value, source, reference, distance, inReach, () => entry.GetProperty("position"));
+        var food = Describe(value, source, reference, distance, inReach, () => entry.GetProperty("position"));
+        return food is not null && source == "harvest" && entry.TryGetProperty("cell", out var cell)
+            ? food with { CropCell = new Point3(cell.GetProperty("x").GetInt32(), cell.GetProperty("y").GetInt32(), cell.GetProperty("z").GetInt32()) }
+            : food;
     }
 
     private static Food? Describe(int value, string source, string reference, float distance, bool inReach, Func<JsonElement> position)

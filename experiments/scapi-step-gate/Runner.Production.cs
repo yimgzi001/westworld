@@ -34,7 +34,8 @@ sealed partial class Runner
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         bool tracking = mode == "production-hunt-tracking";
         bool approach = mode == "production-hunt-approach" || tracking;
-        bool hidePrey = mode == "production-gear-while-prey-hidden";
+        bool resumeHidden = mode == "production-resume-gear";
+        bool hidePrey = mode == "production-gear-while-prey-hidden" || resumeHidden;
         bool project = mode == "production-project" || hidePrey;
         bool ranged = approach || mode == "production-hunt-ranged";
         bool hunt = mode == "production-hunt" || ranged || project;
@@ -150,8 +151,20 @@ sealed partial class Runner
                 throw new InvalidOperationException("手持木矛时，射程外可见食用鸟应进入试玩菜单。");
         }
         production ??= new(p, actions, forageTools!, order[productionIndex], now, TrackProduction, productionStations,
-            () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)));
+            () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), resumeGear: resumeHidden && projectInterrupted);
         production.Update(now);
+        if (resumeHidden && !projectInterrupted && screenedProjectBird && production.CurrentStage == PlaySurvivalProduction.Spear
+            && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Spear) == 0)
+        {
+            if (!production.PreparingGear || !PlaySurvivalProduction.CanAdvanceProject(p, production.Task,
+                actions.Queries.ReadPanorama(40f), productionStations, null, resumeGear: true))
+                throw new InvalidOperationException("备矛检查点应该能从已做好的工作台继续。");
+            production.Stop();
+            production = null;
+            projectInterrupted = true;
+            Gate.Log(new { kind = "production_hidden_prey_checkpoint", gameTime = now });
+            return;
+        }
         if (project && !projectInterrupted && production.CurrentStage == PlaySurvivalProduction.Hunt
             && productionStations.ContainsKey(CraftingTableBlock.Index) && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Spear) == 1)
         {
@@ -168,7 +181,7 @@ sealed partial class Runner
         {
             int spears = PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Spear);
             int rawMeat = PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Hunt);
-            Passed = preparedWhileBirdHidden && projectApproachedMaterial && movedFirstWoodDrop && approachedFirstWoodDrop
+            Passed = (!resumeHidden || projectInterrupted) && preparedWhileBirdHidden && projectApproachedMaterial && movedFirstWoodDrop && approachedFirstWoodDrop
                 && projectTablePlacements == 1 && spears == 1 && rawMeat == 0
                 && production.Reason == "project_missing_visible_prerequisite" && p.ComponentHealth.Health >= 0.99f;
             Done = true;
@@ -214,7 +227,7 @@ sealed partial class Runner
         switch (record.GetProperty("kind").GetString())
         {
             case "play_production_stage" when record.GetProperty("stage").GetString() is "approach_wood" or "approach_stone":
-                if ((mode is "production-project" or "production-gear-while-prey-hidden")
+                if ((mode is "production-project" or "production-gear-while-prey-hidden" or "production-resume-gear")
                     && record.GetProperty("material").GetString() == overheadWood.ToString())
                     throw new InvalidOperationException("实际任务选择了高处无可用落脚点的树干。");
                 projectApproachedMaterial = true;

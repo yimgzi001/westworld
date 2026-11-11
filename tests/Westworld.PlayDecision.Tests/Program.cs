@@ -121,8 +121,8 @@ var shorePrompt = new ToolDecisionPrompt(session, a, observation, JsonSerializer
 var shelterPrompt = new ToolDecisionPrompt(session, a, observation, JsonSerializer.SerializeToElement(new { }), [PlayNavigationMenu.ShelterOffer]);
 Check(CanPlan(shorePrompt, scout.Name, new { bearing = 180, distance = 12, seek = "dry_land" }), "水上允许用身后的岸为目标");
 Check(!CanPlan(shorePrompt, scout.Name, new { bearing = 180, distance = 13, seek = "dry_land" }), "限制一次水上导航距离");
-Check(CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 24, seek = "food" }), "陆地觅食可持续导航二十四格");
-Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 25, seek = "food" }), "限制一次陆地导航距离");
+Check(CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 40, seek = "food" }), "旧导航协议允许四十格边界");
+Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 41, seek = "food" }), "旧导航协议继续拒绝越界");
 Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 5, seek = "dry_land" }), "陆地菜单不重复找岸");
 Check(!CanPlan(scoutPrompt, scout.Name, new { bearing = 0, distance = 5, seek = "shelter" }), "白天普通探索不重复原地寻找庇护");
 Check(CanPlan(shelterPrompt, scout.Name, new { bearing = 0, distance = 12, seek = "shelter" }), "需要寻找庇护时保留导航选项");
@@ -149,4 +149,34 @@ Check(inbox.Snapshot(18).EnumerateArray()
     .Select(message => message.GetProperty("offerReference").GetString()).SequenceEqual(new[] { "still_pending" }),
     "回应后只移除这一条交接");
 
-Console.WriteLine($"试玩决策、移动和收件箱 {checks} 项通过。");
+var goalOffer = new ToolOffer("pursue_survival_goal", "选择一件已经观察过的工作",
+    JsonSerializer.SerializeToElement(new
+    {
+        type = "object", properties = new { target = new { type = "string" } },
+        required = new[] { "target" }, additionalProperties = false
+    }), new Dictionary<string, IReadOnlyList<string>> { ["target"] = new[] { "food_1", "route_1" } });
+const string goalGuide = "从这次快照的目标编号里选一件事，执行端继续行动。";
+var goalPrompt = new ToolDecisionPrompt(session, a, observation, JsonSerializer.SerializeToElement(new { }),
+    [goalOffer], maxSteps: 1, minSteps: 1, decisionGuide: goalGuide);
+Check(CanPlan(goalPrompt, goalOffer.Name, new { target = "food_1" }), "单目标允许已绑定的食物");
+Check(CanPlan(goalPrompt, goalOffer.Name, new { target = "route_1" }), "单目标允许已验证的路线");
+Check(!CanPlan(goalPrompt, goalOffer.Name, new { target = "food_2" }), "拒绝未绑定的目标编号");
+Check(!CanPlan(goalPrompt, goalOffer.Name, new { target = "food_1", bearing = 180 }), "单目标拒绝夹带角度");
+Check(goalPrompt.Prompt.Contains(goalGuide) && !goalPrompt.Prompt.Contains("MoveTo:"), "生存提示不混入底层移动协议");
+Check(RejectShape("""{"goal":"原地等","steps":[]}"""), "单目标拒绝无条件空等");
+Check(RejectShape("""{"goal":"预测未来","steps":[{"tool":"pursue_survival_goal","arguments":{"target":"food_1"}},{"tool":"pursue_survival_goal","arguments":{"target":"route_1"}}]}"""),
+    "单目标拒绝提前排未知结果的下一步");
+bool RejectShape(string raw)
+{
+    try { goalPrompt.ParseResponse(raw); return false; }
+    catch (FormatException) { return true; }
+}
+bool InvalidSetup(int minimum, IReadOnlyList<ToolOffer> offered)
+{
+    try { new ToolDecisionPrompt(session, a, observation, JsonSerializer.SerializeToElement(new { }), offered, maxSteps: 1, minSteps: minimum); return false; }
+    catch (ArgumentException) { return true; }
+}
+Check(InvalidSetup(2, [goalOffer]), "拒绝超过最大步数的下界");
+Check(InvalidSetup(-1, [goalOffer]), "拒绝负的步数下界");
+Check(InvalidSetup(1, []), "空菜单不能要求一个不存在的动作");
+Console.WriteLine($"试玩决策、单目标、移动和收件箱 {checks} 项通过。");

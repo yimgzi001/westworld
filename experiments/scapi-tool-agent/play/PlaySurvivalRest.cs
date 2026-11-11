@@ -14,7 +14,9 @@ internal sealed class PlaySurvivalRest(ComponentPlayer player, double started)
     public static bool HasUsableCover(ComponentPlayer player) => PlaySurvivalSenses.OnDryGround(player.ComponentBody)
         && !Blocked(player, "BlockIsComfortable") && !Blocked(player, "Ceiling");
 
-    public static bool HasSecureCover(ComponentPlayer player)
+    public static bool HasSecureCover(ComponentPlayer player) => HasEnclosure(player) && HasUsableCover(player);
+
+    public static bool HasEnclosure(ComponentPlayer player)
     {
         var body = player.ComponentBody;
         if (!PlaySurvivalSenses.OnDryGround(body)) return false;
@@ -28,8 +30,7 @@ internal sealed class PlaySurvivalRest(ComponentPlayer player, double started)
         }
 
         // 检查贴身的原生实体围墙和屋顶。仅能挡雨的树冠不能挡住地面猎食者。
-        return Solid(feet + Above + Above) && Walls.All(side => Solid(feet + side) && Solid(feet + side + Above))
-            && HasUsableCover(player);
+        return Solid(feet + Above + Above) && Walls.All(side => Solid(feet + side) && Solid(feet + side + Above));
     }
 
     public static bool WetnessBlocksSleep(ComponentPlayer player) => Blocked(player, "NotTooWet");

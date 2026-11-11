@@ -1,5 +1,6 @@
 using Engine;
 using GameEntitySystem;
+using Game.Westworld;
 using TemplatesDatabase;
 
 namespace Game {
@@ -336,6 +337,8 @@ namespace Game {
                 "Chasing",
                 delegate {
                     m_subsystemNoise.MakeNoise(m_componentCreature.ComponentBody, 0.25f, 6f);
+                    NativePredatorAcoustics.Record(m_componentCreature, m_subsystemTime.GameTime,
+                        NativePredatorAcoustics.Kind.Chase, 0.25f, 4f, 6f);
                     if (PlayIdleSoundWhenStartToChase) {
                         m_componentCreature.ComponentCreatureSounds.PlayIdleSound(false);
                     }

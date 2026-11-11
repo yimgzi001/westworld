@@ -163,17 +163,21 @@ internal static class PlayDryRoutes
             });
     }
 
+    public static IEnumerable<Leg> ScoutOpenings(LocalObservationWindow window, Func<Vector3, bool> permitted) =>
+        LongRoutes(window, 4f, Cardinal, permitted).Select(FlatLeg)
+            .Concat(ShortRoutes(window)).Concat(ReadSteps(window).Select(StepLeg))
+            .Where(leg => permitted(leg.End));
+
     public static int[] WalkableBearings(LocalObservationWindow window, Vector2 facing, Func<Vector3, bool>? permitted = null)
     {
         var origin = PositionOf(window.Position).XZ;
-        return ShortRoutes(window).Concat(ReadSteps(window).Select(StepLeg))
-            .Where(leg => permitted?.Invoke(leg.End) != false)
+        return ScoutOpenings(window, end => permitted?.Invoke(end) != false)
             .Select(leg => (int)MathF.Round(MathUtils.RadToDeg(Vector2.Angle(facing, leg.End.XZ - origin)) / 15) * 15)
             .Distinct().Order().ToArray();
     }
 
     private static Vector3 PositionOf(Position value) => new((float)value.X, (float)value.Y, (float)value.Z);
-    private static Leg StepLeg(ObservedStepRoute step) => new(new StepTo(PositionOf(step.Destination)), step.Evidence, step);
+    private static Leg StepLeg(ObservedStepRoute step) => new(new StepTo(PositionOf(step.Destination), LevelGaze: true), step.Evidence, step);
     private static Leg FlatLeg(ObservedFlatRoute flat)
     {
         var points = flat.Points.Select(PositionOf).ToArray();

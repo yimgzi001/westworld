@@ -16,6 +16,7 @@ internal sealed partial class PlaySurvivalProduction
     public const string Furnace = "craft_furnace", Cook = "cook_meat", Warm = "place_campfire";
     public const string Spear = "craft_wooden_spear", Hunt = "hunt_food_bird";
     public const string CookedFoodProject = "secure_cooked_food", SpearProject = "equip_hunting_gear";
+    public const string WarmthProject = "secure_warmth";
     private static readonly JsonSerializerOptions RecipeJson = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
@@ -30,6 +31,7 @@ internal sealed partial class PlaySurvivalProduction
     private readonly Func<LocalObservationWindow> readDryWindow;
     private readonly Func<Vector3, double, bool>? permitLandLeg;
     private readonly int? selectedBird;
+    private readonly bool resumeGear;
     private readonly double deadline;
     private readonly int before;
     private Phase phase;
@@ -45,7 +47,7 @@ internal sealed partial class PlaySurvivalProduction
 
     public PlaySurvivalProduction(ComponentPlayer player, AtomicActions owner, NativeToolSession tools, string task,
         double gameTime, Action<object> log, Dictionary<int, Point3> stations, Func<LocalObservationWindow> readDryWindow,
-        Func<Vector3, double, bool>? permitLandLeg = null, int? selectedBird = null)
+        Func<Vector3, double, bool>? permitLandLeg = null, int? selectedBird = null, bool resumeGear = false)
     {
         this.player = player;
         this.owner = owner;
@@ -55,6 +57,7 @@ internal sealed partial class PlaySurvivalProduction
         this.readDryWindow = readDryWindow;
         this.permitLandLeg = permitLandLeg;
         this.selectedBird = selectedBird;
+        this.resumeGear = resumeGear;
         Task = task;
         before = Stock(player, task);
         deadline = gameTime + (IsProject(task) ? 180 : 36);
@@ -64,11 +67,44 @@ internal sealed partial class PlaySurvivalProduction
     public string Task { get; }
     public string? Status { get; private set; }
     public string? Reason { get; private set; }
-    public int Added => Math.Max(0, Stock(player, Task) - before);
+    public int Added => Task == WarmthProject ? warmthReady ? 1 : 0 : Math.Max(0, Stock(player, Task) - before);
     public string? CurrentStage { get; private set; }
+    public Vector3? ActiveLandEndpoint => projectRoute?.ActiveLandEndpoint ?? projectStep?.ActiveLandEndpoint
+        ?? huntApproach?.ActiveLandEndpoint ?? materialPickupRoute?.ActiveLandEndpoint;
 
     public static ToolOffer? Offer(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
         bool routineWork, bool allowProjects = true, Func<Vector3, bool>? permitted = null)
+    {
+        var available = AvailableTasks(player, panorama, stations, routineWork, allowProjects, permitted);
+        if (available.Length == 0) return null;
+        return new(Tool, "Choose a survival production job. Each native stage checks local resources and actual inventory.",
+            JsonSerializer.SerializeToElement(new
+            {
+                type = "object",
+                properties = new { task = new { type = "string", @enum = available } },
+                required = new[] { "task" },
+                additionalProperties = false
+            }));
+    }
+
+    public static string DescribeTask(string task) => task switch
+    {
+        CookedFoodProject => "备一份熟食。需要时先制矛猎取食用鸟，已有生肉就保留，备八块圆石和燃料再烧熟取出",
+        SpearProject => "准备木矛，按需采木和做工作台，背包增加木矛才算完成",
+        WarmthProject => "需要时先取木材，制作并点起营火，然后核对身体是否回暖",
+        Fire => "做一个备用营火带在背包",
+        Warm => "在已确认的地面生火并核对是否回暖",
+        Cook => "把现有生肉烧熟，并从熔炉取出",
+        Hunt => "用木矛追猎一只看得见的食用鸟，取得生肉后保留",
+        Wood => "取得可见的木材",
+        Stone => "取得可见的圆石",
+        Workbench => "制作工作台",
+        Furnace => "制作熔炉",
+        _ => "在原生工作台制作木矛"
+    };
+
+    public static string[] AvailableTasks(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
+        bool routineWork, bool allowProjects, Func<Vector3, bool>? permitted)
     {
         bool woodNearby = FindMaterial(panorama, player.ComponentBody.Position, Wood) is not null;
         var available = new List<string>();
@@ -77,10 +113,8 @@ internal sealed partial class PlaySurvivalProduction
             if (woodNearby && Stock(player, Wood) < 3) available.Add(Wood);
             if (FindMaterial(panorama, player.ComponentBody.Position, Stone) is not null && Stock(player, Stone) < 8) available.Add(Stone);
             bool hasBoards = HasIngredient(player, "wood", 1) || HasIngredient(player, "planks", 4);
-            bool hasSticks = hasBoards || HasIngredient(player, "planks", 2) || HasIngredient(player, "stick", 4);
             if ((woodNearby || hasBoards) && Stock(player, Workbench) == 0
                 && !stations.ContainsKey(CraftingTableBlock.Index)) available.Add(Workbench);
-            if ((woodNearby || hasSticks) && Stock(player, Fire) == 0 && player.ComponentVitalStats.Temperature < 8f) available.Add(Fire);
             bool hasTable = Stock(player, Workbench) > 0 || SeenStation(panorama, stations, CraftingTableBlock.Index) is not null;
             int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
             int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
@@ -88,6 +122,10 @@ internal sealed partial class PlaySurvivalProduction
             if (CanReadyHuntWeapon(player) && Stock(player, Hunt) < 2 && panorama is { } sight
                 && FindFoodBird(player, sight.Objects.Entities, HuntApproachReach) is not null) available.Add(Hunt);
         }
+        if (Stock(player, Fire) == 0 && player.ComponentVitalStats.Temperature < 9f && CanCraftFireFromStock(player))
+            available.Add(Fire);
+        if (player.ComponentVitalStats.Temperature < 7f
+            && CanAdvanceProject(player, WarmthProject, panorama, stations, permitted)) available.Add(WarmthProject);
         AddStationOffers(player, panorama, stations, available);
         if (allowProjects && panorama is not null)
         {
@@ -95,19 +133,11 @@ internal sealed partial class PlaySurvivalProduction
             if (routineWork && Stock(player, Spear) == 0
                 && NextProjectStep(player, SpearProject, panorama, stations, permitted) is not null) available.Add(SpearProject);
         }
-        if (available.Count == 0) return null;
-        return new(Tool, "Collect a reachable log or stone, craft survival gear, or cook carried raw meat at a furnace. "
-            + "Hunt a visible nonaggressive food bird with a spear. Walk on verified dry ground to reach it, then throw or strike in range. "
-            + "Choose secure_cooked_food for a continuous job: obtain meat, gather stone and fuel, build or reuse a furnace, and retrieve cooked food. "
-            + "Choose equip_hunting_gear to gather wood and make a spear. Native inventory and current sight are checked before each stage.",
-            JsonSerializer.SerializeToElement(new
-            {
-                type = "object",
-                properties = new { task = new { type = "string", @enum = available.ToArray() } },
-                required = new[] { "task" },
-                additionalProperties = false
-            }));
+        return available.ToArray();
     }
+
+    public static bool CanCraftFireFromStock(ComponentPlayer player) => HasIngredient(player, "wood", 1)
+        || HasIngredient(player, "planks", 2) || HasIngredient(player, "stick", 4);
 
     public static bool IsMaterial(int value, string task) => task == Wood
         ? BlocksManager.Blocks[Terrain.ExtractContents(value)] is WoodBlock

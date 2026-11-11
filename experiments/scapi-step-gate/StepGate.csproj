@@ -30,5 +30,20 @@
     <Compile Include="../scapi-tool-agent/play/PlayShelterSites.cs" Link="PlayShelterSites.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayObservedPath.cs" Link="PlayObservedPath.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayFoodBudget.cs" Link="PlayFoodBudget.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalGoals.cs" Link="PlaySurvivalGoals.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalExploration.cs" Link="PlaySurvivalExploration.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlayPredatorHearing.cs" Link="PlayPredatorHearing.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlayThermalRecovery.cs" Link="PlayThermalRecovery.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlayableActor*.cs" Link="%(Filename)%(Extension)" />
+    <Compile Include="../scapi-tool-agent/play/PlayDecisionQueue.cs" Link="PlayDecisionQueue.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySocialInbox.cs" Link="PlaySocialInbox.cs" />
+    <Compile Include="../scapi-tool-agent/StructuredFileController.cs" Link="StructuredFileController.cs" />
+    <Compile Include="../scapi-tool-agent/ToolResultProjection.cs" Link="ToolResultProjection.cs" />
+    <Compile Include="../scapi-tool-agent/NativeToolOffers.cs" Link="NativeToolOffers.cs" />
+    <Compile Include="../scapi-tool-agent/CapabilityFacts.cs" Link="CapabilityFacts.cs" />
+    <Compile Include="../scapi-tool-agent/NativeEatOfferFactory.cs" Link="NativeEatOfferFactory.cs" />
+    <Compile Include="../scapi-tool-agent/PrecedingExecution.cs" Link="PrecedingExecution.cs" />
+    <Compile Include="../scapi-tool-agent/ToolScenarioBudget.cs" Link="ToolScenarioBudget.cs" />
+    <ProjectReference Include="../../runtime/Westworld.Capabilities/Westworld.Capabilities.csproj" />
   </ItemGroup>
 </Project>

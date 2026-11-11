@@ -33,7 +33,7 @@ namespace Game.Westworld {
         public int Count { get; }
         public Vector3 Position { get; }
         public float Distance { get; }
-        internal bool InReach { get; }
+        public bool InReach { get; }
         public string Sense { get; internal init; } = "vision";
 
         internal NearbyPickableView(Pickable target, float distance, bool inReach) {

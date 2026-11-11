@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Engine;
 using Game;
+using Game.Westworld;
 using GameEntitySystem;
 using Westworld.Runtime.Core;
 using Westworld.Scapi.Adapter;
@@ -50,6 +51,7 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         ToolAgentGate.PrepareIsolatedWindowsSettings();
         int? requestLimit = limit == 0 ? null : limit;
         bool watch = args.Length == 5;
+        Window.StartHidden = args[3] != "terra" && !watch;
         var host = new PlayableHost(count, args[1], requestLimit, args[3], watch);
         Window.Created += () => Window.Frame += host.Frame;
         Window.Closed += host.Shutdown;
@@ -145,7 +147,8 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         senses = new NativeActorSession(project, worldId, actionsEnabled: false, observationAbove: Survival ? 3 : 1);
         foreach (var player in external)
         {
-            var actor = new PlayableActor(player, worldId, Log, Survival, ActorMapRange.Content, allowSocial: !Survival || actorCount > 1);
+            var actor = new PlayableActor(player, new AtomicActions(player.Entity), worldId, Log, Survival, ActorMapRange.Content,
+                allowSocial: !Survival || actorCount > 1);
             actors.Add(actor);
             senses.Bind(actor.Id, player);
             if (Survival) actor.BindTravel(senses);
@@ -156,8 +159,10 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         interests.Sync();
         foreach (var player in external) terrain.TerrainUpdater.RemoveUpdateLocation(player.PlayerData.PlayerIndex);
         if (Survival) trial = new PlaySurvivalTrial(project, external, time.GameTime, Log);
+        if (Survival) NativePredatorAcoustics.Emitted += OnPredatorSound;
         if (watch) followView = new PlayFollowView(external[0], Log);
-        Log(new { kind = "play_bound", worldId, views, passiveViews = watch ? 1 : 0, gameMode = settings.GameMode.ToString(),
+        Log(new { kind = "play_bound", worldId, views, passiveViews = watch ? 1 : 0,
+            windowVisible = Window.m_gameWindow?.IsVisible, gameMode = settings.GameMode.ToString(),
             terrainMode = settings.TerrainGenerationMode.ToString(), survivalMechanics = settings.AreAdventureSurvivalMechanicsEnabled,
             mapContentRadius = ActorMapRange.Content, terrainReadyRadius = ActorMapRange.FullReady,
             actors = actors.Select(a => new { a.Name, a.Id, a.Session }).ToArray() });
@@ -207,7 +212,7 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
 
         // 按角色轮转分配空位。忙碌或等回复的角色不会占住游戏线程。
         int start = nextActor;
-        for (int n = 0; n < actors.Count && queue.HasSlot; n++)
+        for (int n = 0; n < actors.Count && (Survival || queue.HasSlot); n++)
         {
             int index = (start + n) % actors.Count;
             if (actors[index].Request(queue, bridge, gameTime, delayFirst: Smoke && index == 0 && actorCount > 1,
@@ -219,6 +224,12 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
             budgetLogged = true;
             Log(new { kind = "play_request_budget_reached", limit = requestLimit });
         }
+    }
+
+    private void OnPredatorSound(NativePredatorAcoustics.Signal signal)
+    {
+        if (!ReferenceEquals(signal.World, world)) return;
+        foreach (var actor in actors) actor.HearPredator(signal);
     }
 
     private void Close(bool success, string why)
@@ -248,6 +259,7 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         }
 
         Cleanup(() => File.WriteAllText(Path.Combine(Root, "exit.txt"), reason));
+        if (Survival) NativePredatorAcoustics.Emitted -= OnPredatorSound;
         Cleanup(() => modelsDrained = queue.Stop());
         Cleanup(() => followView?.Detach());
         Cleanup(() => trial?.Finish(time!.GameTime));

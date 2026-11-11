@@ -1,4 +1,5 @@
 using GameEntitySystem;
+using Game.Westworld;
 using TemplatesDatabase;
 
 namespace Game {
@@ -157,6 +158,8 @@ namespace Game {
                     m_attackSoundMinDistance,
                     false
                 );
+                NativePredatorAcoustics.Record(m_componentCreature, m_subsystemTime.GameTime,
+                    NativePredatorAcoustics.Kind.Attack, 1f, m_attackSoundMinDistance, 24f);
             }
         }
 

@@ -45,9 +45,10 @@ internal sealed class PlaySurvivalMemory
     {
         foreach (var entry in predators.Where(entry => gameTime - entry.Value.LastSeen > PredatorMemorySeconds).ToArray())
             predators.Remove(entry.Key);
-        foreach (var animal in visible.Where(item => !item.Aquatic && (item.Predator || item.Distance <= 9f)))
+        foreach (var animal in visible.Where(item => !item.Aquatic
+            && (item.Predator || item.Distance <= Math.Max(9f, item.WarningDistance + 6f))))
             predators[animal.EntityId] = new(animal.Name, animal.X, animal.Y, animal.Z, gameTime,
-                animal.Predator ? PredatorKeepOutRadius : DefensiveAnimalKeepOutRadius);
+                Math.Max(animal.Predator ? PredatorKeepOutRadius : DefensiveAnimalKeepOutRadius, animal.WarningDistance));
         while (predators.Count > 8) predators.Remove(predators.MinBy(entry => entry.Value.LastSeen).Key);
     }
 

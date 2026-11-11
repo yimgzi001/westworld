@@ -48,6 +48,7 @@ sealed partial class Runner
     {
         var body = p.ComponentBody;
         bool withMemory = mode == "predator-memory";
+        bool rhino = mode == "threat-rhino-range";
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         if (stage == 0)
         {
@@ -62,7 +63,7 @@ sealed partial class Runner
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             body.Velocity = Vector3.Zero;
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
-            var bear = DatabaseManager.CreateEntity(p.Project, "Bear_Black", true);
+            var bear = DatabaseManager.CreateEntity(p.Project, rhino ? "Rhino" : "Bear_Black", true);
             threatPosition = body.Position + (withMemory ? 17f : 20.5f) * Vector3.UnitX;
             bear.FindComponent<ComponentBody>(true).Position = threatPosition;
             var locomotion = bear.FindComponent<ComponentLocomotion>(true);
@@ -84,8 +85,12 @@ sealed partial class Runner
             if (first is null || first.Distance <= oldRadius || first.Distance > 22f || !PlaySurvivalSenses.NeedsAvoidance(first, false)
                 || PlaySurvivalSenses.Threats(p, actions.Queries, oldRadius).Any(IsFixtureThreat))
                 throw new InvalidOperationException("预警夹具未能从旧范围以外的实际视野识别黑熊。");
+            if (rhino && (first.Predator || first.WarningDistance < 22f))
+                throw new InvalidOperationException("犀牛应依据主动追击范围提前预警。");
             sightDistance = first.Distance;
             predatorMemory.SeePredators([first], now);
+            if (rhino && predatorMemory.AvoidsPredatorAreas(body.Position, body.Position + 4f * Vector3.UnitX, now))
+                throw new InvalidOperationException("看见犀牛后，路线仍允许进入它的追击范围。");
             for (int y = threatOrigin.Y; y <= threatOrigin.Y + 2; y++)
             for (int z = threatOrigin.Z - 2; z <= threatOrigin.Z + 2; z++)
                 terrain.ChangeCell(threatOrigin.X + 7, y, z, GraniteBlock.Index);
@@ -173,7 +178,9 @@ sealed partial class Runner
         {
             var eggs = (EggBlock)BlocksManager.Blocks[EggBlock.Index];
             var type = eggs.EggTypes.First(egg => egg.NutritionalValue > 0f);
-            int fresh = Terrain.MakeBlockValue(EggBlock.Index, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, type.EggTypeIndex), true));
+            // 固定来源核对使用熟蛋，避免随机致病打断同一夹具的第二次原生进食。
+            int fresh = Terrain.MakeBlockValue(EggBlock.Index, 0,
+                EggBlock.SetIsCooked(EggBlock.SetIsLaid(EggBlock.SetEggType(0, type.EggTypeIndex), true), true));
             int aged = eggs.SetDamage(fresh, 1);
             var position = p.ComponentBody.Position + new Vector3(0, 0.35f, 0.6f);
             var drops = p.Project.FindSubsystem<SubsystemPickables>(true);

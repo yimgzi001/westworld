@@ -133,11 +133,17 @@ internal sealed class PlayEarthShelter
         {
             case Phase.Center:
                 phase = Phase.Settle;
-                if ((body.Position - site.Center(body.Position.Y)).XZ.Length() > 0.13f)
-                    action = owner.Start(new MoveTo(site.Center(body.Position.Y), 0.12f, 2f));
+                settleUntil = gameTime + 0.2;
+                if ((body.Position - site.Center(body.Position.Y)).XZ.Length() > 0.08f || body.Velocity.XZ.Length() > 0.15f)
+                    action = owner.Start(new MoveTo(site.Center(body.Position.Y), 0.07f, 2f));
                 break;
             case Phase.Settle:
                 if (gameTime < settleUntil || !body.StandingOnValue.HasValue || MathF.Abs(body.Velocity.Y) > 0.2f) return;
+                if (!leaving && !retreating && (body.Position - site.Center(body.Position.Y)).XZ.Length() > 0.14f)
+                {
+                    Begin(new MoveTo(site.Center(body.Position.Y), 0.07f, 2f), Phase.Settle);
+                    break;
+                }
                 level = (int)MathF.Round(body.Position.Y);
                 if (leaving)
                 {

@@ -15,9 +15,9 @@ internal static class PlayObservedPath
     private const int RouteLimit = 52;
 
     public static Plan? Find(ActorPanorama? panorama, Vector3 origin, Vector3 target,
-        Func<Vector3, Vector3, bool> allowed)
+        Func<Vector3, Vector3, bool> allowed, float goalReach = 1.2f)
     {
-        if (panorama is null || (target - origin).XZ.LengthSquared() < 25f) return null;
+        if (panorama is null || (target - origin).XZ.LengthSquared() < 0.04f) return null;
         var obstacles = panorama.Blocks.Where(block => BlocksManager.Blocks[Terrain.ExtractContents(block.Value)]
             .IsCollidable_(block.Value)).Select(block => block.Cell).ToHashSet();
         var floors = panorama.Blocks.Where(block => block.BareTop
@@ -35,7 +35,7 @@ internal static class PlayObservedPath
             var (cell, cost) = node;
             if (cost > links[cell].Cost) continue;
             var at = Position(cell);
-            if ((at - target).XZ.LengthSquared() <= 1.2f * 1.2f && MathF.Abs(at.Y - target.Y) <= 1.25f)
+            if ((at - target).XZ.LengthSquared() <= goalReach * goalReach && MathF.Abs(at.Y - target.Y) <= 1.25f)
                 return Build(start, cell, links);
             foreach (var side in Sides)
             for (int height = -1; height <= 1; height++)

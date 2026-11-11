@@ -41,6 +41,8 @@ namespace Engine {
         }
 
         static State m_state;
+        // 独立自动测试可保留图形上下文而不显示桌面窗口。
+        public static bool StartHidden { get; set; }
 #if !WINDOWS && !MOBILE && !BROWSER
         static GlfwCallbacks.ErrorCallback m_glfwErrorCallback;
 #endif
@@ -530,7 +532,8 @@ namespace Engine {
             width = width == 0 ? screenSize.X * 4 / 5 : width;
             height = height == 0 ? screenSize.Y * 4 / 5 : height;
             WindowOptions windowOptions = WindowOptions.Default with {
-                Title = title, PreferredDepthBufferBits = 24, PreferredStencilBufferBits = 8, API = api, Size = new Vector2D<int>(width, height)
+                Title = title, PreferredDepthBufferBits = 24, PreferredStencilBufferBits = 8, API = api, Size = new Vector2D<int>(width, height),
+                IsVisible = !StartHidden
             };
             m_gameWindow = Silk.NET.Windowing.Window.Create(windowOptions);
             m_view = m_gameWindow;

@@ -102,7 +102,7 @@ internal sealed class PlaySurvivalTravel
         surveyTarget = Origin + offset;
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
         var destinationOffset = foodTarget is not null ? foodTarget.Point - Origin : shelterTarget is { } target ? target - Origin : offset;
-        bool hasLandTarget = seek is "survey" or "camp" or "work" || foodTarget is not null || shelterTarget is not null;
+        bool hasLandTarget = seek is "survey" or "camp" or "work" or "search" || foodTarget is not null || shelterTarget is not null;
         landDistanceLimit = escapeFrom is not null ? distance + (escapeClearance > 0f ? 12f : 6f)
             : hasLandTarget ? MathF.Abs(destinationOffset.X) + MathF.Abs(destinationOffset.Z) + Math.Max(1.5f, distance * 0.15f) : distance;
         if (observedPath is not null) landDistanceLimit = Math.Max(landDistanceLimit, observedPath.Cells + 3f);
@@ -112,10 +112,12 @@ internal sealed class PlaySurvivalTravel
     public bool Evading { get; }
     public bool UsedEscapeTurn { get; private set; }
     public bool HeadingForLand => seek == "dry_land";
+    public bool HeadingForShelter => seek == "shelter";
     public Vector3 Origin { get; }
     public string? Status => status;
     public string? Reason => reason;
     public int Legs => legs;
+    public Vector3? ActiveLandEndpoint => leg?.Result.Status == AtomicActionStatus.Running ? dryProof?.End : null;
     public int AcquiredTargetCount { get; private set; }
     private float TravelLimit => landDistanceLimit + 6f * goalDetours;
     private ComponentBody? BoatBody => player.Entity.FindComponent<ComponentRider>()?.Mount is { } mount
@@ -124,7 +126,8 @@ internal sealed class PlaySurvivalTravel
     public void Update(double gameTime)
     {
         if (status is not null) return;
-        if (foodTarget is not null && (AcquiredTargetCount > 0 || initialFoodStock is int before
+        if (foodTarget is not null && PlaySurvivalSenses.OnDryGround(player.ComponentBody)
+            && (AcquiredTargetCount > 0 || initialFoodStock is int before
             && NativeAcquisitionAudit.InventoryCount(player.ComponentMiner.Inventory, foodTarget.Value) > before))
         {
             Finish("succeeded", "food_collected_en_route");
@@ -538,7 +541,7 @@ internal sealed class PlaySurvivalTravel
     private bool DepartingShelter => !Evading && escapeFrom is not null;
 
     private bool KeepsTarget => foodTarget is not null || readMovingTarget is not null || DepartingShelter
-        || seek == "work" || seek == "shelter" && shelterTarget is not null;
+        || seek is "work" or "search" || seek == "shelter" && shelterTarget is not null;
 
     private static (int X, int Z) CellXZ(Vector3 point) => (Terrain.ToCell(point.X), Terrain.ToCell(point.Z));
 
@@ -587,7 +590,7 @@ internal sealed class PlaySurvivalTravel
         Vector3 goal;
         if (Evading) return route;
         if (nextWaypoint < waypoints.Length) goal = waypoints[nextWaypoint];
-        else if (seek is "survey" or "work") goal = surveyTarget;
+        else if (seek is "survey" or "work" or "search") goal = surveyTarget;
         else if (seek is "camp" or "shelter" && shelterTarget is { } site) goal = site;
         else return route;
         var body = player.ComponentBody;
@@ -605,13 +608,15 @@ internal sealed class PlaySurvivalTravel
     private (string? Reached, Vector3? Approach) ReadLandGoal(ComponentBody body)
     {
         Vector3? approach = null;
+        if (seek == "search" && observe().Foods.Any(food => food.InReach && PlaySurvivalFood.CanSeek(player, food)))
+            return ("food_within_reach", null);
         if (escapeFrom is { } currentThreat)
         {
             if ((body.Position - Origin).XZ.Length() >= (DepartingShelter ? distance : distance - 0.45f)
                 && (escapeClearance <= 0f || (body.Position.XZ - currentThreat()).Length() >= escapeClearance))
                 return ("escaped_along_supported_ground", null);
         }
-        else if (seek is "survey" or "work")
+        else if (seek is "survey" or "work" or "search")
         {
             if ((surveyTarget - body.Position).XZ.LengthSquared() <= 0.45f * 0.45f)
                 return ("navigation_goal_reached", null);

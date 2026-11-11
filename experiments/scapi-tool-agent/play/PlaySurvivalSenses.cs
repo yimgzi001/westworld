@@ -11,6 +11,7 @@ internal static class PlaySurvivalSenses
     internal sealed record Threat(string Name, float Distance, bool Aquatic, bool Predator, float X, float Y, float Z)
     {
         [JsonIgnore] public int EntityId { get; init; }
+        public float WarningDistance { get; init; }
     }
     internal sealed record Shore(float X, float Y, float Z, float Distance);
 
@@ -42,15 +43,19 @@ internal static class PlaySurvivalSenses
             if (!predator && chase.m_dayChaseRange <= 0 && chase.m_nightChaseRange <= 0 && chase.m_chaseOnTouchProbability <= 0
                 && creature?.ComponentCreatureModel.AttackOrder != true) continue;
             string name = string.IsNullOrWhiteSpace(entity.Name) ? template : entity.Name;
+            float chaseRange = chase.m_subsystemSky.SkyLightIntensity < 0.2f ? chase.m_nightChaseRange : chase.m_dayChaseRange;
+            // 食性和主动攻击范围分别判断。犀牛等草食动物也会在原生范围内主动追击。
+            float warning = aquatic ? 14f : Math.Min(40f, Math.Max(predator ? 22f : 8f, chaseRange + 6f));
             threats.Add(new Threat(name, entity.Distance, aquatic, predator, entity.Position.X, entity.Position.Y, entity.Position.Z)
-                { EntityId = entity.EntityId });
+                { EntityId = entity.EntityId, WarningDistance = warning });
             if (threats.Count == 5) break;
         }
         return threats.ToArray();
     }
 
     public static bool NeedsAvoidance(Threat animal, bool inWater) =>
-        (!animal.Aquatic || inWater) && animal.Distance <= (animal.Predator ? animal.Aquatic ? 14f : 22f : 5f);
+        (!animal.Aquatic || inWater) && animal.Distance <= (animal.WarningDistance > 0f ? animal.WarningDistance
+            : animal.Predator ? animal.Aquatic ? 14f : 22f : 5f);
 
     public static bool IsDryTerrain(int value) => BlocksManager.Blocks[Terrain.ExtractContents(value)] is GrassBlock
         or DirtBlock or SandBlock or GravelBlock or GraniteBlock or SandstoneBlock or BasaltBlock;

@@ -15,6 +15,7 @@ namespace Game.Westworld {
             bool up=delta.Y>0,issued=false,airborne=false;double start=m_time.GameTime;
             Vector2 direction=Vector2.Normalize(delta.XZ);float length=delta.XZ.Length();
             Vector2? lastWalk=null;Vector2 lastTurn=Vector2.Zero;double orderTime=-1;
+            Vector2 previousLook=Vector2.Zero;Vector2? lastLook=null;
             return StartRunning(step,()=>{
                 if(!CanUseLocomotion||m_body.ParentBody!=null||m_body.ImmersionFactor>.1f||m_locomotion.LadderValue.HasValue)
                     return Failed(AtomicActionFailure.MovementInterrupted);
@@ -36,11 +37,20 @@ namespace Game.Westworld {
                 lastWalk=speed*new Vector2(Vector2.Dot(right,direction),Vector2.Dot(forward,direction));
                 lastTurn=new Vector2(Math.Clamp(Vector2.Angle(forward,direction),-1,1),0);orderTime=m_time.GameTime;
                 m_locomotion.WalkOrder=lastWalk;m_locomotion.TurnOrder=lastTurn;
+                float maxLook=m_locomotion.LookSpeed*m_time.GameTimeDelta;
+                if(step.LevelGaze&&maxLook>0f) {
+                    previousLook=m_locomotion.LookOrder;
+                    var angles=m_locomotion.LookAngles;
+                    lastLook=new Vector2(Math.Clamp(-angles.X/maxLook,-1f,1f),
+                        Math.Clamp((MathUtils.DegToRad(-8f)-angles.Y)/maxLook,-1f,1f));
+                    m_locomotion.LookOrder=lastLook.Value;
+                }
                 return null;
             },()=>{
                 if(m_time.GameTime==orderTime){if(m_locomotion.WalkOrder==lastWalk)m_locomotion.WalkOrder=null;
                     if(m_locomotion.TurnOrder==lastTurn)m_locomotion.TurnOrder=Vector2.Zero;}
                 if(issued&&m_locomotion.JumpOrder==1)m_locomotion.JumpOrder=0;
+                if(m_time.GameTime==orderTime&&m_locomotion.LookOrder==lastLook)m_locomotion.LookOrder=previousLook;
             });
         }
     }

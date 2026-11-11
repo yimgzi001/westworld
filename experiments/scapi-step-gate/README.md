@@ -84,3 +84,20 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 下降还允许已观察**原支撑格**的脚底数值接触（不超过 0.02m），应对原生离开边缘时的浮点/缩小碰撞箱差异；不是允许下降到未知格。两种已知支撑接触统一记为 `knownSupportContactUsed`。
 
 注意：下阶 2 厘米是本实验明确选择的工程容差，真实首次触发的交叠约为 0.00005 米，二者不能混称。未知支撑和其它层不适用。
+
+## 生存目标组合验收
+
+这组场景通过正常的 `PlayableActor.Update/Request`、文件决策桥和原生动作入口运行，使用固定本地回复。桌面窗口隐藏，日志记录 `windowVisible=false`。单独的单人和三人真实场使用官方 Terra。
+
+- `survival-goal-contract` 核对实际发出的提示和 Schema 只允许选择一个已绑定目标。
+- `survival-goal-target` 先拾起途中同值的蛋，仍继续取得模型选中的那一枚。`survival-goal-urgent-food` 和 `survival-goal-crop` 核对缺粮时零模型请求完成取蛋或南瓜挖掘与入包。
+- `survival-goal-explore` 在提前生成的平地走廊里，只发起一次本地决策，连续完成三段搜索。每段仍采用角色当前的局部地形证据。
+- `survival-goal-hearing` 将灰狼置于墙后，触发原生攻击声音，核对停下朝声源的路线、等待、重新看到同一枚蛋并实际取到。夹具固定动物移动能力。
+- `survival-goal-fallback` 让控制器任务抛出暂时性异常，再核对本地重新观察和沿已确认路线行动。
+- `survival-goal-night` 在角色正在走路时进入日落前窗口，核对取消探索、停稳居中、完成第一处掩体并原生睡眠。
+- `survival-goal-warming` 从无木材库存开始，核对走近已见木材、采集、制作和放置营火，以及原生目标温度与实际体温上升。
+- `survival-goal-pending-hunger` 与 `survival-goal-pending-cold` 不提供控制器回复，核对真实需求变急时撤销请求并进食或生火回暖。
+- `production-resume-gear` 在猎物已被遮住、备矛尚未完成时中断，从真实库存和工作台继续，最终持有木矛。
+- `threat-rhino-range` 用固定移动能力的原生犀牛核对二十格外可见时提前预警、限制朝它接近的路线和墙体遮挡。与 `shelter-passive-cow` 一起核对不同动物的原生主动攻击条件。
+
+这些是条件受控的原生场景。自然地形、移动猎物和连续存活时间按真实联测日志分别统计。
