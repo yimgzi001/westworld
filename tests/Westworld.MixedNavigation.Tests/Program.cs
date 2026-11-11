@@ -84,6 +84,12 @@ Check(!Up(64.5,false).Inside,"up support contact requires smooth-rise mode");
 Check(!Up(64.5,true,.25f).Inside,"up respects configured smaller smooth-rise allowance");
 Check(!Up(64.49,true,2).Inside,"up allowance capped at half metre even if configured larger");
 Check(Up(65) is {Inside:true,KnownSupportContactUsed:false},"up fully clear body uses observed air only");
+StepEnvelopeCheck UpAtRiser(double front) => ObservedStepGuard.Check(upRoute,
+ new(front-.5,64.46,.25),new(front,66.23,.75),true,.5f);
+Check(UpAtRiser(1.002) is {Inside:true,KnownSupportContactUsed:true},"up tolerates native rounding at the observed riser face");
+Check(!UpAtRiser(1.006).Inside,"up still rejects deeper horizontal riser overlap");
+Check(!ObservedStepGuard.Check(upRoute,new(.502,64.46,.25),new(1.002,66.23,.75),false,0).Inside,
+ "riser tolerance requires the native smooth-rise mode");
 StepEnvelopeCheck Down(double feet)=>ObservedStepGuard.Check(downRoute,new(-.1,feet,.25),new(.4,feet+1.77,.75),false,0);
 Check(Down(63.98) is {Inside:true,KnownSupportContactUsed:true},"down allows exactly two centimetres of known source support contact");
 Check(!Down(63.979).Inside,"down rejects deeper source-support contact");

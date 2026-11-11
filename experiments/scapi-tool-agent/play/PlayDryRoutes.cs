@@ -19,15 +19,21 @@ internal static class PlayDryRoutes
             _ => throw new InvalidOperationException("无落脚点的路线动作。")
         };
 
-        public bool Contains(ComponentBody body, double elapsed)
+        public bool Contains(ComponentBody body, double elapsed) => Rejection(body, elapsed) is null;
+
+        public string? Rejection(ComponentBody body, double elapsed)
         {
-            if (Evidence.Max(cell => cell.Age) + elapsed > 3) return false;
+            if (Evidence.Max(cell => cell.Age) + elapsed > 3) return "stale_observed_envelope";
             var bounds = body.BoundingBox;
             var minimum = new Position(bounds.Min.X, bounds.Min.Y, bounds.Min.Z);
             var maximum = new Position(bounds.Max.X, bounds.Max.Y, bounds.Max.Z);
-            return Step is null ? LocalNavigationSkillGeometry.InObservedAir(Evidence, minimum, maximum, OpenCell,
-                    PartialClearance is { } clearance ? cell => clearance(cell, bounds) : null)
-                : ObservedStepGuard.Check(Step, minimum, maximum, body.IsSmoothRiseEnabled, body.MaxSmoothRiseHeight, OpenCell).Inside;
+            if (Step is { } step)
+            {
+                var check = ObservedStepGuard.Check(step, minimum, maximum, body.IsSmoothRiseEnabled, body.MaxSmoothRiseHeight, OpenCell);
+                return check.Inside ? null : check.Reason;
+            }
+            return LocalNavigationSkillGeometry.InObservedAir(Evidence, minimum, maximum, OpenCell,
+                PartialClearance is { } clearance ? cell => clearance(cell, bounds) : null) ? null : "outside_observed_envelope";
         }
     }
 

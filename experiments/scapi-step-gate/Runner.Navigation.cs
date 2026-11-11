@@ -7,6 +7,7 @@ sealed partial class Runner
 {
     private Point3 navigationOrigin;
     private int continuations, stationaryLooks;
+    private int rejectedStepProofs;
     private float slowestContinuation = float.PositiveInfinity;
     private float biggestContinuousTurn;
     private bool insetAtStart, passedThroughPlant;
@@ -23,8 +24,10 @@ sealed partial class Runner
         bool cotton = mode == "navigate-natural-cotton";
         bool pumpkin = mode == "predator-pumpkin-corner";
         bool lengthBoundary = mode == "predator-length-boundary";
+        bool stepLoop = mode == "navigate-natural-step-loop";
         var stalled = lengthBoundary ? new Vector3(7.484409f, 67f, 152.49844f) : pumpkin ? new Vector3(-131.16777f, 66f, 257.81088f)
-            : cotton ? new Vector3(-26.385578f, 65f, 156.83945f) : new Vector3(-101.541466f, 67f, 119.49001f);
+            : cotton ? new Vector3(-26.385578f, 65f, 156.83945f) : stepLoop ? new Vector3(-147.222f, 66f, 101.499825f)
+            : new Vector3(-101.541466f, 67f, 119.49001f);
         // 使用死亡场第一次撤离时记录的威胁位置。夹具只复现路线计算和原生移动。
         var threat = lengthBoundary ? new Vector2(3.843923f, 148.61324f) : new Vector2(-149.43459f, 247.28473f);
         var cell = Terrain.ToCell(stalled);
@@ -90,19 +93,21 @@ sealed partial class Runner
                 stage = 3;
                 return;
             }
-            var blockedHeading = -Vector2.UnitY;
+            var blockedHeading = stepLoop ? Vector2.Normalize(new Vector2(-122.5f, 104.5f) - body.Position.XZ) : -Vector2.UnitY;
             var starts = PlayDryRoutes.WalkableBearings(window, body.Matrix.Forward.XZ);
             var first = PlayDryRoutes.Next(window, blockedHeading, 6f, false);
             bool cottonInProof = first?.Evidence.Any(evidence => Terrain.ExtractContents(evidence.Value) == CottonBlock.Index) == true;
             bool blocked = first is null;
-            Gate.Log(new { kind = "natural_stall_geometry", window.Position, cotton, blocked, starts, cottonInProof,
-                grounded = PlaySurvivalSenses.OnDryGround(body) });
-            if (cotton ? !cottonInProof : !blocked || starts.Length == 0)
+            Gate.Log(new { kind = "natural_stall_geometry", window.Position, cotton, blocked, starts, cottonInProof, stepLoop,
+                chosenStep = first?.Step?.Kind.ToString(), target = first?.End.ToString(), grounded = PlaySurvivalSenses.OnDryGround(body) });
+            if (stepLoop && first?.Step is not { Kind: Westworld.Scapi.Adapter.StepKind.Up })
+                throw new InvalidOperationException("同种子卡点没有选到原先反复取消的向上台阶。");
+            if (!stepLoop && (cotton ? !cottonInProof : !blocked || starts.Length == 0))
                 throw new InvalidOperationException("同种子卡点的已观察地形与夹具不符。");
             float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, blockedHeading));
-            travel = new(p, actions, bearing, cotton ? 4f : 6f, "survey", false, now,
-                () => (JsonSerializer.SerializeToElement(new { }), []),
-                () => memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
+            travel = new(p, actions, bearing, cotton ? 4f : 6f, stepLoop ? "work" : "survey", false, now,
+                () => (JsonSerializer.SerializeToElement(new { }), []), () => memory.Observe(
+                    senses.Observe(senses.SessionId, actor, allDirections: true)), TrackNavigation);
             stage = 3;
         }
         jumped |= p.ComponentLocomotion.LastJumpOrder > 0;
@@ -112,11 +117,13 @@ sealed partial class Runner
         bool reached = lengthBoundary ? travel.Reason == "escaped_along_supported_ground" && moved >= 3.5f
             : pumpkin ? travel.Reason == "escaped_along_supported_ground" && moved >= 11.5f && travel.Legs >= 2
             : cotton ? travel.Status == "succeeded" && jumped && moved >= 2.5f
+            : stepLoop ? travel.Reason == "navigation_goal_reached" && jumped && moved >= 5.5f && rejectedStepProofs == 0
             : travel.Reason == "scout_detoured_to_open_ground" && moved >= 1f;
         Passed = reached && PlaySurvivalSenses.OnDryGround(body)
             && stationaryLooks == 0 && p.ComponentHealth.Health >= 0.99f;
         Done = true;
-        Gate.Log(new { kind = "natural_stall_result", Passed, cotton, pumpkin, lengthBoundary, travel.Status, travel.Reason, moved, jumped, stationaryLooks });
+        Gate.Log(new { kind = "natural_stall_result", Passed, cotton, pumpkin, lengthBoundary, stepLoop, travel.Status, travel.Reason,
+            moved, jumped, stationaryLooks, rejectedStepProofs });
     }
 
     private void RunRollingNavigation()
@@ -429,6 +436,9 @@ sealed partial class Runner
                 break;
             case "play_scout_step" when entry.GetProperty("action").GetString() == "MoveTo" && entry.GetProperty("legs").GetInt32() == 1:
                 insetAtStart = true;
+                break;
+            case "play_scout_evidence_expired" when entry.GetProperty("action").GetString() == "StepTo":
+                rejectedStepProofs++;
                 break;
         }
     }

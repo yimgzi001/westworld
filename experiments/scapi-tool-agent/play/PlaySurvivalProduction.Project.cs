@@ -84,7 +84,7 @@ internal sealed partial class PlaySurvivalProduction
         // 每个阶段完成后读取实际库存、工作站和可见资源。中断后从这些事实重新选择前置步骤。
         bool Permitted(Vector3 end) => permitLandLeg?.Invoke(end, gameTime) != false;
         var next = NextProjectStep(player, Task, owner.Queries.ReadPanorama(ProjectReach), stations, Permitted,
-            triedMaterialApproaches, projectBird);
+            triedMaterialApproaches, projectBird, keepPreparingGear: projectStages > 0 && projectBird is null);
         if (next is null)
         {
             Finish(false, "project_missing_visible_prerequisite");
@@ -113,7 +113,7 @@ internal sealed partial class PlaySurvivalProduction
 
     private static ProjectStep? NextProjectStep(ComponentPlayer player, string task, ActorPanorama? panorama,
         Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted, IReadOnlySet<Point3>? triedMaterials = null,
-        int? selectedBird = null)
+        int? selectedBird = null, bool keepPreparingGear = false)
     {
         if (panorama is null) return null;
         if (task == SpearProject) return NextSpearStep(player, panorama, stations, permitted, triedMaterials);
@@ -132,7 +132,10 @@ internal sealed partial class PlaySurvivalProduction
             var prey = FindFoodBird(player, panorama.Objects.Entities.Where(animal => (selectedBird is null || animal.EntityId == selectedBird)
                 && permitted?.Invoke(animal.Position) != false), ProjectBirdReach);
             if (prey is null)
-                return ApproachStation(visibleOven, body, "return_to_furnace", permitted);
+                // 已开始备木矛后可以做完已知材料的准备。发起追猎时仍要重新看到食用鸟。
+                return (keepPreparingGear && Stock(player, Spear) == 0
+                    ? NextSpearStep(player, panorama, stations, permitted, triedMaterials) : null)
+                    ?? ApproachStation(visibleOven, body, "return_to_furnace", permitted);
             if (!CanReadyHuntWeapon(player))
                 return Stock(player, Spear) == 0 ? NextSpearStep(player, panorama, stations, permitted, triedMaterials) : null;
             var sight = panorama.Objects.Entities.First(animal => animal.EntityId == prey.Id);

@@ -25,6 +25,8 @@ sealed partial class Runner
     private double fixtureBirdMoveUntil;
     private bool fixtureBirdMotionEnded, trackedFixtureBird;
     private bool movedFirstWoodDrop, approachedFirstWoodDrop;
+    private ComponentBody? projectFixtureBird;
+    private bool screenedProjectBird, preparedWhileBirdHidden;
 
     private void RunProduction()
     {
@@ -32,7 +34,8 @@ sealed partial class Runner
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         bool tracking = mode == "production-hunt-tracking";
         bool approach = mode == "production-hunt-approach" || tracking;
-        bool project = mode == "production-project";
+        bool hidePrey = mode == "production-gear-while-prey-hidden";
+        bool project = mode == "production-project" || hidePrey;
         bool ranged = approach || mode == "production-hunt-ranged";
         bool hunt = mode == "production-hunt" || ranged || project;
         bool kitchen = mode is "production-hunt" or "production-kitchen" || project;
@@ -61,6 +64,12 @@ sealed partial class Runner
             {
                 overheadWood = cell + new Point3(3, 3, 0);
                 terrain.ChangeCell(overheadWood.X, overheadWood.Y, overheadWood.Z, OakWoodBlock.Index);
+            }
+            if (hidePrey)
+            {
+                for (int z = cell.Z - 3; z <= cell.Z; z++)
+                for (int y = cell.Y; y <= cell.Y + 2; y++)
+                    terrain.ChangeCell(cell.X + 7, y, z, GraniteBlock.Index);
             }
             body.Position = new(cell.X + 0.5f, cell.Y, cell.Z + 0.5f);
             productionOrigin = body.Position;
@@ -99,6 +108,7 @@ sealed partial class Runner
                 // 制作链验证接续库存和工作站，把静止鸭子放在木堆另一侧的开阔地。
                 duckBody.Position = body.Position + (project ? new Vector3(7.6f, 0f, 1.65f)
                     : (approach ? 8.2f : ranged ? 3.65f : 1.1f) * Vector3.UnitX);
+                if (hidePrey) projectFixtureBird = duckBody;
                 if (tracking)
                 {
                     movingFixtureBird = duckBody;
@@ -154,6 +164,18 @@ sealed partial class Runner
         }
         if (production.Status is null) return;
         Gate.Log(new { kind = "production_fixture_task", production.Task, production.Status, production.Reason, production.Added });
+        if (hidePrey)
+        {
+            int spears = PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Spear);
+            int rawMeat = PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Hunt);
+            Passed = preparedWhileBirdHidden && projectApproachedMaterial && movedFirstWoodDrop && approachedFirstWoodDrop
+                && projectTablePlacements == 1 && spears == 1 && rawMeat == 0
+                && production.Reason == "project_missing_visible_prerequisite" && p.ComponentHealth.Health >= 0.99f;
+            Done = true;
+            Gate.Log(new { kind = "production_fixture_hidden_prey_result", Passed, preparedWhileBirdHidden, spears, rawMeat,
+                projectTablePlacements, movedFirstWoodDrop, approachedFirstWoodDrop, health = p.ComponentHealth.Health });
+            return;
+        }
         if (production.Status != "succeeded" || production.Task != PlaySurvivalProduction.Warm && production.Added < 1)
         {
             Done = true;
@@ -192,9 +214,23 @@ sealed partial class Runner
         switch (record.GetProperty("kind").GetString())
         {
             case "play_production_stage" when record.GetProperty("stage").GetString() is "approach_wood" or "approach_stone":
-                if (mode == "production-project" && record.GetProperty("material").GetString() == overheadWood.ToString())
+                if ((mode is "production-project" or "production-gear-while-prey-hidden")
+                    && record.GetProperty("material").GetString() == overheadWood.ToString())
                     throw new InvalidOperationException("实际任务选择了高处无可用落脚点的树干。");
                 projectApproachedMaterial = true;
+                if (projectFixtureBird is { } duck && !screenedProjectBird)
+                {
+                    // 在夹具中把同一只鸭放到已经建好的遮挡后面，木材和路线保持原样。
+                    duck.Position -= 3.4f * Vector3.UnitZ;
+                    duck.Velocity = Vector3.Zero;
+                    screenedProjectBird = true;
+                }
+                break;
+            case "play_production_stage" when screenedProjectBird
+                && record.GetProperty("stage").GetString() == PlaySurvivalProduction.Spear:
+                preparedWhileBirdHidden = actions.Queries.FindVisibleObjectsAround(20f).Entities
+                    .All(animal => animal.EntityId != projectFixtureBird!.Entity.Id);
+                Gate.Log(new { kind = "production_fixture_prey_screened", preparedWhileBirdHidden });
                 break;
             case "play_station_placed" when record.GetProperty("stationBlock").GetInt32() == CraftingTableBlock.Index:
                 projectTablePlacements++;

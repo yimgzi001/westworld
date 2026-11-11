@@ -143,20 +143,23 @@ internal sealed class PlaySurvivalTravel
             return;
         }
         if (readMovingTarget is { } read && RefreshMovingTarget(read, body, gameTime)) return;
+        bool stepLeftEnvelope = false;
         if (leg?.Result.Status == AtomicActionStatus.Running)
         {
             bool threatClosing = approachingEscapeTurn && escapeFrom is { } readThreat
                 && (body.Position.XZ - readThreat()).LengthSquared() < EscapeTurnClearanceSquared;
-            if (!threatClosing && (dryProof is null || dryProof.Contains(body, Stopwatch.GetElapsedTime(proofStarted).TotalSeconds)))
-                return;
+            string? rejection = threatClosing ? null : dryProof?.Rejection(body, Stopwatch.GetElapsedTime(proofStarted).TotalSeconds);
+            if (!threatClosing && rejection is null) return;
+            stepLeftEnvelope = leg.Action is StepTo && rejection is not (null or "stale_observed_envelope");
             owner.Cancel(leg);
             log(new { kind = threatClosing ? "play_predator_escape_turn_interrupted" : "play_scout_evidence_expired",
-                actor = player.PlayerData.Name, gameTime,
-                action = leg.Action.GetType().Name });
+                actor = player.PlayerData.Name, gameTime, action = leg.Action.GetType().Name,
+                rejection, step = dryProof?.Step?.Kind.ToString(), origin = legOrigin.ToString(),
+                target = dryProof?.End.ToString(), position = body.Position.ToString() });
         }
 
         var previous = leg;
-        if (previous?.Result.Failure == AtomicActionFailure.InvalidArgument && dryProof is { } refused
+        if ((previous?.Result.Failure == AtomicActionFailure.InvalidArgument || stepLeftEnvelope) && dryProof is { } refused
             && (body.Position - legOrigin).XZ.LengthSquared() < 0.04f)
         {
             refusedDryEndpoints.Add(refused.End);
