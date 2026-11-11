@@ -40,6 +40,8 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 `shelter-far-wolf-outlet` 和 `shelter-far-wolf-no-outlet` 在最后一跳使用同距离的原生灰狼。前者的反方向有三格可观察干地，角色满血站上地面。后者移去侧面远处支撑，角色落回并封顶。
 
+`shelter-fast-reseal` 在第二跳看到灰狼后落回，优先使用同一坑上次确认的封顶面。原生豹子随后从坑口上方落下，检查顶块实际挡住了它。`shelter-fast-reseal-changed-anchor` 让记忆中的支撑值失效，核对原生拒绝后仍能观察并重新封顶。
+
 `shelter-night-hungry` 在日落前 30 游戏秒以 9% 饱食开始，检查夜间庇护条件，完成原生搭建、睡到天亮和出坑。
 
 `predator-coast-turn` 使用 `natural34-b` 的真实窄岸地形。原生下船后从卡点开始，约 20 格外放置固定移动能力的灰狼。验证直接退路受阻时，能沿可见干地绕到一格高的出口，并在近处出现威胁时拒绝开始向其靠近。

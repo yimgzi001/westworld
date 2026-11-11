@@ -28,10 +28,11 @@ internal sealed class PlayEarthShelter
     private double settleUntil, nextPeek;
     private int wall, level, digRetries, jumpRetries, retreatAimRetries, lastExitLevel = int.MinValue;
     private float peakRise;
-    private bool opened, retreating;
+    private bool opened, retreating, triedRoofAnchor, usingRoofAnchor;
 
     public PlayEarthShelter(ComponentPlayer player, AtomicActions owner, Site site, bool leaving,
-        double gameTime, Action<object> log, Func<PlaySurvivalSenses.Threat, double, bool>? permitFarExit = null)
+        double gameTime, Action<object> log, Func<PlaySurvivalSenses.Threat, double, bool>? permitFarExit = null,
+        BlockTarget? knownRoofAnchor = null)
     {
         this.player = player;
         this.owner = owner;
@@ -39,6 +40,8 @@ internal sealed class PlayEarthShelter
         this.leaving = leaving;
         this.log = log;
         this.permitFarExit = permitFarExit;
+        if (knownRoofAnchor is { Face: int face } anchor && anchor.Cell + CellFace.FaceToPoint3(face) == site.Cell(site.Surface - 1))
+            RoofAnchor = anchor;
         deadline = gameTime + 45;
     }
 
@@ -46,6 +49,7 @@ internal sealed class PlayEarthShelter
     public string? Reason { get; private set; }
     public PlaySurvivalSenses.Threat? LastExitThreat { get; private set; }
     public PlaySurvivalSenses.Threat? FarExitThreat { get; private set; }
+    public BlockTarget? RoofAnchor { get; private set; }
     public bool Leaving => leaving;
     public bool OwnsExitMotion(ComponentBody body) => leaving && site.SameColumn(body)
         && (body.Position.Y < site.Surface - 0.05f || !PlaySurvivalSenses.OnDryGround(body));
@@ -83,6 +87,14 @@ internal sealed class PlayEarthShelter
             action = null;
             if (run.Result.Status != AtomicActionStatus.Succeeded)
             {
+                if (usingRoofAnchor && run.Action is Place)
+                {
+                    usingRoofAnchor = false;
+                    log(new { kind = "play_shelter_roof_anchor_rejected", actor = player.PlayerData.Name,
+                        failure = run.Result.Failure.ToString(), gameTime });
+                    phase = Phase.SurveyWall;
+                    return;
+                }
                 if (retreating && run.Action is FaceTowards && retreatAimRetries++ < 3
                     && run.Result.Failure is AtomicActionFailure.PreconditionsNotMet or AtomicActionFailure.MovementInterrupted)
                 {
@@ -102,6 +114,14 @@ internal sealed class PlayEarthShelter
                 return;
             }
             if (run.Action is Dig) digRetries = 0;
+            if (run.Action is Place place && (phase == Phase.Resealed || !leaving && phase == Phase.Open))
+            {
+                RoofAnchor = place.Against;
+                if (usingRoofAnchor)
+                    log(new { kind = "play_shelter_roof_anchor_reused", actor = player.PlayerData.Name,
+                        cell = place.Against.Cell.ToString(), gameTime });
+                usingRoofAnchor = false;
+            }
             log(new { kind = "play_shelter_native", actor = player.PlayerData.Name,
                 action = run.Action.GetType().Name, leaving, gameTime });
             if (phase == Phase.Settle && run.Action is Dig or Place) settleUntil = gameTime + 0.35;
@@ -172,6 +192,7 @@ internal sealed class PlayEarthShelter
                 Begin(new Dig(floor, 5), Phase.Settle);
                 break;
             case Phase.SurveyWall:
+                if (retreating && TrySealWithKnownAnchor()) break;
                 var delta = Walls[wall];
                 var wallPoint = site.Center(site.Surface - 0.5f) + 0.66f * new Vector3(delta.X, 0, delta.Z);
                 Begin(new FaceTowards(wallPoint, 2f), Phase.Seal);
@@ -293,6 +314,16 @@ internal sealed class PlayEarthShelter
             dirtSlot = BackpackSlots(inventory).FirstOrDefault(slot => inventory.GetSlotCount(slot) == 0, -1);
         // 快捷栏全满时，确认挖出的土能入包且能腾出一个放置用槽，再开始挖坑。
         return dirtSlot >= 0 && FindHotbarStorage(inventory, dirtSlot) is not null;
+    }
+
+    private bool TrySealWithKnownAnchor()
+    {
+        if (triedRoofAnchor || RoofAnchor is not { } anchor) return false;
+        if (Dirt() is not { } dirt) return TryStageEarth(Phase.SurveyWall);
+        // 先让原生放置重查上一次成功的封顶面。支撑或遮挡变化时再环查其他面。
+        triedRoofAnchor = usingRoofAnchor = true;
+        Begin(new Place(anchor, dirt), Phase.Resealed);
+        return true;
     }
 
     private bool TryStageEarth(Phase resume)

@@ -49,6 +49,7 @@ internal sealed class PlayableActor
     private PlaySurvivalProduction? production;
     private (string Task, string? Stage, string Reason, double Time)? pausedSupply;
     private PlayEarthShelter.Site? earthSite;
+    private BlockTarget? earthRoofAnchor;
     private PlayEarthShelter.Site? lastSleepSite;
     private PlayEarthShelter.Site? nightShelterGoal;
     private (PlayEarthShelter.Site Site, double Until)? failedNightSite;
@@ -137,8 +138,10 @@ internal sealed class PlayableActor
                 if (earthSite?.Contains(player.ComponentBody) != true)
                 {
                     earthSite = null;
+                    earthRoofAnchor = null;
                     restedInEarth = false;
                 }
+                else if (work.RoofAnchor is { } anchor) earthRoofAnchor = anchor;
                 if (result != "succeeded" && earthSite is null) nextShelter = gameTime + 30;
                 if (work.Leaving && result != "succeeded")
                 {
@@ -245,6 +248,7 @@ internal sealed class PlayableActor
                     if (climbed)
                     {
                         earthSite = null;
+                        earthRoofAnchor = null;
                         restedInEarth = false;
                     }
                     else nextExit = gameTime + 8;
@@ -446,6 +450,7 @@ internal sealed class PlayableActor
                 nextExit = 0;
                 shelterThreatRetreats = 0;
                 blockedExit = null;
+                earthRoofAnchor = null;
             }
             earthSite = ground;
             restedInEarth = false;
@@ -462,7 +467,8 @@ internal sealed class PlayableActor
                 travel = new(player, owner, bearing, offset.Length(), "survey", false, gameTime, ObserveSurvival, ReadDryWindow, log);
                 return;
             }
-            shelter = new(player, owner, pit, true, gameTime, log, (threat, now) => PermitFarShelterExit(pit, threat, now));
+            shelter = new(player, owner, pit, true, gameTime, log, (threat, now) => PermitFarShelterExit(pit, threat, now),
+                earthRoofAnchor);
             return;
         }
         if (tool == PlaySurvivalIntents.Rest && dry && RestWindow() && !player.ComponentSleep.IsSleeping

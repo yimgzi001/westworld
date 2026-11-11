@@ -32,6 +32,10 @@ sealed partial class Runner
     private bool shelterDirtObservedInBackpack;
     private int shelterPlanksBefore, shelterBuildTransfers, shelterExitTransfers;
     private bool ChecksFarWolfExit => mode is "shelter-far-wolf-outlet" or "shelter-far-wolf-no-outlet";
+    private bool ChecksFastShelterSeal => mode is "shelter-fast-reseal" or "shelter-fast-reseal-changed-anchor";
+    private double shelterRetreatAt, roofReusedAt, fixtureCatAt;
+    private string? knownRoofFailure;
+    private ComponentBody? fixtureCat;
     private int exitThreatLevel;
     private Point3 threatOrigin;
     private Vector3 threatPosition;
@@ -389,10 +393,11 @@ sealed partial class Runner
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
             if (foraging && !ForageCorridorReady(cell.X, cell.Z)) return;
-            if ((lowerPredator || ChecksFarWolfExit)
+            bool farPredator = lowerPredator || ChecksFarWolfExit || ChecksFastShelterSeal;
+            if (farPredator
                 && !(terrain.Terrain.GetChunkAtCell(cell.X + 22, cell.Z)?.State >= TerrainChunkState.InvalidVertices1))
                 return;
-            int endX = cell.X + (foraging ? 39 : lowerPredator || ChecksFarWolfExit ? 22 : mode == "shelter-late-predator" ? 10 : 5);
+            int endX = cell.X + (foraging ? 39 : farPredator ? 22 : mode == "shelter-late-predator" ? 10 : 5);
             for (int x = cell.X - 5; x <= endX; x++)
             for (int z = cell.Z - 5; z <= cell.Z + 5; z++)
             for (int y = cell.Y - 4; y <= cell.Y + 3; y++)
@@ -606,7 +611,7 @@ sealed partial class Runner
         bool backpackEarth = mode == "shelter-backpack-earth";
         Action<object> shelterLog = backpackEarth ? TrackShelterInventory : Gate.Log;
         bool lowerPredator = mode == "shelter-lower-predator";
-        bool middlePredator = lowerPredator || mode == "shelter-middle-predator";
+        bool middlePredator = lowerPredator || mode == "shelter-middle-predator" || ChecksFastShelterSeal;
         bool jumpPredator = middlePredator || mode == "shelter-late-predator" || ChecksFarWolfExit;
         if (stage == 1)
         {
@@ -666,21 +671,29 @@ sealed partial class Runner
             {
                 if (!jumpPredator) PlaceShelterThreat(0.61f);
                 vitalBefore = p.ComponentHealth.Health;
+                var knownAnchor = ChecksFastShelterSeal
+                    ? earthShelter.RoofAnchor ?? throw new InvalidOperationException("夹具缺少原生确认的封顶面。") : null;
+                if (mode == "shelter-fast-reseal-changed-anchor")
+                    knownAnchor = knownAnchor! with { ExpectedValue = GraniteBlock.Index };
                 earthShelter = new(p, actions, testSite, true, now, entry =>
                 {
                     Gate.Log(entry);
                     var record = JsonSerializer.SerializeToElement(entry);
-                    if (record.GetProperty("kind").GetString() == "play_shelter_exit_threat")
+                    string? kind = record.GetProperty("kind").GetString();
+                    if (kind == "play_shelter_exit_threat")
                     {
+                        shelterRetreatAt = record.GetProperty("gameTime").GetDouble();
                         exitThreatDuringJump = record.GetProperty("duringJump").GetBoolean();
                         exitThreatLevel = record.GetProperty("level").GetInt32();
                         var threat = record.GetProperty("threat");
                         lowerPredatorObserved = threat.GetProperty("Distance").GetSingle() is > 16f and <= 22f
                             && MathF.Abs(threat.GetProperty("Y").GetSingle() - (testSite!.Surface - 1)) < 0.05f;
                     }
+                    if (kind == "play_shelter_roof_anchor_reused") roofReusedAt = record.GetProperty("gameTime").GetDouble();
+                    if (kind == "play_shelter_roof_anchor_rejected") knownRoofFailure = record.GetProperty("failure").GetString();
                 }, ChecksFarWolfExit ? (threat, _) => PlayDryRoutes.HasObservedShelterOutlet(
                     memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)), testSite!.Center(testSite.Surface),
-                    new Vector2(threat.X, threat.Z)) : null);
+                    new Vector2(threat.X, threat.Z)) : null, knownAnchor);
                 stage = 7;
                 return;
             }
@@ -718,6 +731,7 @@ sealed partial class Runner
                 && body.Position.Y < jumpLevel + 1f && body.Velocity.Y > 0f)
             {
                 if (ChecksFarWolfExit) PlaceShelterAnimal("Wolf_Gray", 20.1f);
+                else if (ChecksFastShelterSeal) PlaceShelterAnimal("Wolf_Gray", 18.25f);
                 else PlaceShelterThreat(lowerPredator ? 18.6f : middlePredator ? 1.22f : 7.2f, lowerPredator ? 1 : 0);
                 jumpPredatorPlaced = true;
             }
@@ -725,8 +739,35 @@ sealed partial class Runner
             if (middlePredator && jumpPredatorPlaced && !exitThreatFromHost && earthShelter!.OwnsExitMotion(body))
                 exitThreatFromHost = earthShelter!.TryRetreatFromPredators(PlaySurvivalSenses.Threats(p, actions.Queries), now);
             earthShelter!.Update(now);
+            if (mode == "shelter-fast-reseal" && fixtureCat is null && shelterRetreatAt > 0 && now >= shelterRetreatAt + 2.45)
+            {
+                // 在夹具中让豹子从坑口上方按原生重力落下，检验已经放好的顶能拦住它。
+                var cat = DatabaseManager.CreateEntity(p.Project, "Leopard", true);
+                fixtureCat = cat.FindComponent<ComponentBody>(true);
+                fixtureCat.Position = site.Center(site.Surface + 1.2f);
+                var legs = cat.FindComponent<ComponentLocomotion>(true);
+                legs.WalkSpeed = legs.JumpSpeed = 0;
+                p.Project.AddEntity(cat);
+                fixtureCatAt = now;
+            }
             if (earthShelter.Status is null) return;
             bool covered = PlaySurvivalRest.HasUsableCover(p);
+            if (ChecksFastShelterSeal)
+            {
+                bool changedAnchor = mode == "shelter-fast-reseal-changed-anchor";
+                if (!changedAnchor && (fixtureCat is null || now < fixtureCatAt + 1.1)) return;
+                double? sealSeconds = roofReusedAt > 0 ? roofReusedAt - shelterRetreatAt : null;
+                bool catStayedAbove = fixtureCat is { } catBody && catBody.Position.Y >= site.Surface - 0.05f
+                    && catBody.StandingOnValue.HasValue;
+                Passed = covered && earthShelter.Reason == "predator_at_exit_resealed" && exitThreatDuringJump
+                    && exitThreatFromHost && p.ComponentHealth.Health >= vitalBefore
+                    && (changedAnchor ? knownRoofFailure == nameof(AtomicActionFailure.TargetChanged) && sealSeconds is null
+                        : knownRoofFailure is null && sealSeconds is > 0 and <= 2.8 && catStayedAbove);
+                Done = true;
+                Gate.Log(new { kind = "shelter_fast_reseal_result", Passed, changedAnchor, knownRoofFailure, sealSeconds,
+                    catStayedAbove, covered, earthShelter.Reason, health = p.ComponentHealth.Health });
+                return;
+            }
             if (ChecksFarWolfExit)
             {
                 var seen = earthShelter.FarExitThreat ?? earthShelter.LastExitThreat;
