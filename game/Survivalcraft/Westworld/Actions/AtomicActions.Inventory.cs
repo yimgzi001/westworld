@@ -231,7 +231,16 @@ namespace Game.Westworld {
             if (source.Inventory is ComponentCraftingTable table && source.Slot == table.ResultSlotIndex) {
                 return Reject(action, AtomicActionFailure.PreconditionsNotMet);
             }
+            bool furnaceOutput = source.Inventory is ComponentFurnace oven && source.Slot == oven.ResultSlotIndex
+                && target.Inventory == CarryInventory;
+            int sourceBefore = furnaceOutput ? source.Inventory.GetSlotCount(source.Slot) : 0;
+            int? carryBefore = furnaceOutput ? NativeAcquisitionAudit.InventoryCount(CarryInventory, source.ExpectedValue) : null;
             int moved = TransferStack(source.Inventory, source.Slot, target.Inventory, target.Slot, source.ExpectedValue, action.Count);
+            if (moved > 0 && furnaceOutput)
+                NativeAcquisitionAudit.Record(source.Inventory, m_actor, source.ExpectedValue, sourceBefore,
+                    source.Inventory.GetSlotCount(source.Slot), carryBefore,
+                    NativeAcquisitionAudit.InventoryCount(CarryInventory, source.ExpectedValue), "furnace_output",
+                    m_actor.Project.FindSubsystem<SubsystemGameInfo>()?.TotalElapsedGameTime ?? double.NaN);
             return moved > 0 ? Succeed(action, moved) : Reject(action, AtomicActionFailure.InventoryFull);
         }
 

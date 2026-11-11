@@ -5,12 +5,14 @@ using Westworld.Runtime.Core;
 
 internal sealed class PlaySurvivalExploration(Vector3 origin, PlaySurvivalExploration.Course course, double started)
 {
-    internal sealed record Course(Vector2 Heading, Vector3 Opening, float OpeningLength, int Visits, bool StartsWithStep)
+    internal sealed record Course(Vector2 Heading, Vector3 Opening, float OpeningLength, int Visits, bool StartsWithStep,
+        bool HuntBirds = false)
     {
         public object Snapshot(Vector2 facing) => new
         {
             bearing = Math.Round(MathUtils.RadToDeg(Vector2.Angle(facing, Heading))),
-            verifiedMeters = Math.Round(OpeningLength, 1), priorVisits = Visits, startsWithStep = StartsWithStep
+            verifiedMeters = Math.Round(OpeningLength, 1), priorVisits = Visits, startsWithStep = StartsWithStep,
+            objective = HuntBirds ? "沿此方向巡猎，遇到射程内的食用鸟即投矛，实际取肉后完成" : "沿此方向探索并报告新发现"
         };
     }
 
@@ -19,6 +21,7 @@ internal sealed class PlaySurvivalExploration(Vector3 origin, PlaySurvivalExplor
     public const float SectionDistance = 20f;
     public Vector3 Origin { get; } = origin;
     public Vector2 Heading { get; } = course.Heading;
+    public bool HuntBirds { get; } = course.HuntBirds;
     public int Sections { get; private set; } = 1;
     public int NativeLegs { get; private set; }
 

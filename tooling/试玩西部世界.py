@@ -1,6 +1,9 @@
 """构建并启动一个独立的西部世界试玩。"""
 
 import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -13,6 +16,24 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "experiments" / "scapi-tool-agent" / "ToolAgentGate.csproj"
 WORK = ROOT / "work"
+
+
+def record_version(directory, args):
+    """仅记录代码和构建物的哈希，不读取凭证或环境变量的值。"""
+    sources = sorted(path for base in (ROOT / "runtime", ROOT / "experiments" / "scapi-tool-agent",
+                                      ROOT / "game" / "Survivalcraft" / "Westworld")
+                     for path in base.rglob("*") if path.suffix in (".cs", ".csproj")
+                     and not any(part in ("bin", "obj") for part in path.parts))
+    sources += [Path(__file__), ROOT / "experiments" / "openai-tool-controller" / "controller.py"]
+    source_hashes = {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                     for path in sources}
+    binaries = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in directory.glob("*") if path.suffix == ".dll" or path.name == "Content.zip"}
+    manifest = dict(createdAt=datetime.now(timezone.utc).isoformat(), seed=args.seed, actors=args.actors,
+                    mode="survival" if args.survival else "smoke" if args.smoke else "terra",
+                    sources=source_hashes, binaries=binaries)
+    manifest["sourceSha256"] = hashlib.sha256(json.dumps(source_hashes, sort_keys=True).encode()).hexdigest()
+    (directory / "实验版本.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def stop_game(game, directory):
@@ -75,6 +96,7 @@ def main():
     if portable.is_file():
         build_env.setdefault("DOTNET_CLI_HOME", str(WORK / "cli"))
     subprocess.run(build, cwd=ROOT, env=build_env, check=True)
+    record_version(directory, args)
 
     key = None if args.smoke else secure_key()
 

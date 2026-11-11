@@ -27,8 +27,11 @@ internal sealed class PlaySurvivalTrial
         public int RemovedFood { get; set; }
         public int PickedFood { get; set; }
         public int PickedFoodMeals { get; private set; }
+        public int PreparedFood { get; set; }
+        public int PreparedFoodMeals { get; private set; }
         public Dictionary<int, int> PickedByValue { get; } = new();
-        public List<(int Value, float FoodAfter, bool FromPickup)> NewMeals { get; } = new();
+        public Dictionary<int, int> PreparedByValue { get; } = new();
+        public List<(int Value, float FoodAfter, bool FromPickup, bool FromPreparation)> NewMeals { get; } = new();
         public long Meals => Player.PlayerStats.FoodItemsEaten - InitialMeals;
         public long Sleeps => Player.PlayerStats.TimesWentToSleep - InitialSleeps;
         public double? DiedAt { get; set; }
@@ -41,11 +44,16 @@ internal sealed class PlaySurvivalTrial
             int remaining = PickedByValue.GetValueOrDefault(key);
             bool fromPickup = remaining > 0 && InventoryFoodCount(Player.ComponentMiner.Inventory, key) == remaining - 1;
             PickedByValue[key] = fromPickup ? remaining - 1 : 0;
+            int prepared = PreparedByValue.GetValueOrDefault(key);
+            bool fromPreparation = !fromPickup && prepared > 0
+                && InventoryFoodCount(Player.ComponentMiner.Inventory, key) == prepared - 1;
+            PreparedByValue[key] = fromPreparation ? prepared - 1 : 0;
             if (fromPickup)
             {
                 PickedFoodMeals++;
             }
-            NewMeals.Add((value, Player.ComponentVitalStats.Food, fromPickup));
+            if (fromPreparation) PreparedFoodMeals++;
+            NewMeals.Add((value, Player.ComponentVitalStats.Food, fromPickup, fromPreparation));
         }
     }
 
@@ -97,7 +105,7 @@ internal sealed class PlaySurvivalTrial
             }
             foreach (var meal in actor.NewMeals)
                 log(new { kind = "play_survival_meal", actor = player.PlayerData.Name, meal.Value, meal.FoodAfter,
-                    meal.FromPickup, actor.Meals, gameTime });
+                    meal.FromPickup, meal.FromPreparation, actor.Meals, gameTime });
             actor.NewMeals.Clear();
             if (player.ComponentHealth.Health <= 0f)
             {
@@ -107,7 +115,7 @@ internal sealed class PlaySurvivalTrial
                     elapsedGameSeconds = gameTime - startTime, days = calendar.Day - startDay,
                     nativeDeathTime = player.ComponentHealth.DeathTime, food = player.ComponentVitalStats.Food,
                     sleep = player.ComponentVitalStats.Sleep, temperature = player.ComponentVitalStats.Temperature,
-                    wetness = player.ComponentVitalStats.Wetness, actor.Meals, actor.PickedFoodMeals, actor.Sleeps });
+                    wetness = player.ComponentVitalStats.Wetness, actor.Meals, actor.PickedFoodMeals, actor.PreparedFoodMeals, actor.Sleeps });
             }
         }
         double days = calendar.Day - startDay;
@@ -117,7 +125,7 @@ internal sealed class PlaySurvivalTrial
             LogState("play_survival_checkpoint", gameTime);
         }
         if (!Passed && days >= RequiredDays && DeathCount == 0 && voluntaryRest
-            && actors.All(actor => actor.PickedFoodMeals >= 2 && actor.Sleeps > 0))
+            && actors.All(actor => actor.PickedFoodMeals + actor.PreparedFoodMeals >= 2 && actor.Sleeps > 0))
         {
             Passed = true;
             LogState("play_survival_milestone", gameTime);
@@ -141,11 +149,13 @@ internal sealed class PlaySurvivalTrial
             || fact.InventoryAfter is not int after || after <= before || after - before != fact.SourceBefore - fact.SourceAfter)
             return;
         int added = after - before;
-        actor.PickedFood += added;
+        bool prepared = fact.Method == "furnace_output";
+        if (prepared) actor.PreparedFood += added; else actor.PickedFood += added;
         int key = FoodKey(fact.Value);
         int allFreshness = InventoryFoodCount(actor.Player.ComponentMiner.Inventory, key);
         // 新鲜和存放过的同类食物合计对账。存在其他未归因来源时不猜测吃掉的是哪份。
-        actor.PickedByValue[key] = allFreshness >= after && allFreshness - added == actor.PickedByValue.GetValueOrDefault(key)
+        var ledger = prepared ? actor.PreparedByValue : actor.PickedByValue;
+        ledger[key] = allFreshness >= after && allFreshness - added == ledger.GetValueOrDefault(key)
             ? allFreshness : 0;
     }
 
@@ -182,7 +192,7 @@ internal sealed class PlaySurvivalTrial
             sleeping = actor.Player.ComponentSleep.IsSleeping, actor.MinHealth, actor.MinFood, actor.DiedAt,
             causeOfDeath = actor.Player.ComponentHealth.CauseOfDeath, temperature = actor.Player.ComponentVitalStats.Temperature,
             wetness = actor.Player.ComponentVitalStats.Wetness, sick = actor.WasSick, flu = actor.HadFlu,
-            actor.Meals, actor.PickedFood, actor.PickedFoodMeals, actor.Sleeps,
+            actor.Meals, actor.PickedFood, actor.PickedFoodMeals, actor.PreparedFood, actor.PreparedFoodMeals, actor.Sleeps,
             position = new { x = actor.Player.ComponentBody.Position.X, y = actor.Player.ComponentBody.Position.Y,
                 z = actor.Player.ComponentBody.Position.Z }
         })

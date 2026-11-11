@@ -22,6 +22,9 @@
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.cs" Link="PlaySurvivalProduction.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Stations.cs" Link="PlaySurvivalProduction.Stations.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Cooking.cs" Link="PlaySurvivalProduction.Cooking.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Farm.cs" Link="PlaySurvivalProduction.Farm.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Camp.cs" Link="PlaySurvivalProduction.Camp.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Worksites.cs" Link="PlaySurvivalProduction.Worksites.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Hunt.cs" Link="PlaySurvivalProduction.Hunt.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalProduction.Project.cs" Link="PlaySurvivalProduction.Project.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalCold.cs" Link="PlaySurvivalCold.cs" />
@@ -34,6 +37,8 @@
     <Compile Include="../scapi-tool-agent/play/PlaySurvivalExploration.cs" Link="PlaySurvivalExploration.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayPredatorHearing.cs" Link="PlayPredatorHearing.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayThermalRecovery.cs" Link="PlayThermalRecovery.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlayFireSafety.cs" Link="PlayFireSafety.cs" />
+    <Compile Include="../scapi-tool-agent/play/PlaySurvivalKnowledge.cs" Link="PlaySurvivalKnowledge.cs" />
     <Compile Include="../scapi-tool-agent/play/PlayableActor*.cs" Link="%(Filename)%(Extension)" />
     <Compile Include="../scapi-tool-agent/play/PlayDecisionQueue.cs" Link="PlayDecisionQueue.cs" />
     <Compile Include="../scapi-tool-agent/play/PlaySocialInbox.cs" Link="PlaySocialInbox.cs" />

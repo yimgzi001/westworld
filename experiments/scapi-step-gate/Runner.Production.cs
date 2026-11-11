@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Engine;
 using Game;
 using Game.Westworld;
@@ -27,26 +28,29 @@ sealed partial class Runner
     private bool movedFirstWoodDrop, approachedFirstWoodDrop;
     private ComponentBody? projectFixtureBird;
     private bool screenedProjectBird, preparedWhileBirdHidden;
+    private PlaySurvivalTrial? fixtureCookingTrial;
+    private bool fixturePreparedMeal;
 
     private void RunProduction()
     {
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
+        bool live = mode == "production-hunt-live";
         bool tracking = mode == "production-hunt-tracking";
         bool approach = mode == "production-hunt-approach" || tracking;
         bool resumeHidden = mode == "production-resume-gear";
         bool hidePrey = mode == "production-gear-while-prey-hidden" || resumeHidden;
         bool project = mode == "production-project" || hidePrey;
-        bool ranged = approach || mode == "production-hunt-ranged";
+        bool ranged = approach || mode == "production-hunt-ranged" || live;
         bool hunt = mode == "production-hunt" || ranged || project;
         bool kitchen = mode is "production-hunt" or "production-kitchen" || project;
-        var order = project ? [PlaySurvivalProduction.CookedFoodProject] : hunt ? HuntOrder : kitchen ? KitchenOrder : KitOrder;
+        var order = live ? [PlaySurvivalProduction.Hunt] : project ? [PlaySurvivalProduction.CookedFoodProject] : hunt ? HuntOrder : kitchen ? KitchenOrder : KitOrder;
         int taskCount = ranged ? Array.IndexOf(order, PlaySurvivalProduction.Hunt) + 1 : order.Length;
         if (stage == 0)
         {
             if (elapsed < 3) return;
             var cell = Terrain.ToCell(body.Position);
-            for (int x = cell.X - 3; x <= cell.X + (approach || project ? 11 : ranged ? 6 : 3); x++)
+            for (int x = cell.X - 3; x <= cell.X + (approach ? 20 : project ? 11 : live ? 18 : ranged ? 6 : 3); x++)
             for (int z = cell.Z - 3; z <= cell.Z + 3; z++)
             for (int y = cell.Y - 1; y <= cell.Y + 3; y++)
                 terrain.ChangeCell(x, y, z, y < cell.Y ? DirtBlock.Index : 0);
@@ -87,8 +91,16 @@ sealed partial class Runner
             }
             if (order.Where(task => task != PlaySurvivalProduction.Cook).Any(task => PlaySurvivalProduction.Stock(p, task) > 0))
                 throw new InvalidOperationException("生产夹具要求开局没有目标材料和成品。");
+            if (live) p.ComponentMiner.Inventory.AddSlotItems(0, WoodenSpearBlock.Index, 1);
             if (kitchen)
             {
+                fixtureCookingTrial = new(p.Project, [p], now, record =>
+                {
+                    var entry = JsonSerializer.SerializeToElement(record);
+                    if (entry.GetProperty("kind").GetString() == "play_survival_meal"
+                        && entry.GetProperty("FromPreparation").GetBoolean()) fixturePreparedMeal = true;
+                    Gate.Log(record);
+                });
                 var drops = p.Project.FindSubsystem<SubsystemPickables>(true);
                 if (project) drops.PickableAdded += MoveFirstWoodDrop;
                 var at = body.Position + new Vector3(0, 0.2f, -0.2f);
@@ -101,14 +113,14 @@ sealed partial class Runner
             }
             if (hunt)
             {
-                int wallX = cell.X + (approach || project ? 10 : ranged ? 5 : 2);
+                int wallX = cell.X + (approach ? 18 : project ? 10 : live ? 16 : ranged ? 5 : 2);
                 for (int z = cell.Z - 1; z <= cell.Z + 1; z++)
                 for (int y = cell.Y; y <= cell.Y + 2; y++) terrain.ChangeCell(wallX, y, z, GraniteBlock.Index);
                 var duck = DatabaseManager.CreateEntity(p.Project, "Duck", true);
                 var duckBody = duck.FindComponent<ComponentBody>(true);
                 // 制作链验证接续库存和工作站，把静止鸭子放在木堆另一侧的开阔地。
                 duckBody.Position = body.Position + (project ? new Vector3(7.6f, 0f, 1.65f)
-                    : (approach ? 8.2f : ranged ? 3.65f : 1.1f) * Vector3.UnitX);
+                    : (live ? 8f : approach ? 14f : ranged ? 3.65f : 1.1f) * Vector3.UnitX);
                 if (hidePrey) projectFixtureBird = duckBody;
                 if (tracking)
                 {
@@ -116,7 +128,8 @@ sealed partial class Runner
                     fixtureBirdStartZ = duckBody.Position.Z;
                 }
                 var legs = duck.FindComponent<ComponentLocomotion>(true);
-                legs.WalkSpeed = legs.FlySpeed = legs.JumpSpeed = 0f;
+                if (!live) legs.WalkSpeed = legs.FlySpeed = legs.JumpSpeed = 0f;
+                else Gate.Log(new { kind = "live_hunt_fixture_bird", legs.WalkSpeed, legs.FlySpeed, legs.JumpSpeed, models = 0 });
                 p.Project.AddEntity(duck);
             }
             forageTools = new(Guid.NewGuid(), p, new ActorTools(actions, true));
@@ -124,7 +137,7 @@ sealed partial class Runner
             stage = 1;
             return;
         }
-        if (elapsed < 1) return;
+        if (elapsed < (live ? 0.2 : 1)) return;
         if (movingFixtureBird is { } bird && fixtureBirdMoveUntil > 0 && !fixtureBirdMotionEnded)
         {
             // 用原生速度让猎物在接近途中横移，角色仍必须通过观察更新目标。
@@ -145,7 +158,7 @@ sealed partial class Runner
         }
         if (production is null && approach && order[productionIndex] == PlaySurvivalProduction.Hunt)
         {
-            var menu = PlaySurvivalProduction.Offer(p, actions.Queries.ReadPanorama(12f), productionStations, true);
+            var menu = PlaySurvivalProduction.Offer(p, actions.Queries.ReadPanorama(20f), productionStations, true);
             if (menu is null || !menu.Parameters.GetProperty("properties").GetProperty("task").GetProperty("enum")
                 .EnumerateArray().Any(item => item.GetString() == PlaySurvivalProduction.Hunt))
                 throw new InvalidOperationException("手持木矛时，射程外可见食用鸟应进入试玩菜单。");
@@ -214,8 +227,18 @@ sealed partial class Runner
             && movedFirstWoodDrop && approachedFirstWoodDrop && p.ComponentHealth.Health >= 0.99f;
         float preyMoved = movingFixtureBird is { } fixtureBird ? fixtureBird.Position.Z - fixtureBirdStartZ : 0f;
         if (tracking) Passed &= trackedFixtureBird && preyMoved >= 1.4f;
+        if (fixtureCookingTrial is not null && Passed)
+        {
+            int cooked = hunt ? CookedBirdBlock.Index : CookedMeatBlock.Index;
+            int slot = Enumerable.Range(0, inventory.SlotsCount).First(index => inventory.GetSlotCount(index) > 0
+                && inventory.GetSlotValue(index) == cooked);
+            p.ComponentVitalStats.Food = 0.1f;
+            var eaten = actions.Start(new Eat(slot, cooked, 1));
+            fixtureCookingTrial.Sample(now, voluntaryRest: false);
+            Passed &= eaten.Result.Status == AtomicActionStatus.Succeeded && fixturePreparedMeal;
+        }
         Done = true;
-        Gate.Log(new { kind = "production_fixture_result", Passed, kitchen, hunt, ranged, approach, project, projectInterrupted,
+        Gate.Log(new { kind = "production_fixture_result", Passed, fixturePreparedMeal, kitchen, hunt, ranged, approach, live, project, projectInterrupted,
             projectApproachedMaterial, projectRejectedOverhead, projectTablePlacements, moved, tracking, preyMoved,
             trackedFixtureBird, movedFirstWoodDrop, approachedFirstWoodDrop, completed = productionIndex });
     }

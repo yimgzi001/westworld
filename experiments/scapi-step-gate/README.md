@@ -87,10 +87,10 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 
 ## 生存目标组合验收
 
-这组场景通过正常的 `PlayableActor.Update/Request`、文件决策桥和原生动作入口运行，使用固定本地回复。桌面窗口隐藏，日志记录 `windowVisible=false`。单独的单人和三人真实场使用官方 Terra。
+这组场景通过正常的 `PlayableActor.Update/Request`、文件决策桥和原生动作入口运行，使用固定本地回复。桌面隐藏且静音，日志核对 `windowVisible=false` 与实际设置。本批只另开独立单人真实场，使用官方 Terra。
 
-- `survival-goal-contract` 核对实际发出的提示和 Schema 只允许选择一个已绑定目标。
-- `survival-goal-target` 先拾起途中同值的蛋，仍继续取得模型选中的那一枚。`survival-goal-urgent-food` 和 `survival-goal-crop` 核对缺粮时零模型请求完成取蛋或南瓜挖掘与入包。
+- `survival-goal-contract` 核对提示、Schema 和实际情境攻略：一次选择一至四个已绑定目标，各步骤只引用当前菜单编号。
+- `survival-goal-target` 先拾起途中同值的蛋，仍继续取得模型选中的那一枚。`survival-goal-urgent-food` 和 `survival-goal-crop` 使用一次本地决策完成指定取蛋或南瓜挖掘与入包，不把正常补粮写成宿主策略。
 - `survival-goal-explore` 在提前生成的平地走廊里，只发起一次本地决策，连续完成三段搜索。每段仍采用角色当前的局部地形证据。
 - `survival-goal-hearing` 将灰狼置于墙后，触发原生攻击声音，核对停下朝声源的路线、等待、重新看到同一枚蛋并实际取到。夹具固定动物移动能力。
 - `survival-goal-fallback` 让控制器任务抛出暂时性异常，再核对本地重新观察和沿已确认路线行动。
@@ -101,3 +101,16 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 - `threat-rhino-range` 用固定移动能力的原生犀牛核对二十格外可见时提前预警、限制朝它接近的路线和墙体遮挡。与 `shelter-passive-cow` 一起核对不同动物的原生主动攻击条件。
 
 这些是条件受控的原生场景。自然地形、移动猎物和连续存活时间按真实联测日志分别统计。
+
+### AI 计划与长期生存技能
+
+- `survival-goal-sequence` 核对一次回复依次采集两枚已绑定食物再等待；`survival-goal-plan-failure` 在第二目标失效时停止后续步骤。`survival-goal-choose-wait` 核对模型选等待后不会擅自采集附近食物。
+- `survival-goal-gear-plan` 一次选择采木、工作台与木矛三步，原生库存逐步核对。`survival-goal-cold-persistent` 核对已经在低温信息中作出的决定不会被相同事实反复取消；`survival-goal-pending-egg` 核对临危时已有生蛋的原生进食。
+- `production-hunt-live` 保留鸭原生行走、飞行和跳跃参数，使用正式弹道与拾肉技能。重复场次分别记录成功率。`survival-goal-hunt-opportunity` 验证模型明确选巡猎后沿路猎鸟，`survival-goal-observe-bird` 对照普通探索不会擅自攻击。
+- `quarry-ground-stone` 在裸露平地采够八块圆石；`quarry-ground-earth` 在土面采够四十块土。两者都保留原始落脚块并核对最终站稳。夹具分别提供石斧和铜铲，不表示真实 AI 已完成铜制工具产业链。
+- `worksite-return` 从远处实际走回本人熔炉再烤肉。`production-kitchen` 与 `production-project` 继续核对原生出料、转入背包及真实进食的 `FromPreparation` 归因。
+- `farm-pumpkin-native` 从成熟南瓜得到三粒原生种子，再用原生木耙与放置动作确认三株幼苗；不修改生长时钟，不将幼苗算作可靠口粮。
+- `camp-native` 实际放置土屋、开门离屋、返回并封门；`camp-no-material` 在材料不足时保持地形不变；`camp-warming` 核对可睡土屋内放火距离及真实回暖。建屋夹具提供材料，自然场须自己取得。
+- `survival-goal-fire-contact` 验证本地观察能拒绝穿火路线并允许撤离、实际接触后及时退开；`survival-goal-fire-burning` 在夹具初态设定着火，随后只使用原生移动、燃烧伤害与自然消退。真实请求必须含本人 `onFire`、`touchingFire` 和情境攻略。
+
+稳定供食、自然农作成熟和当前版本十天存活仍需按长测单独验收，不由上述夹具通过推断。

@@ -6,6 +6,17 @@ internal static class PlayFoodBudget
 {
     internal sealed record Reserve(float Safe, float Risky);
 
+    public static float DailyNeed(ComponentPlayer player)
+    {
+        var vitals = player.ComponentVitalStats;
+        float day = player.Project.FindSubsystem<SubsystemTimeOfDay>(true).DayDuration;
+        // 留足一天基础消耗，并计入采集走动和冷病恢复的余量。生肉和生蛋不能冒充可靠口粮。
+        return Math.Clamp(player.ComponentLevel.HungerFactor * day / 2880f * 1.35f
+            + (vitals.Temperature < 6f || player.ComponentFlu.HasFlu ? 0.25f : 0.15f), 0.8f, 1.3f);
+    }
+
+    public static bool NeedsSupply(ComponentPlayer player) => player.ComponentVitalStats.Food + Count(player).Safe < DailyNeed(player);
+
     public static bool StockWindow(SubsystemTimeOfDay calendar)
     {
         float seconds = (calendar.DuskStart - calendar.TimeOfDay) * calendar.DayDuration;

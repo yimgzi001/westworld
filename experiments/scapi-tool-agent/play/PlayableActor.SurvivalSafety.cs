@@ -34,7 +34,11 @@ internal sealed partial class PlayableActor
             log(new { kind = "play_food_objective_paused", actor = Name, target = food.Target.Point.ToString(), reason, gameTime = now });
         }
         if (production is { } supply && PlaySurvivalProduction.IsProject(supply.Task)) PauseSupply(supply, reason, now);
+        HoldSurvivalPlan(reason, now);
+        if (queue.IsPending(Id))
+            log(new { kind = "play_survival_request_interrupted", actor = Name, reason, gameTime = now });
         queue.Cancel(Id);
+        pendingSurvivalMenu = null;
         outcome = null;
         EndSurvivalGoal("paused", reason, now);
         if (Stop()) return true;
@@ -46,7 +50,7 @@ internal sealed partial class PlayableActor
     {
         var body = player.ComponentBody;
         if ((queue.IsPending(Id) || exploration is not null || production is not null)
-            && player.ComponentVitalStats.Food <= 0.12f && HasMeal())
+            && player.ComponentVitalStats.Food <= 0.06f && HasMeal())
         {
             PauseForSurvivalSafety(queue, "need_meal", now);
             return true;
@@ -59,14 +63,18 @@ internal sealed partial class PlayableActor
             nextDecision = now + 0.8;
             return true;
         }
-        if ((exploration is not null || queue.IsPending(Id))
-            && earthSite?.Contains(body) != true && PlaySurvivalRest.ColdNeedsShelter(player.ComponentVitalStats.Temperature,
-            now - (coldSince ?? now), player.ComponentFlu.HasFlu))
+        // 已在低温观察中做出的决定应有机会执行。只在新出现冷险或体温进一步明显恶化时抢占。
+        var coldContext = queue.IsPending(Id) && pendingSurvivalMenu is { } pending
+            ? (pending.ColdRisk, pending.Temperature)
+            : exploration is not null && survivalGoal is { } active ? (active.ColdRisk, active.Temperature) : ((bool, float)?)null;
+        if (coldContext is { } before && earthSite?.Contains(body) != true && ColdRisk(now)
+            && (!before.Item1 || player.ComponentVitalStats.Temperature < 3.5f
+                && player.ComponentVitalStats.Temperature <= before.Item2 - 1f))
         {
             PauseForSurvivalSafety(queue, "cold_weather", now);
             return true;
         }
-        bool daytimeWork = exploration is not null && travel?.HeadingForShelter == false
+        bool daytimeWork = exploration is not null && survivalGoal is { NightDue: false } && travel?.HeadingForShelter == false
             || pendingSurvivalMenu is { NightCoverDue: false } && !PlaySurvivalRest.HasSecureCover(player);
         if (daytimeWork && PlaySurvivalRest.NightCoverDue(player.Project.FindSubsystem<SubsystemTimeOfDay>(true)))
         {
@@ -75,6 +83,9 @@ internal sealed partial class PlayableActor
         }
         return false;
     }
+
+    private bool ColdRisk(double now) => PlaySurvivalRest.ColdNeedsShelter(player.ComponentVitalStats.Temperature,
+        now - (coldSince ?? now), player.ComponentFlu.HasFlu);
 
     private bool TryWarmOrPrepare(double now)
     {
@@ -147,6 +158,7 @@ internal sealed partial class PlayableActor
         {
             PlayThermalRecovery.State.Warmed => "native_body_recovery_confirmed",
             PlayThermalRecovery.State.FireUnavailable => "campfire_no_longer_usable",
+            PlayThermalRecovery.State.UnsafeHeat => "native_fire_contact_or_burning",
             _ => "body_did_not_warm"
         };
         log(new { kind = "play_survival_warming_result", actor = Name, reason, before = recovery.Before,

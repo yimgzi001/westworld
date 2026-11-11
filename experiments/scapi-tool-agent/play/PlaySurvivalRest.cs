@@ -29,8 +29,22 @@ internal sealed class PlaySurvivalRest(ComponentPlayer player, double started)
             return BlocksManager.Blocks[Terrain.ExtractContents(value)] is CubeBlock block && block.IsCollidable_(value);
         }
 
-        // 检查贴身的原生实体围墙和屋顶。仅能挡雨的树冠不能挡住地面猎食者。
-        return Solid(feet + Above + Above) && Walls.All(side => Solid(feet + side) && Solid(feet + side + Above));
+        // 在本人周围核对小房间的墙、地面和屋顶。封闭坑和二乘二土屋使用同一物理判断。
+        var pending = new Queue<Point3>();
+        var seen = new HashSet<Point3> { feet };
+        pending.Enqueue(feet);
+        while (pending.TryDequeue(out var cell))
+        {
+            if (seen.Count > 9 || Math.Abs(cell.X - feet.X) > 2 || Math.Abs(cell.Z - feet.Z) > 2
+                || !Solid(cell - Above) || !Solid(cell + Above + Above)) return false;
+            foreach (var side in Walls)
+            {
+                var neighbor = cell + side;
+                if (Solid(neighbor) && Solid(neighbor + Above)) continue;
+                if (seen.Add(neighbor)) pending.Enqueue(neighbor);
+            }
+        }
+        return true;
     }
 
     public static bool WetnessBlocksSleep(ComponentPlayer player) => Blocked(player, "NotTooWet");

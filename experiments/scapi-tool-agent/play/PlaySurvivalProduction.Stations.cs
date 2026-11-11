@@ -48,7 +48,7 @@ internal sealed partial class PlaySurvivalProduction
 
     private void StartStation()
     {
-        stationBlock = Task switch { Furnace or Spear => CraftingTableBlock.Index, Cook => FurnaceBlock.Index, _ => CampfireBlock.Index };
+        stationBlock = Task switch { Furnace or Spear or Rake or Axe => CraftingTableBlock.Index, Cook => FurnaceBlock.Index, _ => CampfireBlock.Index };
         // 全景先按方块中心筛选，再量到可见表面。留出中心到表面的距离，交互仍按原距离核对。
         var panorama = owner.Queries.ReadPanorama(StationReach + 0.6f);
         if (Task != Warm && SeenStation(panorama, stations, stationBlock) is { } existing)
@@ -72,7 +72,8 @@ internal sealed partial class PlaySurvivalProduction
         int ground = Terrain.ToCell(body.Y + 0.05f) - 1;
         placementFloor = panorama?.Blocks.Where(block => block.BareTop && block.Cell.Y == ground
                 && BlocksManager.Blocks[Terrain.ExtractContents(block.Value)] is CubeBlock cube && cube.IsCollidable_(block.Value))
-            .Where(block => (Center(block.Cell) - body).XZ.Length() is >= 1.05f and <= 2.55f)
+            .Where(block => (Center(block.Cell) - body).XZ.Length() is >= 1.05f and <= 2.55f
+                && (stationBlock != CampfireBlock.Index || PlayFireSafety.CampfireSpacingSafe(player, block.Cell + Up)))
             .MinBy(block => (Center(block.Cell) - body).XZ.LengthSquared());
         if (placementFloor is null) { Finish(false, "no_observed_station_floor"); return; }
         stationCell = placementFloor.Cell + Up;
@@ -89,6 +90,11 @@ internal sealed partial class PlaySurvivalProduction
             || cell != placementFloor!.Cell || Terrain.ExtractContents(value) != Terrain.ExtractContents(placementFloor.Value))
         {
             Finish(false, "station_floor_no_longer_usable");
+            return;
+        }
+        if (stationBlock == CampfireBlock.Index && !PlayFireSafety.CampfireSpacingSafe(player, cell + Up))
+        {
+            Finish(false, "campfire_placement_too_close_to_body");
             return;
         }
         action = owner.Start(new Place(new BlockTarget(cell, value, 4), new OwnItemSlot(slot, carry.GetSlotValue(slot))));
@@ -116,7 +122,7 @@ internal sealed partial class PlaySurvivalProduction
     private void AimStation(Vector3 point)
     {
         action = owner.Start(new FaceTowards(point, 3f));
-        phase = Task is Furnace or Spear ? Phase.Craft : Phase.Cook;
+        phase = Task is Furnace or Spear or Rake or Axe ? Phase.Craft : Phase.Cook;
     }
 
     private T? ObservedStation<T>() where T : GameEntitySystem.Component

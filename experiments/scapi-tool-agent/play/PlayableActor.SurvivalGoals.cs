@@ -10,18 +10,23 @@ using GoalKind = PlaySurvivalGoals.Kind;
 
 internal sealed partial class PlayableActor
 {
-    private sealed record SurvivalMenu(Vector3 Origin, double CapturedAt, bool NightCoverDue, Choice[] Choices);
-    private sealed record SurvivalGoal(Choice Choice, string Source, double StartedAt);
+    private sealed record SurvivalMenu(Vector3 Origin, double CapturedAt, bool NightCoverDue, bool ColdRisk, float Temperature, Choice[] Choices);
+    private sealed record SurvivalGoal(Choice Choice, string Source, double StartedAt, bool ColdRisk, float Temperature,
+        bool NightDue, float Food, float Wetness, float Health);
     private SurvivalMenu? pendingSurvivalMenu;
     private SurvivalGoal? survivalGoal;
     private object? lastSurvivalGoal;
     private PlaySurvivalExploration? exploration;
     private readonly List<(Vector3 Origin, Vector2 Heading, double Until)> refusedCourses = new();
-    private (string Task, double Until)? refusedSupply;
+    private (string Task, double Until, int Inventory, Vector3 Origin)? refusedSupply;
     private bool restPending;
     private bool needsLocalFallback;
     private double nextExplorationFoodRead;
+    private double nextHuntRead;
     private PlaySurvivalFood.Food[] explorationFood = [];
+
+    private bool InOwnCamp() => campSite?.Built == true && campSite.Contains(player.ComponentBody);
+    private bool InOwnShelter() => earthSite?.Contains(player.ComponentBody) == true || InOwnCamp();
 
     private SurvivalMenu ReadSurvivalMenu(double now, PlaySurvivalFood.Food[] nearby, string? sleepBlocker)
     {
@@ -29,7 +34,7 @@ internal sealed partial class PlayableActor
         var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         var vitals = player.ComponentVitalStats;
         bool dry = PlaySurvivalSenses.OnDryGround(body);
-        bool inShelter = earthSite?.Contains(body) == true;
+        bool inShelter = InOwnShelter();
         bool night = PlaySurvivalRest.NightCoverDue(calendar);
         bool cold = PlaySurvivalRest.ColdNeedsShelter(vitals.Temperature, now - (coldSince ?? now), player.ComponentFlu.HasFlu);
         bool recovering = PlaySurvivalRest.NeedsRecovery(player);
@@ -38,45 +43,78 @@ internal sealed partial class PlayableActor
         {
             var shore = surroundings?.ShoreInDirection(body.Position, body.Matrix.Forward.XZ);
             choices.Add(new("shore", GoalKind.Shore, new { observedLanding = shore.HasValue }));
-            return new(body.Position, now, night, choices.ToArray());
+            return new(body.Position, now, night, cold, vitals.Temperature, choices.ToArray());
         }
 
         bool cover = dry && (inShelter || night || recovering || cold || RestWindow()) && PlaySurvivalRest.HasEnclosure(player);
-        if (dry && !inShelter)
+        if (dry && earthSite?.Contains(body) != true)
         {
-            if (!night || vitals.Food < 0.06f)
-                choices.AddRange(FoodChoices(nearby, now));
-            if (!cover && now >= nextShelter && (night || cold || recovering) && PlayEarthShelter.At(body) is not null)
-                choices.Add(new("build", GoalKind.Build, "在当前软土地面挖掩体并封顶"));
-            if (!night || !cover && !choices.Any(choice => choice.Activity == GoalKind.Build))
+            choices.AddRange(FoodChoices(nearby, now));
+            if (!cover && now >= nextShelter && surroundings is { } ground)
+            {
+                var sites = PlayShelterSites.Candidates(ground.Panorama, body.Position, PlayEarthShelter.At(body),
+                    end => PermitSurvivalLeg(end, now) && campSite?.Protects(Terrain.ToCell(end) - new Point3(0, 1, 0)) != true);
+                choices.AddRange(sites.Select((site, i) => new Choice(i == 0 ? "build" : $"cover_{i + 1}", GoalKind.Build,
+                    new { goal = "前往已见软土挖临时庇护并封顶", site.Outlets,
+                        distance = Math.Round((site.Site.Center(site.Site.Surface) - body.Position).XZ.Length(), 1),
+                        nearWater = false }, Shelter: site.Site)));
+            }
+            if (!InOwnCamp() && (!night || !cover))
             {
                 var courses = ReadCourses(now);
                 choices.AddRange(courses.Select((course, i) => new Choice($"route_{i + 1}", GoalKind.Explore,
                     course.Snapshot(body.Matrix.Forward.XZ), Course: course)));
+                if (PlaySurvivalProduction.HasHuntingGear(player))
+                    choices.AddRange(courses.Select((course, i) => course with { HuntBirds = true }).Select((course, i) =>
+                        new Choice($"hunt_route_{i + 1}", GoalKind.Explore, course.Snapshot(body.Matrix.Forward.XZ), Course: course)));
             }
-            if (!night && now >= nextProduction && surroundings is { } sweep)
+            if (now >= nextProduction && surroundings is { } sweep)
             {
-                bool routine = !cold && !recovering && !NeedsDuskFood(calendar) && player.ComponentHealth.Health >= 0.6f && vitals.Food > 0.28f;
-                var tasks = PlaySurvivalProduction.AvailableTasks(player, sweep.Panorama, placedStations, routine,
-                    allowProjects: !cold && !recovering && ProjectVitalsReady(now), permitted: end => PermitSurvivalLeg(end, now));
-                choices.AddRange(tasks.Where(task => refusedSupply is not { } refused || refused.Task != task || now >= refused.Until)
+                var ready = PlaySurvivalProduction.AvailableTasks(player, sweep.Panorama, placedStations, true,
+                    allowProjects: false, permitted: end => PermitSurvivalLeg(end, now));
+                var tasks = PlaySurvivalProduction.PlanningTasks(player, sweep.Panorama, placedStations,
+                    end => PermitSurvivalLeg(end, now));
+                choices.AddRange(tasks.Where(task => task != PlaySurvivalProduction.Hunt && (refusedSupply is not { } refused
+                    || refused.Task != task || now >= refused.Until || refused.Inventory != InventoryStamp()
+                    || (refused.Origin - body.Position).XZ.LengthSquared() > 1f))
                     .Select(task => new Choice(task, GoalKind.Supply, new
                     {
                         goal = PlaySurvivalProduction.DescribeTask(task),
-                        nextStage = PlaySurvivalProduction.NextStage(player, task, sweep.Panorama, placedStations,
-                            end => PermitSurvivalLeg(end, now))
+                        readyNow = ready.Contains(task),
+                        prerequisites = PlaySurvivalProduction.Prerequisites(task)
                     }, Supply: task)));
+                choices.AddRange(PlaySurvivalProduction.HuntingTargets(player, sweep.Panorama.Objects.Entities).Select((bird, i) =>
+                    new Choice($"prey_{i + 1}", GoalKind.Supply, new { goal = "猎取这只食用鸟并取得生肉", bird.Name,
+                        distance = Math.Round(bird.Distance, 1), readyNow = PlaySurvivalProduction.HasHuntingGear(player),
+                        prerequisites = "先持有木矛，猎物仍可见时再执行" }, Supply: PlaySurvivalProduction.Hunt, Bird: bird.EntityId)));
             }
         }
-        if (dry && HasMeal() && (vitals.Food < 0.65f || inShelter && PlaySurvivalRest.NeedsFoodForHealing(player)))
-            choices.Add(new("eat", GoalKind.Eat, "按原生营养、致病和同类食物累积选择背包里的一份"));
+        if (dry && earthSite?.Contains(body) != true)
+        {
+            var site = campSite ?? PlaySurvivalProduction.PlanCamp(ReadDryWindow());
+            if (site is not null && !site.Built && !night)
+                choices.Add(new(PlaySurvivalProduction.BuildCamp, GoalKind.Supply, new { goal = PlaySurvivalProduction.DescribeTask(PlaySurvivalProduction.BuildCamp),
+                    readyNow = PlaySurvivalProduction.CampStock(player) >= 40, site.X, site.Y, site.Z,
+                    materials = "四十块土或木板；需要先收够材料" }, Supply: PlaySurvivalProduction.BuildCamp, Camp: site));
+            if (campSite is { Built: true } home)
+                choices.Add(new(InOwnCamp() && home.DoorClosed ? PlaySurvivalProduction.LeaveCamp : PlaySurvivalProduction.ReturnCamp,
+                    GoalKind.Supply, new { goal = InOwnCamp() && home.DoorClosed ? "打开入口并离开自己的土屋" : "回自己的土屋并封好入口",
+                        distance = Math.Round((home.Inside - body.Position).XZ.Length(), 1) },
+                    Supply: InOwnCamp() && home.DoorClosed ? PlaySurvivalProduction.LeaveCamp : PlaySurvivalProduction.ReturnCamp, Camp: home));
+        }
+        if (dry && vitals.Food < 0.98f)
+            choices.Add(new("eat", GoalKind.Eat, new { goal = "吃背包中一份适合当前身体状态的食物",
+                readyNow = HasMeal(), prerequisites = "先持有可以吃的食物；生肉不直接吃，生蛋仅在饥饿时应急" }));
         if (cover && CanRestHere())
             choices.Add(new("rest", GoalKind.Rest, "在掩体里睡觉，太湿时先晾干"));
-        if (inShelter && CanLeaveHere(cover, night, recovering || cold, now))
+        if (inShelter && !InOwnCamp() && CanLeaveHere(cover, night, recovering || cold, now))
             choices.Add(new("leave", GoalKind.Leave, "检查坑口并回到地面"));
-        if (choices.Count == 0)
-            choices.Add(new("wait", GoalKind.Wait, new { reason = sleepBlocker ?? "no_supported_goal", seconds = 5 }, Seconds: 5));
-        return new(body.Position, now, night, choices.ToArray());
+        if (heldSurvivalPlan is { } saved && now - saved.Time < 1200 && !night && !cold)
+            choices.Add(new("resume", GoalKind.Resume, new { saved.Purpose, saved.Reason,
+                remaining = saved.Remaining.Select(choice => choice.Snapshot()).ToArray() }));
+        choices.Add(new("wait", GoalKind.Wait, new { reason = "short_pause", seconds = 5,
+            buildsCover = false, foodGained = 0 }, Seconds: 5));
+        return new(body.Position, now, night, cold, vitals.Temperature, choices.ToArray());
     }
 
     private Choice[] FoodChoices(IEnumerable<PlaySurvivalFood.Food> nearby, double now)
@@ -122,12 +160,10 @@ internal sealed partial class PlayableActor
         return player.ComponentVitalStats.Food + PlayFoodBudget.Count(player).Safe < PlayFoodBudget.NeedThroughMorning(player, calendar);
     }
 
-    private bool CanRestHere() => RestWindow() && RestThreatClear && !player.ComponentSleep.IsSleeping
+    private bool CanRestHere() => RestThreatClear && !player.ComponentSleep.IsSleeping
         && (player.ComponentSleep.CanSleep(out _) || PlaySurvivalRest.TiredEnough(player) && PlaySurvivalRest.WetnessBlocksSleep(player));
 
-    private bool CanLeaveHere(bool cover, bool night, bool recovery, double now) => now >= nextExit
-        && (!cover || restedInEarth && !RestWindow()
-            || player.ComponentVitalStats.Food < (recovery || night ? 0.06f : 0.18f));
+    private bool CanLeaveHere(bool cover, bool night, bool recovery, double now) => now >= nextExit;
 
     private bool TryTakeKnownFood(IEnumerable<Choice> choices, PlayDecisionQueue queue, double now, string reason,
         bool urgent, Action? beforeTake = null)
@@ -161,7 +197,10 @@ internal sealed partial class PlayableActor
 
     private void BeginSurvivalGoal(Choice choice, string source, double now)
     {
-        survivalGoal = new(choice, source, now);
+        var vitals = player.ComponentVitalStats;
+        survivalGoal = new(choice, source, now, ColdRisk(now), vitals.Temperature,
+            PlaySurvivalRest.NightCoverDue(player.Project.FindSubsystem<SubsystemTimeOfDay>(true)), vitals.Food, vitals.Wetness,
+            player.ComponentHealth.Health);
         log(new { kind = "play_survival_goal_started", actor = Name, choice = choice.Snapshot(), source, gameTime = now });
     }
 
@@ -170,15 +209,32 @@ internal sealed partial class PlayableActor
         if (survivalGoal is not { } current) return;
         survivalGoal = null;
         if (status == "failed" && current.Choice.Supply is { } supply)
-            refusedSupply = (supply, now + 60);
+            refusedSupply = (supply, now + 60, InventoryStamp(), player.ComponentBody.Position);
         lastSurvivalGoal = new
         {
             activity = current.Choice.Activity.ToString().ToLowerInvariant(),
             target = current.Choice.Food?.Name ?? current.Choice.Supply, status, reason,
-            duration = Math.Round(now - current.StartedAt, 1), actual = outcome
+            duration = Math.Round(now - current.StartedAt, 1), actual = outcome,
+            change = new { food = Math.Round(player.ComponentVitalStats.Food - current.Food, 3),
+                temperature = Math.Round(player.ComponentVitalStats.Temperature - current.Temperature, 1),
+                wetness = Math.Round(player.ComponentVitalStats.Wetness - current.Wetness, 2),
+                health = Math.Round(player.ComponentHealth.Health - current.Health, 2),
+                hasCover = PlaySurvivalRest.HasSecureCover(player) }
         };
         log(new { kind = "play_survival_goal_finished", actor = Name, goal = lastSurvivalGoal,
             current.Source, gameTime = now });
+    }
+
+    private int InventoryStamp()
+    {
+        var stamp = new HashCode();
+        var inventory = player.ComponentMiner.Inventory;
+        for (int slot = 0; slot < inventory.SlotsCount; slot++)
+        {
+            stamp.Add(inventory.GetSlotValue(slot));
+            stamp.Add(inventory.GetSlotCount(slot));
+        }
+        return stamp.ToHashCode();
     }
 
     private void DispatchSurvivalGoal(Choice choice, SurvivalMenu menu, PlayDecisionQueue queue, double now, string source)
@@ -193,11 +249,15 @@ internal sealed partial class PlayableActor
         var calendar = player.Project.FindSubsystem<SubsystemTimeOfDay>(true);
         bool night = PlaySurvivalRest.NightCoverDue(calendar);
         bool dry = PlaySurvivalSenses.OnDryGround(body);
-        bool inShelter = earthSite?.Contains(body) == true;
+        bool inShelter = InOwnShelter();
         switch (choice.Activity)
         {
+            case GoalKind.Resume:
+                activeSurvivalPlan = null;
+                planned.Clear();
+                RestoreSurvivalPlan(queue, now);
+                return;
             case GoalKind.Collect when dry && !inShelter && choice.Food is { } food
-                && (!night || player.ComponentVitalStats.Food < 0.06f)
                 && PlaySurvivalFood.CanSeek(player, food) && CanRetryFood(food, body.Position, now)
                 && PermitSurvivalLeg(food.Point, now):
                 StartFoodApproach(food with { InReach = false }, queue, now);
@@ -207,14 +267,17 @@ internal sealed partial class PlayableActor
                 exploration = new(body.Position, course, now);
                 StartExplorationSection(now);
                 return;
-            case GoalKind.Supply when dry && !inShelter && !night && now >= nextProduction && choice.Supply is { } task:
-                StartProduction(task, now);
+            case GoalKind.Supply when dry && earthSite?.Contains(body) != true && now >= nextProduction
+                && choice.Supply is { } task:
+                if (choice.Camp is { } home) campSite = home;
+                StartProduction(task, now, choice.Bird);
                 return;
             case GoalKind.Eat when dry:
                 DispatchIntent(PlaySurvivalIntents.Eat, queue, now);
                 return;
             case GoalKind.Build when dry && now >= nextShelter && !PlaySurvivalRest.HasSecureCover(player):
-                DispatchIntent(PlaySurvivalIntents.BuildShelter, queue, now);
+                if (choice.Shelter is { } site) StartEarthShelterSite(site, queue, now);
+                else DispatchIntent(PlaySurvivalIntents.BuildShelter, queue, now);
                 return;
             case GoalKind.Rest when dry && CanRestHere():
                 DispatchIntent(PlaySurvivalIntents.Rest, queue, now);
@@ -310,10 +373,12 @@ internal sealed partial class PlayableActor
             {
                 RefreshSurroundings(now);
                 var food = FoodChoices(ObserveSurvival().Foods, now);
-                if ((route.Reason == "food_within_reach" || food.Any(choice => choice.Food is { InReach: true })
-                    || player.ComponentVitalStats.Food < 0.42f || NeedsDuskFood(calendar))
-                    && TryTakeKnownFood(food, queue, now, "exploration_discovery", urgent: player.ComponentVitalStats.Food <= 0.24f,
-                        beforeTake: () => EndExploration(search, "succeeded", "observed_food_found", now))) return;
+                if (food.Length > 0)
+                {
+                    // 搜索发现新食物后交回模型判断，不把“探索”擅自改为采集。
+                    EndExploration(search, "succeeded", "observed_food_found", now);
+                    return;
+                }
                 if (search.CanContinue(now) && movement.LengthSquared() >= 9f
                     && ReadCourses(now, search.Heading).Length > 0)
                 {
@@ -339,6 +404,14 @@ internal sealed partial class PlayableActor
     {
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         surroundings = PlaySurvivalPanorama.Capture(player, owner.Queries, panoramaRadius, now);
+        if (surroundings is { } crops)
+            foreach (var block in crops.Panorama.Blocks.Where(block => ownFarm.ContainsKey(block.Cell)))
+                if (Terrain.ExtractContents(block.Value) == PumpkinBlock.Index)
+                {
+                    var previous = ownFarm[block.Cell];
+                    ownFarm[block.Cell] = previous with { LastSize = BasePumpkinBlock.GetSize(Terrain.ExtractData(block.Value)),
+                        LastDead = BasePumpkinBlock.GetIsDead(Terrain.ExtractData(block.Value)), LastSeen = now };
+                }
         if (surroundings is { } sweep)
             log(new { kind = "play_survival_panorama", actor = Name, gameTime = now, sectors = sweep.Sectors.Length,
                 sweep.Panorama.Radius, blocks = sweep.Panorama.Blocks.Count, animals = sweep.Panorama.Objects.Entities.Count,

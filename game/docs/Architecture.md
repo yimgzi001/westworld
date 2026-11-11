@@ -349,3 +349,9 @@ public class TemplateModLoader : ModLoader {
 * [生物模型系统](CreatureModelSystem.md) - 生物 3D 模型的骨骼、网格、动画、渲染
 * [地形系统](TerrainSystem.md) - 地形的数据结构、更新、生成、渲染、序列化、主动变更
 * [UI 界面系统](UiSystem.md) - 游戏 UI 界面的管理器、布局流程、主要容器组件、使用示例
+
+## 11. 本地 AI 接入中的事实边界
+
+Westworld 全景保留加载范围和遮挡，`BareTop` 对无碰撞且无需回避的交叉植物检查其下方实际可见地面，便于从草地选站位；实心遮挡保持阻断。玩法层不能把全景当成全知地图。
+
+原生 `TransferItems` 成功把熔炉出料转到本人携带库存时，发出 `NativeAcquisitionAudit` 的 `furnace_output` 记录，保存来源库存和目标库存的前后数量。试玩账本据此区分原生拾取与原生加工所得食物，再匹配真实进食。它不产生物品，不改写炉火规则，也不把“开始烤制”当作已经获得或吃下熟肉。

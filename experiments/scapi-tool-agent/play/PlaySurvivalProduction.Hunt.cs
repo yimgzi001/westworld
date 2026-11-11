@@ -9,8 +9,8 @@ using GameEntitySystem;
 internal sealed partial class PlaySurvivalProduction
 {
     private const float HuntReach = 2.35f;
-    private const float HuntThrowReach = 4.75f;
-    private const float HuntApproachReach = 10f;
+    private const float HuntThrowReach = 12f;
+    private const float HuntApproachReach = 18f;
     private readonly HashSet<Guid> preyDrops = new();
     private Entity? prey;
     private ComponentHealth? preyHealth;
@@ -32,12 +32,18 @@ internal sealed partial class PlaySurvivalProduction
             && Enumerable.Range(0, inventory.VisibleSlotsCount).Any(slot => inventory.GetSlotCount(slot) == 0);
     }
 
+    public static bool HasHuntingGear(ComponentPlayer player) => CanReadyHuntWeapon(player);
+
+    public static NearbyEntityView[] HuntingTargets(ComponentPlayer player, IEnumerable<NearbyEntityView> visible, float reach = 18f) =>
+        visible.Where(view => FindFoodBird(player, [view], reach) is not null).OrderBy(view => view.Distance).Take(4).ToArray();
+
     private static Entity? FindFoodBird(ComponentPlayer player, IEnumerable<NearbyEntityView> visible, float distance) =>
-        visible.Where(view => view.Distance <= distance).Select(view => player.Project.FindEntity(view.EntityId)).FirstOrDefault(bird =>
+        visible.Where(view => view.Distance <= distance).OrderBy(view => view.Distance)
+            .Select(view => player.Project.FindEntity(view.EntityId)).FirstOrDefault(bird =>
             bird?.FindComponent<ComponentCreature>() is { Category: CreatureCategory.Bird } creature
             && bird.FindComponent<ComponentChaseBehavior>()?.AttacksPlayer != true
-            && creature.ComponentHealth.Health > 0f && PlaySurvivalSenses.OnDryGround(creature.ComponentBody)
-            && MathF.Abs(creature.ComponentBody.Position.Y - player.ComponentBody.Position.Y) <= 1f
+            && creature.ComponentHealth.Health > 0f
+            && MathF.Abs(creature.ComponentBody.Position.Y - player.ComponentBody.Position.Y) <= 6f
             && bird.FindComponent<ComponentLoot>() is { } loot && loot.m_lootList.Any(item =>
                 item.MinCount > 0 && item.Probability >= 0.9f && PlaySurvivalFood.IsRawMeat(item.Value)));
 
@@ -96,6 +102,8 @@ internal sealed partial class PlaySurvivalProduction
             if (gameTime < nextStrike) return;
             if (thrown)
             {
+                log(new { kind = "play_hunt_throw_missed", actor = player.PlayerData.Name, health = health.Health,
+                    lastHitByHunter, gameTime });
                 Finish(false, "spear_throw_did_not_take_prey");
                 return;
             }
@@ -103,7 +111,11 @@ internal sealed partial class PlaySurvivalProduction
                 .FirstOrDefault(view => view.EntityId == prey!.Id);
             if (strikes >= 2 || !IsSpear(player.ComponentMiner.ActiveBlockValue) || visible is null)
             {
-                Finish(false, "prey_left_native_reach");
+                string reason = strikes >= 2 ? "hunt_strike_limit" : visible is null ? "prey_no_longer_visible" : "hunt_weapon_not_selected";
+                log(new { kind = "play_hunt_conditions_changed", actor = player.PlayerData.Name, reason,
+                    activeValue = player.ComponentMiner.ActiveBlockValue, activeSlot = player.ComponentMiner.Inventory.ActiveSlotIndex,
+                    preyVisible = visible is not null, distance = visible?.Distance, strikes, gameTime });
+                Finish(false, reason);
                 return;
             }
             if (visible.Distance > HuntThrowReach)
@@ -114,7 +126,7 @@ internal sealed partial class PlaySurvivalProduction
             }
             if (visible.Distance > HuntReach)
             {
-                if (strikes == 0) PrepareSpearThrow(gameTime);
+            if (strikes == 0) PrepareSpearThrow(gameTime);
                 else Finish(false, "prey_left_native_reach");
                 return;
             }
@@ -156,7 +168,8 @@ internal sealed partial class PlaySurvivalProduction
     {
         var visible = owner.Queries.FindVisibleObjectsAround(range).Entities.FirstOrDefault(view => view.EntityId == entity);
         return visible is not null && player.Project.FindEntity(entity)?.FindComponent<ComponentCreature>() is { } bird
-            && bird.ComponentHealth.Health > 0f && PlaySurvivalSenses.OnDryGround(bird.ComponentBody) ? visible.Position : null;
+            && bird.ComponentHealth.Health > 0f && MathF.Abs(visible.Position.Y - player.ComponentBody.Position.Y) <= 6f
+                ? visible.Position : null;
     }
 
     private void PrepareSpearThrow(double gameTime)
@@ -175,22 +188,44 @@ internal sealed partial class PlaySurvivalProduction
         int value = miner.ActiveBlockValue;
         var block = BlocksManager.Blocks[Terrain.ExtractContents(value)];
         float speed = block.GetProjectileSpeed(value) * (0.5f * ((miner.ComponentFactors?.StrengthFactor ?? 1f) - 1f) + 1f);
-        if (!float.IsFinite(speed) || speed <= 0f || !PlaySurvivalSenses.OnDryGround(quarry))
+        if (!float.IsFinite(speed) || speed <= 0f)
         {
             Finish(false, "prey_throw_conditions_changed");
             return;
         }
         // 预测只用仍在视野内的猎物和本人的动作。命中、伤害和掉落仍由原生系统结算。
-        var delta = point - eye - 0.4f * body.Matrix.Right;
-        const float hold = 0.15f;
-        float flight = Math.Max(0.05f, delta.XZ.Length() - 0.4f) / speed;
-        var aim = eye + delta + (flight + hold) * quarry.Velocity - flight * body.Velocity
-            + 5f * flight * flight * Vector3.UnitY;
+        var origin = eye + 0.4f * body.Matrix.Right;
+        var direction = Vector3.Normalize(point - origin);
+        var launch = origin;
+        float damping = block.GetProjectileDamping(value);
+        float drag = damping is > 0f and < 1f ? -MathF.Log(damping) : 0f;
+        float flight = 0f;
+        for (int refinement = 0; refinement < 5; refinement++)
+        {
+            float low = 0.015f, high = 2.2f;
+            Vector3 needed = default;
+            for (int iteration = 0; iteration < 26; iteration++)
+            {
+                flight = (low + high) * 0.5f;
+                float travel = drag > 0.0001f ? (1f - MathF.Exp(-drag * flight)) / drag : flight;
+                float falling = drag > 0.0001f ? 10f * (flight - travel) / drag : 5f * flight * flight;
+                needed = (point + flight * quarry.Velocity - launch - block.ProjectileTipOffset * direction
+                    + falling * Vector3.UnitY) / travel - body.Velocity;
+                if (needed.Length() > speed) low = flight; else high = flight;
+            }
+            if (needed.LengthSquared() < 0.01f) { Finish(false, "prey_intercept_unavailable"); return; }
+            direction = Vector3.Normalize(needed);
+            if (!player.Project.FindSubsystem<SubsystemProjectiles>(true).CanFireProjectile(value, origin,
+                body.Velocity + speed * direction, player, out launch)) { Finish(false, "native_spear_launch_blocked"); return; }
+        }
+        // 原生木矛不需要蓄力。瞄准完成的同一帧投出，使用真实出手位置、阻力和当前可见速度。
+        var aim = eye + direction * Math.Clamp((point - eye).Length() + 4f, 4f, 24f);
         thrown = true;
         strikes++;
-        nextStrike = gameTime + 1.25;
-        action = owner.Start(new UseAimedItem(new OwnItemSlot(miner.Inventory.ActiveSlotIndex, value), new PointTarget(aim), hold));
-        log(new { kind = "play_hunt_throw_started", actor = player.PlayerData.Name, gameTime, distance = delta.Length() });
+        nextStrike = gameTime + Math.Max(1.25, flight + 0.65);
+        action = owner.Start(new UseAimedItem(new OwnItemSlot(miner.Inventory.ActiveSlotIndex, value), new PointTarget(aim), 0f));
+        log(new { kind = "play_hunt_throw_started", actor = player.PlayerData.Name, gameTime,
+            distance = (point - eye).Length(), flight, speed, damping, preyVelocity = quarry.Velocity.ToString() });
     }
 
     private void TrackPreyInjury(Injury injury)
@@ -198,7 +233,7 @@ internal sealed partial class PlaySurvivalProduction
         if (preyHealth?.Health > 0f) lastHitByHunter = injury.Attacker?.Entity == player.Entity;
     }
 
-    private NearbyPickableView? VisiblePreyDrop() => owner.Queries.FindVisibleObjectsAround(8f).Pickables
+    private NearbyPickableView? VisiblePreyDrop() => owner.Queries.FindVisibleObjectsAround(24f).Pickables
         .FirstOrDefault(item => preyDrops.Contains(NativeAcquisitionAudit.IdentityFor(item.CreatePickup(1).Target)));
 
     private bool TryApproachPreyDrop(double gameTime)
@@ -207,11 +242,16 @@ internal sealed partial class PlaySurvivalProduction
             return false;
         var body = player.ComponentBody;
         var offset = (drop.Position - body.Position).XZ;
-        if (offset.LengthSquared() < 0.04f || !PlaySurvivalFood.CanApproachOnLand(food, body.Position)) return false;
+        if (offset.LengthSquared() < 0.04f || offset.Length() > 24f || food.Point.Y - body.Position.Y is < -3f or > 3f
+            || permitLandLeg?.Invoke(food.Point, gameTime) == false) return false;
+        var panorama = owner.Queries.ReadPanorama(26f);
+        var path = PlayObservedPath.Find(panorama, body.Position, food.Point,
+            (_, end) => permitLandLeg?.Invoke(end, gameTime) != false, goalReach: 0.9f);
+        if (offset.Length() > 5f && path is null) return false;
         approachedPreyDrop = true;
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
-        huntApproach = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 9f), "food", false,
-            gameTime, ObserveHuntFood, readDryWindow, log, foodTarget: food, permitLandLeg: permitLandLeg);
+        huntApproach = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 25f), "food", false,
+            gameTime, ObserveHuntFood, readDryWindow, log, foodTarget: food, permitLandLeg: permitLandLeg, observedPath: path);
         log(new { kind = "play_hunt_approach", actor = player.PlayerData.Name, distance = offset.Length(), gameTime });
         return true;
     }
@@ -226,7 +266,10 @@ internal sealed partial class PlaySurvivalProduction
     private void TrackPreyDrop(NaturalResourceOriginFact fact)
     {
         if (lastHitByHunter && fact.OriginEntityId == preyId && PlaySurvivalFood.IsRawMeat(fact.Value))
+        {
             preyDrops.Add(fact.SourceId);
+            log(new { kind = "play_hunt_native_drop", actor = player.PlayerData.Name, source = fact.SourceId, value = fact.Value });
+        }
     }
 
     private void TrackPreyPickup(NativeAcquisitionFact fact)

@@ -5,7 +5,7 @@ using Game;
 
 internal sealed class PlayThermalRecovery(ComponentPlayer player, Point3 fire, double start)
 {
-    public enum State { Warming, Warmed, NoImprovement, FireUnavailable }
+    public enum State { Warming, Warmed, NoImprovement, FireUnavailable, UnsafeHeat }
     public float Before { get; } = player.ComponentVitalStats.Temperature;
     private readonly float wetBefore = player.ComponentVitalStats.Wetness;
     private double nextCheck;
@@ -13,7 +13,7 @@ internal sealed class PlayThermalRecovery(ComponentPlayer player, Point3 fire, d
     public static bool FireWithinReach(ComponentPlayer player, Point3 cell)
     {
         var distance = new Vector3(cell.X + 0.5f, cell.Y + 0.5f, cell.Z + 0.5f) - player.ComponentBody.Position;
-        if (distance.LengthSquared() > 9f) return false;
+        if (distance.LengthSquared() > 9f || !PlayFireSafety.CampfireSpacingSafe(player, cell)) return false;
         var terrain = player.Project.FindSubsystem<SubsystemTerrain>(true).Terrain;
         if (!(terrain.GetChunkAtCell(cell.X, cell.Z)?.State >= TerrainChunkState.InvalidLight)) return false;
         int value = terrain.GetCellValue(cell.X, cell.Y, cell.Z);
@@ -24,6 +24,8 @@ internal sealed class PlayThermalRecovery(ComponentPlayer player, Point3 fire, d
     {
         if (now < nextCheck) return State.Warming;
         nextCheck = now + 0.5;
+        var burning = player.Entity.FindComponent<ComponentOnFire>();
+        if (burning?.IsOnFire == true || burning?.CheckIfBodyTouchesFire() == true) return State.UnsafeHeat;
         if (!FireWithinReach(player, fire)) return State.FireUnavailable;
         var vitals = player.ComponentVitalStats;
         bool warmed = vitals.Temperature >= Before + 0.45f

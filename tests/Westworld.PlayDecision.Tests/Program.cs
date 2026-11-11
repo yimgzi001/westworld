@@ -179,4 +179,20 @@ bool InvalidSetup(int minimum, IReadOnlyList<ToolOffer> offered)
 Check(InvalidSetup(2, [goalOffer]), "拒绝超过最大步数的下界");
 Check(InvalidSetup(-1, [goalOffer]), "拒绝负的步数下界");
 Check(InvalidSetup(1, []), "空菜单不能要求一个不存在的动作");
+var sequencePrompt = new ToolDecisionPrompt(session, a, observation, JsonSerializer.SerializeToElement(new { }),
+    [goalOffer], maxSteps: 4, minSteps: 1, decisionGuide: goalGuide);
+bool SequenceAccepted(params string[] targets)
+{
+    try
+    {
+        sequencePrompt.ParseResponse(JsonSerializer.Serialize(new { goal = "按模型安排连续执行",
+            steps = targets.Select(target => new { tool = goalOffer.Name, arguments = new { target } }).ToArray() }));
+        return true;
+    }
+    catch (FormatException) { return false; }
+}
+Check(SequenceAccepted("food_1", "route_1"), "多步计划接纳两个已绑定的目标");
+Check(!SequenceAccepted("food_1", "unknown"), "后续步骤也必须使用本人已绑定的编号");
+Check(!SequenceAccepted("route_1", "route_1", "route_1", "route_1", "route_1"), "拒绝超过四步的计划");
+Check(!SequenceAccepted(), "有目标菜单时空计划不能代替明确选择");
 Console.WriteLine($"试玩决策、单目标、移动和收件箱 {checks} 项通过。");

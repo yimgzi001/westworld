@@ -28,6 +28,7 @@ sealed partial class Runner
     private double goalWarmingBefore;
     private float? targetBeforeFire;
     private bool pendingVitalsChanged;
+    private bool goalFireWasBurning, goalFireKnowledgeChecked, goalFireRouteChecked;
 
     private void RunSurvivalGoal()
     {
@@ -40,6 +41,8 @@ sealed partial class Runner
             if (mode == "survival-goal-explore"
                 && !(terrain.Terrain.GetChunkAtCell(cell.X + 65, cell.Z)?.State >= TerrainChunkState.InvalidVertices1)) return;
             if (Window.m_gameWindow.IsVisible) throw new InvalidOperationException("自动验收不应显示桌面窗口。");
+            if (SettingsManager.SoundsVolume != 0f || SettingsManager.MusicVolume != 0f)
+                throw new InvalidOperationException("自动验收的播放音量应为零。");
             // 地形和初始库存仅由验收夹具布置，后续全部走正常角色入口。
             for (int x = cell.X - 5; x <= cell.X + (mode == "survival-goal-explore" ? 68 : 24); x++)
             for (int z = cell.Z - 6; z <= cell.Z + 6; z++)
@@ -50,22 +53,37 @@ sealed partial class Runner
             body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
             p.ComponentLocomotion.LookAngles = new(0f, MathUtils.DegToRad(-70f));
             goalOrigin = body.Position;
+            if (mode is "survival-goal-fire-contact" or "survival-goal-fire-burning")
+            {
+                terrain.ChangeCell(cell.X + 1, cell.Y, cell.Z, Terrain.MakeBlockValue(CampfireBlock.Index, 0, 15));
+                body.Position += 0.4f * Vector3.UnitX;
+                if (mode == "survival-goal-fire-burning")
+                {
+                    // 仅验收初态设置着火；灭火、撤离、燃烧伤害与恢复都由原生系统结算。
+                    p.Entity.FindComponent<ComponentOnFire>(true).SetOnFire(null, 12f);
+                    goalFireWasBurning = true;
+                }
+            }
             var carry = p.ComponentMiner.Inventory;
             for (int slot = 0; slot < carry.SlotsCount; slot++) carry.RemoveSlotItems(slot, carry.GetSlotCount(slot));
             p.ComponentVitalStats.Food = mode is "survival-goal-hearing" or "survival-goal-urgent-food" or "survival-goal-crop" ? 0.16f : 0.65f;
+            if (mode == "survival-goal-target") p.ComponentVitalStats.Food = 0.95f;
+            if (mode == "survival-goal-cold-persistent") p.ComponentVitalStats.Temperature = 3.2f;
             p.ComponentVitalStats.Sleep = 0.65f;
-            p.ComponentVitalStats.Temperature = 12f;
+            if (mode != "survival-goal-cold-persistent") p.ComponentVitalStats.Temperature = 12f;
             var calendar = p.Project.FindSubsystem<SubsystemTimeOfDay>(true);
             calendar.TimeOfDayOffset += 0.3f - calendar.TimeOfDay;
             var eggs = (EggBlock)BlocksManager.Blocks[EggBlock.Index];
             int type = eggs.EggTypes.First(egg => egg.NutritionalValue > 0.15f).EggTypeIndex;
             goalEggValue = Terrain.MakeBlockValue(EggBlock.Index, 0, EggBlock.SetIsLaid(EggBlock.SetEggType(0, type), true));
-            if (mode is "survival-goal-target" or "survival-goal-urgent-food" or "survival-goal-hearing")
+            if (mode is "survival-goal-sequence" or "survival-goal-plan-failure")
+                goalEggValue = Terrain.ReplaceData(goalEggValue, EggBlock.SetIsCooked(Terrain.ExtractData(goalEggValue), true));
+            if (mode is "survival-goal-target" or "survival-goal-urgent-food" or "survival-goal-hearing" or "survival-goal-sequence" or "survival-goal-plan-failure" or "survival-goal-choose-wait")
             {
                 var drops = p.Project.FindSubsystem<SubsystemPickables>(true);
-                goalEgg = drops.AddPickable(goalEggValue, 1, goalOrigin + new Vector3(mode == "survival-goal-target" ? 9f : 6f, 0.2f, 0),
+                goalEgg = drops.AddPickable(goalEggValue, 1, goalOrigin + new Vector3(mode is "survival-goal-target" or "survival-goal-sequence" or "survival-goal-plan-failure" ? 9f : 6f, 0.2f, 0),
                     Vector3.Zero, null);
-                if (mode == "survival-goal-target")
+                if (mode is "survival-goal-target" or "survival-goal-sequence" or "survival-goal-plan-failure")
                     drops.AddPickable(goalEggValue, 1, goalOrigin + new Vector3(2.5f, 0.2f, 0), Vector3.Zero, null);
                 NativeAcquisitionAudit.Recorded += ObserveGoalPickup;
             }
@@ -85,15 +103,29 @@ sealed partial class Runner
                 p.Project.FindSubsystem<SubsystemUpdate>(true).RemoveUpdateable(wolf.FindComponent<ComponentChaseBehavior>(true));
                 goalWolfSounds = wolf.FindComponent<ComponentCreatureSounds>(true);
             }
-            if (mode is "survival-goal-warming" or "survival-goal-pending-cold")
+            if (mode is "survival-goal-warming" or "survival-goal-pending-cold" or "survival-goal-gear-plan")
             {
                 terrain.ChangeCell(cell.X + 5, cell.Y, cell.Z + 1, OakWoodBlock.Index);
+                if (mode is "survival-goal-warming" or "survival-goal-gear-plan")
+                {
+                    terrain.ChangeCell(cell.X + 6, cell.Y, cell.Z + 1, OakWoodBlock.Index);
+                    terrain.ChangeCell(cell.X + 6, cell.Y, cell.Z + 2, OakWoodBlock.Index);
+                }
                 if (mode == "survival-goal-warming")
                 {
                     p.ComponentVitalStats.Temperature = 5.5f;
                     p.ComponentVitalStats.Wetness = 0.5f;
                 }
                 goalWarmingBefore = p.ComponentVitalStats.Temperature;
+            }
+            if (mode is "survival-goal-hunt-opportunity" or "survival-goal-observe-bird")
+            {
+                carry.AddSlotItems(0, WoodenSpearBlock.Index, 1);
+                var duck = DatabaseManager.CreateEntity(p.Project, "Duck", true);
+                duck.FindComponent<ComponentBody>(true).Position = goalOrigin + 8f * Vector3.UnitX;
+                var legs = duck.FindComponent<ComponentLocomotion>(true);
+                legs.WalkSpeed = legs.FlySpeed = legs.JumpSpeed = 0f;
+                p.Project.AddEntity(duck);
             }
             goalActor = new(p, actions, Guid.NewGuid(), ObserveGoalEvent, survival: true, panoramaRadius: 32f, allowSocial: false);
             goalSenses = new(p.Project, Guid.NewGuid(), false, 3);
@@ -114,8 +146,19 @@ sealed partial class Runner
         }
         if (now - goalStarted < 1) return;
         goalInterest!.Sync();
+        if (!goalFireRouteChecked && mode is "survival-goal-fire-contact" or "survival-goal-fire-burning")
+        {
+            var heat = PlayFireSafety.Observe(memory.Observe(senses.Observe(senses.SessionId, actor, allDirections: true)));
+            if (heat.Length > 0)
+            {
+                bool crossing = PlayFireSafety.AllowsRoute(body, goalOrigin + 6f * Vector3.UnitX, heat);
+                bool away = PlayFireSafety.AllowsRoute(body, goalOrigin - 4f * Vector3.UnitX, heat);
+                if (crossing || !away) throw new InvalidOperationException("避火路径应拒绝穿火并允许向外撤离。");
+                goalFireRouteChecked = true;
+            }
+        }
         if (!pendingVitalsChanged && goalQueue.IsPending(goalActor!.Id)
-            && mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold")
+            && mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold" or "survival-goal-pending-egg")
         {
             pendingVitalsChanged = true;
             if (mode == "survival-goal-pending-cold")
@@ -127,10 +170,11 @@ sealed partial class Runner
             {
                 var carry = p.ComponentMiner.Inventory;
                 int pumpkin = Terrain.MakeBlockValue(PumpkinBlock.Index, 0, BasePumpkinBlock.SetSize(0, 7));
-                carry.AddSlotItems(0, pumpkin, 1);
-                p.ComponentVitalStats.Food = 0.11f;
+                carry.AddSlotItems(0, mode == "survival-goal-pending-egg" ? goalEggValue : pumpkin, 1);
+                p.ComponentVitalStats.Food = 0.04f;
             }
         }
+        if (mode == "survival-goal-plan-failure" && goalAcquiredDecoy && goalEgg is not null) goalEgg.ToRemove = true;
         float moved = (body.Position - goalOrigin).XZ.Length();
         if (mode == "survival-goal-hearing" && !goalSoundIssued && moved >= 0.7f)
         {
@@ -156,16 +200,38 @@ sealed partial class Runner
             && entry.GetProperty("goal").GetProperty("activity").GetString() == "explore"
             && entry.GetProperty("goal").GetProperty("status").GetString() == "succeeded");
         bool heardPaused = goalEvents.Any(entry => Kind(entry) == "play_predator_heard_route_paused");
-        bool resumed = goalEvents.Any(entry => Kind(entry) == "play_food_objective" && entry.GetProperty("resuming").GetBoolean());
+        bool resumed = goalEvents.Any(entry => Kind(entry) == "play_survival_plan_resumed"
+            || Kind(entry) == "play_food_objective" && entry.GetProperty("resuming").GetBoolean());
         bool fallback = goalEvents.Any(entry => Kind(entry) == "play_survival_goal_started" && Text(entry, "source") == "model_fallback");
         bool success = mode switch
         {
+            "survival-goal-choose-wait" => goalQueue.Issued == 1 && now - goalStarted > 4.5 && !goalAcquiredExact
+                && goalEvents.Any(entry => Kind(entry) == "play_survival_goal_started" && Text(entry.GetProperty("choice"), "id") == "wait"),
+            "survival-goal-sequence" => goalAcquiredExact && goalAcquiredDecoy && goalQueue.Issued == 1
+                && goalEvents.Any(entry => Kind(entry) == "play_survival_plan_finished"
+                    && Text(entry.GetProperty("plan"), "status") == "succeeded"
+                    && entry.GetProperty("plan").GetProperty("completed").GetArrayLength() == 3),
+            "survival-goal-gear-plan" => goalQueue.Issued == 1 && PlaySurvivalProduction.Stock(p, PlaySurvivalProduction.Spear) > 0
+                && goalEvents.Any(entry => Kind(entry) == "play_survival_plan_finished" && Text(entry.GetProperty("plan"), "status") == "succeeded"),
+            "survival-goal-plan-failure" => goalAcquiredDecoy && !goalAcquiredExact && goalQueue.Issued == 1
+                && goalEvents.Any(entry => Kind(entry) == "play_survival_plan_finished" && Text(entry.GetProperty("plan"), "status") == "needs_revision"),
+            "survival-goal-hunt-opportunity" => goalQueue.Issued == 1
+                && goalEvents.Any(entry => Kind(entry) == "play_hunt_search_contact")
+                && goalEvents.Any(entry => Kind(entry) == "play_hunt_meat_acquired"),
+            "survival-goal-observe-bird" => goalQueue.Issued == 1 && moved >= 6f
+                && !goalEvents.Any(entry => Kind(entry) == "play_hunt_started" || Kind(entry) == "play_hunt_search_contact"),
             "survival-goal-contract" => goalContractChecked,
-            "survival-goal-crop" => goalQueue.Issued == 0 && goalEvents.Any(entry => Kind(entry) == "play_survival_goal_finished"
+            "survival-goal-fire-contact" => moved >= 2.5f && goalFireKnowledgeChecked && goalFireRouteChecked
+                && goalEvents.Any(entry => Kind(entry) == "play_fire_escape")
+                && p.Entity.FindComponent<ComponentOnFire>(true) is { IsOnFire: false }
+                && now - goalStarted >= 8,
+            "survival-goal-fire-burning" => goalFireWasBurning && goalFireKnowledgeChecked && goalFireRouteChecked && moved >= 2.5f
+                && now - goalStarted >= 14 && !p.Entity.FindComponent<ComponentOnFire>(true).IsOnFire,
+            "survival-goal-crop" => goalQueue.Issued == 1 && goalEvents.Any(entry => Kind(entry) == "play_survival_goal_finished"
                 && Text(entry.GetProperty("goal"), "activity") == "collect"
                 && Text(entry.GetProperty("goal"), "status") == "succeeded"),
             "survival-goal-target" => goalAcquiredExact && goalAcquiredDecoy && goalQueue.Issued == 1,
-            "survival-goal-urgent-food" => goalAcquiredExact && goalQueue.Issued == 0,
+            "survival-goal-urgent-food" => goalAcquiredExact && goalQueue.Issued == 1,
             "survival-goal-explore" => finished && goalSections == 3 && moved >= 45f && goalQueue.Issued == 1,
             "survival-goal-hearing" => goalSoundIssued && heardPaused && resumed && goalAcquiredExact,
             "survival-goal-fallback" => fallback && moved >= 4f && goalQueue.Issued == 1,
@@ -177,13 +243,17 @@ sealed partial class Runner
             "survival-goal-warming" => warmingConfirmed && p.ComponentVitalStats.Temperature > goalWarmingBefore + 0.4
                 && targetBeforeFire.HasValue && p.ComponentVitalStats.m_targetTemperature > targetBeforeFire.Value + 1f,
             "survival-goal-pending-cold" => pendingVitalsChanged && warmingConfirmed && goalQueue.Issued == 1,
-            "survival-goal-pending-hunger" => pendingVitalsChanged && p.ComponentVitalStats.Food > 0.2f && goalQueue.Issued == 1
+            "survival-goal-cold-persistent" => goalQueue.Issued == 1 && moved >= 3f && goalContractChecked
+                && !goalEvents.Any(entry => Kind(entry) == "play_survival_request_interrupted"),
+            "survival-goal-pending-egg" => pendingVitalsChanged && p.ComponentVitalStats.Food > 0.18f && goalQueue.Issued == 1
+                && goalEvents.Any(entry => Kind(entry) == "play_survival_emergency_meal"),
+            "survival-goal-pending-hunger" => pendingVitalsChanged && p.ComponentVitalStats.Food > 0.15f && goalQueue.Issued == 1
                 && goalEvents.Any(entry => Kind(entry) == "play_survival_emergency_meal"),
             _ => false
         };
         if (!success && now - goalStarted < 76 && !goalActor.Died && !goalActor.Retired) return;
         Done = true;
-        Passed = success && p.ComponentHealth.Health >= 0.95f;
+        Passed = success && p.ComponentHealth.Health >= (mode == "survival-goal-fire-burning" ? 0.35f : 0.95f);
         Gate.Log(new { kind = "survival_goal_fixture_result", mode, Passed, goalAcquiredExact, goalAcquiredDecoy,
             goalSections, moved, requests = goalQueue.Issued, goalContractChecked, heardPaused, resumed, fallback,
             goalNightIssued, sleeps = goalActor.VoluntarySleeps, warmingConfirmed,
@@ -215,7 +285,8 @@ sealed partial class Runner
 
     private void ReplyToGoalRequest()
     {
-        if (mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold") return;
+        if (mode is "survival-goal-pending-hunger" or "survival-goal-pending-cold" or "survival-goal-pending-egg") return;
+        if (mode == "survival-goal-cold-persistent" && p.Project.FindSubsystem<SubsystemTime>(true).GameTime - goalStarted < 6f) return;
         foreach (string requestPath in Directory.EnumerateFiles(goalControlRoot!, "request.json", SearchOption.AllDirectories))
         {
             if (!goalReplies.Add(requestPath)) continue;
@@ -226,25 +297,57 @@ sealed partial class Runner
             var responseSchema = request.GetProperty("responseSchema");
             if (offers.GetArrayLength() != 1 || offers[0].GetProperty("Name").GetString() != PlaySurvivalGoals.Tool
                 || responseSchema.GetProperty("properties").GetProperty("steps").GetProperty("minItems").GetInt32() != 1
-                || responseSchema.GetProperty("properties").GetProperty("steps").GetProperty("maxItems").GetInt32() != 1
+                || responseSchema.GetProperty("properties").GetProperty("steps").GetProperty("maxItems").GetInt32() != 4
                 || prompt.Contains("MoveTo:") || !prompt.Contains(PlaySurvivalGoals.Guide))
                 throw new InvalidOperationException("生存提示没有采用单目标协议。");
             var options = request.GetProperty("context").GetProperty("goalOptions").EnumerateArray().ToArray();
-            var choice = mode == "survival-goal-target"
+            var knowledge = request.GetProperty("context").GetProperty("strategyNotes");
+            if (knowledge.GetArrayLength() < 6) throw new InvalidOperationException("模型请求缺少情境策略知识。");
+            if (mode is "survival-goal-fire-contact" or "survival-goal-fire-burning")
+            {
+                var situation = request.GetProperty("context").GetProperty("situation");
+                goalFireKnowledgeChecked |= situation.TryGetProperty("onFire", out var onFire)
+                    && situation.TryGetProperty("touchingFire", out _)
+                    && (mode != "survival-goal-fire-burning" || onFire.GetBoolean());
+            }
+            var selected = new List<JsonElement>();
+            if (mode is "survival-goal-sequence" or "survival-goal-plan-failure")
+            {
+                selected.AddRange(options.Where(option => Text(option, "activity") == "collect")
+                    .OrderBy(option => option.GetProperty("details").GetProperty("distance").GetDouble()).Take(2));
+                selected.Add(options.First(option => Text(option, "id") == "wait"));
+            }
+            if (mode is "survival-goal-warming" or "survival-goal-gear-plan")
+                foreach (string task in new[] { PlaySurvivalProduction.WoodSupply,
+                    mode == "survival-goal-warming" ? PlaySurvivalProduction.Fire : PlaySurvivalProduction.Workbench,
+                    mode == "survival-goal-warming" ? PlaySurvivalProduction.Warm : PlaySurvivalProduction.Spear })
+                    selected.Add(options.First(option => Text(option, "id") == task));
+            var choice = mode == "survival-goal-hunt-opportunity" ? options.FirstOrDefault(option => Text(option, "id") == "hunt_route_1")
+                : mode == "survival-goal-observe-bird" ? options.First(option => Text(option, "id") == "route_1")
+                : mode is "survival-goal-choose-wait" or "survival-goal-fire-contact" or "survival-goal-fire-burning"
+                    ? options.First(option => Text(option, "id") == "wait")
+                : mode is "survival-goal-urgent-food" or "survival-goal-hearing" or "survival-goal-crop"
+                    ? options.First(option => Text(option, "activity") == "collect")
+                : mode == "survival-goal-night" && goalNightIssued && options.Any(option => Text(option, "id") == "build")
+                    ? options.First(option => Text(option, "id") == "build")
+                : mode == "survival-goal-night" && goalNightIssued && options.Any(option => Text(option, "id") == "rest")
+                    ? options.First(option => Text(option, "id") == "rest")
+                : mode == "survival-goal-target"
                 ? options.First(option => Text(option, "activity") == "collect"
                     && option.GetProperty("details").GetProperty("distance").GetDouble() > 6)
                 : options.Where(option => Text(option, "activity") == "explore")
                     .OrderBy(option => Math.Abs(option.GetProperty("details").GetProperty("bearing").GetDouble())).FirstOrDefault();
             if (choice.ValueKind == JsonValueKind.Undefined) choice = options[0];
+            if (selected.Count == 0) selected.Add(choice);
             goalContractChecked = true;
             var result = new
             {
                 sessionId = request.GetProperty("sessionId"), actorId = request.GetProperty("actorId"),
                 observationId = request.GetProperty("observationId"), requestId = request.GetProperty("requestId"),
-                decision = new { goal = "完成已核对的生存目标", steps = new[] { new
+                decision = new { goal = "完成已核对的生存目标", steps = selected.Select(option => new
                 {
-                    tool = PlaySurvivalGoals.Tool, arguments = new { target = choice.GetProperty("id").GetString() }
-                } } }
+                    tool = PlaySurvivalGoals.Tool, arguments = new { target = option.GetProperty("id").GetString() }
+                }).ToArray() }
             };
             string temporary = Path.Combine(Path.GetDirectoryName(requestPath)!, "fixture-response.tmp");
             File.WriteAllText(temporary, JsonSerializer.Serialize(result));

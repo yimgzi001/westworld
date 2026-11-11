@@ -39,7 +39,13 @@ internal static class PlaySurvivalFood
 
     public static bool CanSeek(ComponentPlayer player, Food food)
     {
-        if (food.Underwater || IsRawMeat(food.Value)) return false;
+        if (food.Underwater) return false;
+        // 采到的生肉保留待烤，不把“当前不能吃”误当成“没有采集价值”。
+        if (IsRawMeat(food.Value))
+            return Enumerable.Range(0, player.ComponentMiner.Inventory.SlotsCount)
+                .Where(slot => player.ComponentMiner.Inventory.GetSlotCount(slot) > 0
+                    && IsRawMeat(player.ComponentMiner.Inventory.GetSlotValue(slot)))
+                .Sum(player.ComponentMiner.Inventory.GetSlotCount) < 4;
         if (food.SicknessRisk <= 0f) return true;
         if (food.SicknessRisk > 0.15f || BlocksManager.Blocks[Terrain.ExtractContents(food.Value)] is not EggBlock) return false;
         var (count, nutrition) = RawEggReserve(player);

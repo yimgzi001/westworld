@@ -162,7 +162,8 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         if (Survival) NativePredatorAcoustics.Emitted += OnPredatorSound;
         if (watch) followView = new PlayFollowView(external[0], Log);
         Log(new { kind = "play_bound", worldId, views, passiveViews = watch ? 1 : 0,
-            windowVisible = Window.m_gameWindow?.IsVisible, gameMode = settings.GameMode.ToString(),
+            windowVisible = Window.m_gameWindow?.IsVisible, soundsVolume = SettingsManager.SoundsVolume,
+            musicVolume = SettingsManager.MusicVolume, gameMode = settings.GameMode.ToString(),
             terrainMode = settings.TerrainGenerationMode.ToString(), survivalMechanics = settings.AreAdventureSurvivalMechanicsEnabled,
             mapContentRadius = ActorMapRange.Content, terrainReadyRadius = ActorMapRange.FullReady,
             actors = actors.Select(a => new { a.Name, a.Id, a.Session }).ToArray() });

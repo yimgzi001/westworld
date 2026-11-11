@@ -97,7 +97,11 @@ namespace Game.Westworld {
                     if (!exposedX && !exposedY && !exposedZ) continue;
                     int above = Value(x, y + 1, z);
                     var top = VoxelSurfaceGeometry.SupportTop(x, y, z);
-                    if (eye.Y > y + 1 && above >= 0 && Terrain.ExtractContents(above) == 0
+                    bool openTop = above >= 0 && (Terrain.ExtractContents(above) == 0
+                        || BlocksManager.Blocks[Terrain.ExtractContents(above)] is CrossBlock cover
+                            && !cover.IsCollidable_(above) && !cover.ShouldAvoid(above));
+                    // 无碰撞的小草和花不遮挡可踩踏的地面，路线仍逐帧核对身体净空。
+                    if (eye.Y > y + 1 && openTop
                         && VoxelSurfaceGeometry.LineOfSight(viewpoint, top, Opaque, radius)) {
                         Add(top, bareTop: true);
                         continue;
