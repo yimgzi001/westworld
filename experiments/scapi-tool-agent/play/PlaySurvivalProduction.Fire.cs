@@ -88,12 +88,25 @@ internal sealed partial class PlaySurvivalProduction
     private static bool CampfireSeenOut(ActorPanorama? panorama, Dictionary<int, Point3> stations) =>
         SeenStation(panorama, stations, CampfireBlock.Index, ProjectReach) is { } fire && Terrain.ExtractData(fire.Value) == 0;
 
-    public static object[] WorksiteSnapshot(Dictionary<int, Point3> stations, ActorPanorama? panorama, Vector3 origin) =>
+    public static object[] WorksiteSnapshot(Dictionary<int, Point3> stations, ActorPanorama? panorama, Vector3 origin,
+        ComponentPlayer? player = null, AtomicActions.ActorQueries? queries = null) =>
         stations.Select(site =>
         {
             var seen = panorama?.Blocks.FirstOrDefault(block => block.Cell == site.Value && StationMatches(block.Value, site.Key));
+            float horizontal = (Center(site.Value) - origin).XZ.Length();
+            float height = site.Value.Y - origin.Y;
+            IInventory? inventory = seen is not null && MathF.Abs(height) < .1f && horizontal <= 3
+                && player?.Project.FindSubsystem<SubsystemBlockEntities>(true).GetBlockEntity(site.Value)?.Entity is { } entity
+                ? site.Key == CraftingTableBlock.Index ? entity.FindComponent<ComponentCraftingTable>()
+                    : entity.FindComponent<ComponentFurnace>() : null;
             return (object)new { type = site.Key == CraftingTableBlock.Index ? "workbench" : site.Key == FurnaceBlock.Index ? "furnace" : "campfire",
-                cell = site.Value.ToString(), distance = Math.Round((Center(site.Value) - origin).XZ.Length(), 1),
+                cell = site.Value.ToString(), position = new { x = site.Value.X + .5f, y = site.Value.Y, z = site.Value.Z + .5f },
+                distance = Math.Round(horizontal, 1), heightDifference = Math.Round(height, 1),
+                spatialDistance = Math.Round((Center(site.Value) - origin).Length(), 1), sameLevel = MathF.Abs(height) < .1f,
+                access = MathF.Abs(height) < .1f ? "same_level" : height > 0 ? "need_to_ascend" : "need_to_descend",
+                interactable = site.Key == CampfireBlock.Index
+                    ? seen is not null && player is not null && PlayThermalRecovery.FireWithinReach(player, site.Value)
+                    : inventory is not null && queries?.ReadStorage(inventory) is not null,
                 currentlySeen = seen is not null,
                 fireState = site.Key != CampfireBlock.Index || seen is null ? null : Terrain.ExtractData(seen.Value) > 0 ? "burning" : "out",
                 fireFuelSteps = site.Key == CampfireBlock.Index && seen is not null ? Terrain.ExtractData(seen.Value) : (int?)null };

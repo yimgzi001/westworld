@@ -3,11 +3,15 @@
 using Engine;
 using Westworld.Runtime.Core;
 
-internal sealed class PlaySurvivalExploration(Vector3 origin, PlaySurvivalExploration.Course course, double started)
+internal sealed class PlaySurvivalExploration(Vector3 origin, PlaySurvivalExploration.Course course, double started,
+    IEnumerable<PlaySurvivalFood.Food>? knownFood = null, int rawMeatAtStart = 0)
 {
+    private readonly PlaySurvivalFood.Food[] knownAtStart = knownFood?.Take(64).ToArray() ?? [];
     internal sealed record Course(Vector2 Heading, Vector3 Opening, float OpeningLength, int Visits, bool StartsWithStep,
         bool HuntBirds = false)
     {
+        [System.Text.Json.Serialization.JsonIgnore]
+        public PlayObservedPath.Plan? Path { get; init; }
         public object Snapshot(Vector2 facing) => new
         {
             bearing = Math.Round(MathUtils.RadToDeg(Vector2.Angle(facing, Heading))),
@@ -22,6 +26,8 @@ internal sealed class PlaySurvivalExploration(Vector3 origin, PlaySurvivalExplor
     public Vector3 Origin { get; } = origin;
     public Vector2 Heading { get; } = course.Heading;
     public bool HuntBirds { get; } = course.HuntBirds;
+    public int RawMeatAtStart { get; } = rawMeatAtStart;
+    public bool IsNewFood(PlaySurvivalFood.Food food) => !knownAtStart.Any(previous => previous.Matches(food));
     public int Sections { get; private set; } = 1;
     public int NativeLegs { get; private set; }
 

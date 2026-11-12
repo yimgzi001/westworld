@@ -67,7 +67,7 @@ sealed partial class Runner
             }
             if (project)
             {
-                overheadWood = cell + new Point3(3, 3, 0);
+                overheadWood = cell + new Point3(3, 5, 0);
                 terrain.ChangeCell(overheadWood.X, overheadWood.Y, overheadWood.Z, OakWoodBlock.Index);
             }
             if (hidePrey)

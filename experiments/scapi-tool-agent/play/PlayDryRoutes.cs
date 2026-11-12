@@ -208,6 +208,23 @@ internal static class PlayDryRoutes
     public static Leg[] ObservedUpSteps(LocalObservationWindow window) => ReadSteps(window)
         .Where(step => step.Kind == StepKind.Up).Select(StepLeg).ToArray();
 
+    public static object LayerSnapshot(LocalObservationWindow window)
+    {
+        var steps = ReadSteps(window).Take(8).ToArray();
+        return new
+        {
+            feetHeight = Math.Round(window.Position.Y, 2),
+            confirmedSteps = steps.Select(step => new
+            {
+                kind = step.Kind.ToString(),
+                dx = Math.Round(step.Destination.X - window.Position.X, 2),
+                dy = Math.Round(step.Destination.Y - window.Position.Y, 2),
+                dz = Math.Round(step.Destination.Z - window.Position.Z, 2), headroomConfirmed = true
+            }).ToArray(),
+            note = "只列本帧同时证明落脚与头顶净空的一格台阶；远处可见高低地面不代表可直接跳到"
+        };
+    }
+
     public static Vector3? ShallowExit(LocalObservationWindow window, int surface) => ReadSteps(window)
         .FirstOrDefault(step => step.Kind == StepKind.Up && step.Destination.Y == surface) is { } exit
             ? PositionOf(exit.Destination) : null;

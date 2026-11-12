@@ -20,7 +20,7 @@ internal sealed partial class PlaySurvivalProduction
     private bool warmthReady;
     private double projectReadyAt;
 
-    public static bool IsProject(string task) => task is CookedFoodProject or SpearProject or WarmthProject or WoodSupply or StoneSample or StoneSupply or EarthSupply;
+    public static bool IsProject(string task) => task is CookedFoodProject or SpearProject or WarmthProject or WoodSupply or WoodReserve or StoneSample or StoneSupply or EarthSupply;
 
     public static string? NextStage(ComponentPlayer player, string task, ActorPanorama? panorama,
         Dictionary<int, Point3> stations, Func<Vector3, bool>? permitted) => IsProject(task)
@@ -78,14 +78,22 @@ internal sealed partial class PlaySurvivalProduction
             projectStep = null;
             if (step.Status != "succeeded")
             {
-                if (Task is WoodSupply or StoneSample or StoneSupply or EarthSupply && materialFailures++ < 3
+                if (Task is WoodSupply or WoodReserve or StoneSample or StoneSupply or EarthSupply && materialFailures++ < 3
                     && PlaySurvivalSenses.OnDryGround(body) && Math.Abs(body.Velocity.Y) < 0.6f
                     && player.ComponentHealth.Health >= 0.45f)
                 {
                     if (step.material is { } failed)
                     {
-                        missedMaterials.Add(failed.Cell);
-                        triedMaterialApproaches.Add(failed.Cell);
+                        if (step.Reason == "FaceTowards_OutOfReach")
+                        {
+                            // 抬头角度失败是站位问题，材料仍在；允许按当前观察重新选邻格，不丢弃整块木料。
+                            triedMaterialApproaches.Remove(failed.Cell);
+                        }
+                        else
+                        {
+                            missedMaterials.Add(failed.Cell);
+                            triedMaterialApproaches.Add(failed.Cell);
+                        }
                     }
                     log(new { kind = "play_production_material_retry", actor = player.PlayerData.Name, project = Task,
                         step.Reason, failures = materialFailures, missedDrops = missedMaterialDrops.Count, gameTime });
@@ -100,10 +108,11 @@ internal sealed partial class PlaySurvivalProduction
             projectReadyAt = gameTime + 0.18;
             return;
         }
-        bool stockEnough = Task == StoneSample && Stock(player, Stone) >= 1
+        bool stockEnough = Task == WoodReserve && Stock(player, Wood) >= 8
+            || Task == StoneSample && Stock(player, Stone) >= 1
             || Task == StoneSupply && Stock(player, Stone) >= 8
             || Task == EarthSupply && Stock(player, Earth) >= 40;
-        if (stockEnough || Added >= (Task == WoodSupply ? 3 : Task == StoneSupply ? Math.Max(1, 8 - before)
+        if (stockEnough || Added >= (Task == WoodReserve ? Math.Max(1, 8 - before) : Task == WoodSupply ? 3 : Task == StoneSupply ? Math.Max(1, 8 - before)
             : Task == EarthSupply ? Math.Max(1, 40 - before) : 1))
         {
             if (!PlaySurvivalSenses.OnDryGround(body) || Math.Abs(body.Velocity.Y) >= 0.6f) return;
@@ -185,8 +194,8 @@ internal sealed partial class PlaySurvivalProduction
         int? selectedBird = null, bool keepPreparingGear = false, IReadOnlySet<Point3>? protectedMaterials = null)
     {
         if (panorama is null) return null;
-        if (task is WoodSupply or StoneSample or StoneSupply or EarthSupply)
-            return CollectMaterial(player, panorama, task == WoodSupply ? Wood : task == EarthSupply ? Earth : Stone, permitted, triedMaterials, protectedMaterials);
+        if (task is WoodSupply or WoodReserve or StoneSample or StoneSupply or EarthSupply)
+            return CollectMaterial(player, panorama, task is WoodSupply or WoodReserve ? Wood : task == EarthSupply ? Earth : Stone, permitted, triedMaterials, protectedMaterials);
         if (task == WarmthProject)
         {
             if (Stock(player, Fire) > 0) return new(Warm);
@@ -260,7 +269,7 @@ internal sealed partial class PlaySurvivalProduction
     {
         var origin = player.ComponentBody.Position;
         float verticalReach = task == Stone ? MaximumQuarryDepth : 3f;
-        if (FindMaterial(panorama, origin, task, protectedMaterials) is not null) return new(task);
+        if (FindMaterial(panorama, origin, task, protectedMaterials, eye: player.ComponentCreatureModel.EyePosition) is not null) return new(task);
         var ground = panorama.Blocks.Where(block => block.BareTop && PlaySurvivalSenses.IsDryTerrain(block.Value))
             .ToLookup(block => (block.Cell.X, block.Cell.Z));
         foreach (var material in panorama.Blocks.Where(block => IsMaterial(block.Value, task)
@@ -274,7 +283,7 @@ internal sealed partial class PlaySurvivalProduction
                           where dx != 0 || dz != 0
                           from support in ground[(cell.X + dx, cell.Z + dz)]
                           let feet = support.Cell.Y + 1
-                          where feet >= cell.Y - 1 && feet <= cell.Y + (task is Earth or Stone ? 1 : 0) && MathF.Abs(feet - origin.Y) <= verticalReach
+                          where feet >= cell.Y - (task == Wood ? 3 : 1) && feet <= cell.Y + (task is Earth or Stone ? 1 : 0) && MathF.Abs(feet - origin.Y) <= verticalReach
                           let stand = new Vector3(support.Cell.X + 0.5f, feet, support.Cell.Z + 0.5f)
                           let distance = (stand - origin).XZ.LengthSquared()
                           where distance is >= 0.25f and <= ProjectReach * ProjectReach

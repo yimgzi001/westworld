@@ -219,6 +219,19 @@ internal sealed partial class PlayableActor
             }
             return;
         }
+        if (exploration is { HuntBirds: true } hunting && travel is { } huntingRoute
+            && PlaySurvivalProduction.Stock(player, PlaySurvivalProduction.Hunt) > hunting.RawMeatAtStart
+            && PlaySurvivalSenses.OnDryGround(player.ComponentBody) && Math.Abs(player.ComponentBody.Velocity.Y) < 0.6f)
+        {
+            // 原生路上拾取确实增加了生肉库存时，巡猎目标已经完成，不必继续空跑。
+            hunting.RecordSection(huntingRoute.Legs);
+            huntingRoute.Stop();
+            travel = null;
+            log(new { kind = "play_hunt_raw_food_acquired", actor = Name, before = hunting.RawMeatAtStart,
+                after = PlaySurvivalProduction.Stock(player, PlaySurvivalProduction.Hunt), gameTime });
+            EndExploration(hunting, "succeeded", "native_raw_meat_acquired_while_hunting", gameTime);
+            return;
+        }
         if (exploration is { HuntBirds: true } && travel is not null && !travel.Evading
             && PlaySurvivalSenses.OnDryGround(player.ComponentBody) && gameTime >= nextHuntRead)
         {
@@ -1072,7 +1085,8 @@ internal sealed partial class PlayableActor
             strategyNotes = PlaySurvivalKnowledge.ForSituation(player, campSite?.Built == true,
                 placedStations.ContainsKey(FurnaceBlock.Index),
                 placedStations.TryGetValue(CraftingTableBlock.Index, out var oldWorkbench)
-                    && (new Vector2(oldWorkbench.X + 0.5f, oldWorkbench.Z + 0.5f) - body.Position.XZ).LengthSquared() > 1600f),
+                    && (new Vector2(oldWorkbench.X + 0.5f, oldWorkbench.Z + 0.5f) - body.Position.XZ).LengthSquared() > 1600f, surroundings),
+            resourcePlanning = PlaySurvivalKnowledge.ResourcePlanning(player, surroundings),
             situation = new
             {
                 timeOfDay = Math.Round(calendar.TimeOfDay, 3),
@@ -1107,7 +1121,8 @@ internal sealed partial class PlayableActor
             ownCamp = campSite is { } home ? new { home.X, home.Y, home.Z, home.Built, home.DoorClosed,
                 distance = Math.Round((home.Inside - body.Position).XZ.Length(), 1), inside = InOwnCamp(),
                 lastConfirmedSecondsAgo = Math.Round(gameTime - home.LastConfirmed) } : null,
-            worksites = PlaySurvivalProduction.WorksiteSnapshot(placedStations, surroundings?.Panorama, body.Position),
+            worksites = PlaySurvivalProduction.WorksiteSnapshot(placedStations, surroundings?.Panorama, body.Position, player, owner.Queries),
+            localLayers = PlayDryRoutes.LayerSnapshot(ReadDryWindow()),
             recentOutcome = outcome,
             unfinishedSupply = pausedSupply is { } unfinished && gameTime - unfinished.Time <= 2400
                 ? new { task = unfinished.Task, stage = unfinished.Stage, reason = unfinished.Reason } : null,

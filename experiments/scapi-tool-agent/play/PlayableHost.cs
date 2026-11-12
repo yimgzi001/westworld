@@ -160,7 +160,7 @@ internal sealed class PlayableHost(int actorCount, string seed, int? requestLimi
         foreach (var player in external) terrain.TerrainUpdater.RemoveUpdateLocation(player.PlayerData.PlayerIndex);
         if (Survival) trial = new PlaySurvivalTrial(project, external, time.GameTime, Log);
         if (Survival) NativePredatorAcoustics.Emitted += OnPredatorSound;
-        if (watch) followView = new PlayFollowView(external[0], Log);
+        if (watch) followView = new PlayFollowView(external[0], Log, () => actors[0].WatchActivity);
         Log(new { kind = "play_bound", worldId, views, passiveViews = watch ? 1 : 0,
             windowVisible = Window.m_gameWindow?.IsVisible, soundsVolume = SettingsManager.SoundsVolume,
             musicVolume = SettingsManager.MusicVolume, gameMode = settings.GameMode.ToString(),

@@ -15,6 +15,8 @@ internal sealed partial class PlaySurvivalProduction
     private Entity? prey;
     private ComponentHealth? preyHealth;
     private PlaySurvivalTravel? huntApproach;
+    private PlaySurfaceTravel? surfaceHuntApproach;
+    private bool returningPreyLoot;
     private bool approachedLivePrey, approachedPreyDrop, preparingThrow, thrown, lastHitByHunter;
     private Guid preyId, hunterId;
     private int strikes, meatPicked;
@@ -81,9 +83,39 @@ internal sealed partial class PlaySurvivalProduction
     {
         if (meatPicked > 0)
         {
+            if (!PlaySurvivalSenses.OnStableDryGround(player.ComponentBody)
+                || returningPreyLoot && surfaceHuntApproach?.Status != "succeeded")
+            {
+                if (!returningPreyLoot)
+                {
+                    surfaceHuntApproach?.Stop(); huntApproach?.Stop(); huntApproach = null;
+                    surfaceHuntApproach = new(player, owner, gameTime, readDryWindow, log, permitLandLeg);
+                    returningPreyLoot = true;
+                    log(new { kind = "play_hunt_loot_return", actor = player.PlayerData.Name, count = meatPicked, gameTime });
+                }
+                surfaceHuntApproach!.Update(gameTime);
+                if (surfaceHuntApproach.Status is null) return;
+                if (surfaceHuntApproach.Status != "succeeded")
+                { Finish(false, surfaceHuntApproach.Reason ?? "prey_loot_return_failed"); return; }
+            }
             log(new { kind = "play_hunt_meat_acquired", actor = player.PlayerData.Name, count = meatPicked, strikes, gameTime });
             Finish(true, "prey_meat_acquired");
             return;
+        }
+        if (surfaceHuntApproach is { } waterRoute)
+        {
+            waterRoute.Update(gameTime);
+            var visibleDrop = VisiblePreyDrop();
+            if (visibleDrop?.InReach == true)
+            {
+                waterRoute.Stop(); surfaceHuntApproach = null;
+                action = owner.Start(visibleDrop.CreatePickup(1));
+                return;
+            }
+            if (waterRoute.Status is null) return;
+            surfaceHuntApproach = null;
+            if (waterRoute.Status != "succeeded")
+            { Finish(false, waterRoute.Reason ?? "prey_surface_approach_failed"); return; }
         }
         if (huntApproach is { } route)
         {
@@ -144,7 +176,8 @@ internal sealed partial class PlaySurvivalProduction
         if (gameTime < nextPoll) return;
         nextPoll = gameTime + 0.25;
         var drop = VisiblePreyDrop();
-        if (drop is not null) action = owner.Start(drop.CreatePickup(1));
+        if (drop is { InReach: true }) action = owner.Start(drop.CreatePickup(1));
+        else if (drop is not null && !TryApproachPreyDrop(gameTime)) Finish(false, "prey_meat_out_of_reach");
         else if (gameTime > nextStrike + health.CorpseDuration + 4) Finish(false, "native_prey_drop_unconfirmed");
     }
 
@@ -247,7 +280,22 @@ internal sealed partial class PlaySurvivalProduction
         var panorama = owner.Queries.ReadPanorama(26f);
         var path = PlayObservedPath.Find(panorama, body.Position, food.Point,
             (_, end) => permitLandLeg?.Invoke(end, gameTime) != false, goalReach: 0.9f, maximumAboveTarget: 0.2f);
-        if (offset.Length() > 5f && path is null) return false;
+        if (path is null)
+        {
+            var surface = PlaySurfacePath.Find(panorama, body.Position, food.Point,
+                end => permitLandLeg?.Invoke(end, gameTime) != false);
+            if (surface is { HasWater: true } && PlaySurfacePath.Find(panorama, surface.Nodes[^1].Point, null,
+                end => permitLandLeg?.Invoke(end, gameTime) != false) is not null)
+            {
+                approachedPreyDrop = true;
+                surfaceHuntApproach = new(player, owner, gameTime, readDryWindow, log, permitLandLeg,
+                    () => VisiblePreyDrop()?.Position, () => VisiblePreyDrop()?.InReach == true);
+                log(new { kind = "play_hunt_water_loot", actor = player.PlayerData.Name,
+                    distance = offset.Length(), nodes = surface.Nodes.Length, gameTime });
+                return true;
+            }
+            if (offset.Length() > 5f) return false;
+        }
         approachedPreyDrop = true;
         float bearing = MathUtils.RadToDeg(Vector2.Angle(body.Matrix.Forward.XZ, offset));
         huntApproach = new(player, owner, bearing, Math.Clamp(offset.Length() + 1f, 2f, 25f), "food", false,
@@ -284,6 +332,8 @@ internal sealed partial class PlaySurvivalProduction
         if (prey is null) return;
         huntApproach?.Stop();
         huntApproach = null;
+        surfaceHuntApproach?.Stop();
+        surfaceHuntApproach = null;
         NaturalResourceOriginAudit.Recorded -= TrackPreyDrop;
         NativeAcquisitionAudit.Recorded -= TrackPreyPickup;
         preyHealth!.Injured -= TrackPreyInjury;

@@ -13,6 +13,8 @@ namespace Game.Westworld {
         // 只允许同一游戏线程的宿主接续已经验证的路线，接纳后才替换它持有的观察证据。
         [JsonIgnore]
         public Func<double, (MoveAlongObservedRoute Route, Action Accepted)?> Continue { get; init; }
+        [JsonIgnore]
+        public Action<string>? Rejected { get; init; }
     }
     // Native body yaw plus head pitch, advanced through locomotion orders. Negative pitch looks down.
     // HorizontalOnly preserves legacy bearing-only tool calls without changing the existing pitch.
@@ -21,6 +23,12 @@ namespace Game.Westworld {
     public sealed record Jump : AtomicAction;
     // Local one-cube transition. Caller supplies observation proof; no hidden path search.
     public sealed record StepTo(Vector3 Destination, float Timeout = 3f, bool LevelGaze = false) : AtomicAction;
+    // 宿主逐段提供已观察的水面、落脚与净空证据；此动作只衔接原生游泳、行走和上岸跳跃。
+    public sealed record TraverseSurface(Vector3 Destination, float WaterSurfaceY, bool Landing,
+        float Timeout = 5f) : AtomicAction {
+        [JsonIgnore]
+        public Func<double, (TraverseSurface Route, Action Accepted)?> Continue { get; init; }
+    }
     public sealed record ClimbTo(BlockTarget Ladder, float Height, float Timeout = 15f) : AtomicAction;
     public sealed record Mount(Entity Target) : AtomicAction;
     public sealed record Dismount : AtomicAction;

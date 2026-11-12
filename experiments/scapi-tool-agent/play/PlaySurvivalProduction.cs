@@ -20,6 +20,7 @@ internal sealed partial class PlaySurvivalProduction
     public const string Axe = "craft_stone_axe";
     public const string WoodSupply = "collect_three_wood", StoneSupply = "collect_eight_cobblestone";
     public const string StoneSample = "collect_one_cobblestone";
+    public const string WoodReserve = "stock_eight_wood";
     private static readonly JsonSerializerOptions RecipeJson = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
@@ -85,7 +86,7 @@ internal sealed partial class PlaySurvivalProduction
         startedAtNight = PlaySurvivalRest.NightCoverDue(player.Project.FindSubsystem<SubsystemTimeOfDay>(true));
         if (task is StoneSample or StoneSupply or EarthSupply)
             triedMaterialApproaches.Add(materialEntryFooting);
-        deadline = gameTime + (task == RecoverSpear ? 90 : task is Quarry or VisitQuarry or BuildCamp or ReturnCamp or LeaveCamp or VisitTable or VisitFurnace or VisitFire
+        deadline = gameTime + (task is RecoverSpear or Hunt ? 90 : task is Quarry or VisitQuarry or BuildCamp or ReturnCamp or LeaveCamp or VisitTable or VisitFurnace or VisitFire
             or Furnace or Spear or Rake or Axe or Cook || IsProject(task) ? 180 : 36);
         log(new { kind = "play_production_started", actor = player.PlayerData.Name, task, before, gameTime });
     }
@@ -135,6 +136,7 @@ internal sealed partial class PlaySurvivalProduction
         Wood => "取得可见的木材",
         Stone => "取得可见的圆石",
         WoodSupply => "连续采集三块木材，沿已见地形接近树干并逐块核对入包",
+        WoodReserve => "连续把原木库存补到八块，作为工具、燃料与建设备用；已有库存计入目标，入包落稳后结束",
         StoneSupply => "连续取得八块圆石，材料够八块即完成",
         StoneSample => "走近已见石料并只取一块圆石，若拾取落进凹坑先带回出发地面，落稳后结束，便于先制石斧",
         Quarry => "从选定的已见土面浅挖阶梯找石，最多六格，每次下探先核对回跳净空，保留退路并带一块样本回地面；不保证地下有石头",
@@ -196,7 +198,7 @@ internal sealed partial class PlaySurvivalProduction
             tasks.Add(Fire);
             tasks.Add(Warm);
             tasks.Add(Rake);
-            if (CollectMaterial(player, panorama, Wood, permitted, null) is not null) tasks.Add(WoodSupply);
+            if (Stock(player, Wood) < 3 && CollectMaterial(player, panorama, Wood, permitted, null) is not null) tasks.Add(WoodSupply);
         }
         if (stone) { tasks.Add(StoneSupply); tasks.Add(Furnace); }
         if (wood || stone) tasks.Add(Axe);
@@ -221,22 +223,24 @@ internal sealed partial class PlaySurvivalProduction
     public static string[] AvailableTasks(ComponentPlayer player, ActorPanorama? panorama, Dictionary<int, Point3> stations,
         bool routineWork, bool allowProjects, Func<Vector3, bool>? permitted)
     {
-        bool woodNearby = FindMaterial(panorama, player.ComponentBody.Position, Wood) is not null;
+        bool woodNearby = FindMaterial(panorama, player.ComponentBody.Position, Wood, eye: player.ComponentCreatureModel.EyePosition) is not null;
         var available = new List<string>();
         foreach (string visit in new[] { VisitTable, VisitFurnace, VisitFire })
             if (stations.TryGetValue(WorksiteBlock(visit), out var known)
                 && (Center(known) - player.ComponentBody.Position).XZ.Length() <= KnownReturnReach
                 && (visit != VisitFire || !CampfireSeenOut(panorama, stations))) available.Add(visit);
-        if (CanAdvanceProject(player, WoodSupply, panorama, stations, permitted)) available.Add(WoodSupply);
+        if (Stock(player, Wood) < 3 && CanAdvanceProject(player, WoodSupply, panorama, stations, permitted)) available.Add(WoodSupply);
+        if (Stock(player, Wood) < 8 && CanAdvanceProject(player, WoodReserve, panorama, stations, permitted)) available.Add(WoodReserve);
         if (Stock(player, Stone) == 0 && CanAdvanceProject(player, StoneSample, panorama, stations, permitted)) available.Add(StoneSample);
         if (Stock(player, Stone) < 8 && CanAdvanceProject(player, StoneSupply, panorama, stations, permitted)) available.Add(StoneSupply);
         if (routineWork)
         {
             if (woodNearby && Stock(player, Wood) < 3) available.Add(Wood);
-            if (FindMaterial(panorama, player.ComponentBody.Position, Stone) is not null && Stock(player, Stone) < 8) available.Add(Stone);
+            if (FindMaterial(panorama, player.ComponentBody.Position, Stone, eye: player.ComponentCreatureModel.EyePosition) is not null && Stock(player, Stone) < 8) available.Add(Stone);
             bool hasBoards = HasIngredient(player, "wood", 1) || HasIngredient(player, "planks", 4);
             if (hasBoards && Stock(player, Workbench) == 0) available.Add(Workbench);
-            bool hasTable = Stock(player, Workbench) > 0 || SeenStation(panorama, stations, CraftingTableBlock.Index) is not null;
+            bool hasTable = Stock(player, Workbench) > 0 || SeenStation(panorama, stations, CraftingTableBlock.Index) is { } readyTable
+                && MathF.Abs(readyTable.Cell.Y - player.ComponentBody.Position.Y) < .1f;
             int boards = IngredientCount(player, "planks") + 4 * IngredientCount(player, "wood");
             int boardsNeeded = HasIngredient(player, "stick", 2) ? 3 : 5;
             if (Stock(player, Spear) == 0 && hasTable && boards >= boardsNeeded) available.Add(Spear);
@@ -266,11 +270,14 @@ internal sealed partial class PlaySurvivalProduction
         : Terrain.ExtractContents(value) == GraniteBlock.Index;
 
     private static PanoramicBlock? FindMaterial(ActorPanorama? panorama, Vector3 position, string task,
-        IReadOnlySet<Point3>? missed = null, CampSite? protectedCamp = null) =>
+        IReadOnlySet<Point3>? missed = null, CampSite? protectedCamp = null, Vector3? eye = null) =>
         panorama?.Blocks.Where(block => IsMaterial(block.Value, task) && block.Distance <= 2.9f
+                // 原生上限为八十二度，给头部动画留四度余量；太靠正上方的木料先移到邻格再取。
+                && (eye is not { } from || MathF.Abs(MathF.Atan2(block.Point.Y - from.Y, (block.Point - from).XZ.Length())) <= MathUtils.DegToRad(78f))
                 && protectedCamp?.Protects(block.Cell) != true
                 && missed?.Contains(block.Cell) != true
-                && block.Cell.Y >= Terrain.ToCell(position.Y) - (task is Earth or Stone ? 1 : 0) && block.Cell.Y <= Terrain.ToCell(position.Y) + 1
+                && block.Cell.Y >= Terrain.ToCell(position.Y) - (task is Earth or Stone ? 1 : 0)
+                && block.Cell.Y <= Terrain.ToCell(position.Y) + (task == Wood ? 3 : 1)
                 && (task is not (Earth or Stone) || block.Cell.X + 1 <= position.X - 0.4f || block.Cell.X >= position.X + 0.4f
                     || block.Cell.Z + 1 <= position.Z - 0.4f || block.Cell.Z >= position.Z + 0.4f)
                 && (new Vector2(block.Cell.X + 0.5f, block.Cell.Z + 0.5f) - position.XZ).LengthSquared() <= 1.7f * 1.7f)
@@ -278,7 +285,7 @@ internal sealed partial class PlaySurvivalProduction
 
     public static int Stock(ComponentPlayer player, string task) => Count(player.ComponentMiner.Inventory, value => task switch
     {
-        Wood or WoodSupply => IsMaterial(value, Wood),
+        Wood or WoodSupply or WoodReserve => IsMaterial(value, Wood),
         Stone or StoneSample or StoneSupply or Quarry => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
         Workbench => Terrain.ExtractContents(value) == CraftingTableBlock.Index,
         Fire => Terrain.ExtractContents(value) == CampfireBlock.Index,
@@ -331,7 +338,8 @@ internal sealed partial class PlaySurvivalProduction
             return;
         }
         var support = player.ComponentBody;
-        bool noGround = !campJumping && huntApproach is null && materialPickupRoute is null && campRoute is null
+        bool noGround = !campJumping && huntApproach is null && surfaceHuntApproach is null && !(Task == Hunt && meatPicked > 0)
+            && materialPickupRoute is null && campRoute is null
             && !PlaySurvivalSenses.OnDryGround(support);
         if (noGround && support.ImmersionDepth < 0.04f && support.ParentBody is null && support.StandingOnBody is null
             && MathF.Abs(support.Position.Y - MathF.Round(support.Position.Y)) < 0.08f && MathF.Abs(support.Velocity.Y) < 0.6f)
@@ -399,7 +407,8 @@ internal sealed partial class PlaySurvivalProduction
                 if (Task is VisitTable or VisitFurnace or VisitFire) { phase = Phase.Worksite; break; }
                 if (Task is Furnace or Cook or Warm or Spear or Rake or Axe) { StartStation(); break; }
                 if (Task == Hunt) { StartHunt(gameTime); break; }
-                material = FindMaterial(owner.Queries.ReadPanorama(3.2f), player.ComponentBody.Position, Task, missedMaterials, camp);
+                material = FindMaterial(owner.Queries.ReadPanorama(3.2f), player.ComponentBody.Position, Task, missedMaterials, camp,
+                    player.ComponentCreatureModel.EyePosition);
                 if (material is null) { Finish(false, "no_reachable_material"); break; }
                 action = owner.Start(new FaceTowards(material.Point, 3f));
                 phase = Phase.Dig;

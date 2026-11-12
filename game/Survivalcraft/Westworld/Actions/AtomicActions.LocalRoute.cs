@@ -18,7 +18,7 @@ namespace Game.Westworld {
                 return Reject(action, AtomicActionFailure.PreconditionsNotMet);
             // Complete Player has no Pilot/Pathfinding. Reuse the native locomotion
             // orders of StartDirectMove, under this same AtomicActions run/owner.
-            double started = m_time.GameTime, deadline = started + action.Timeout, lastProgress = started;
+            double started = m_time.GameTime, deadline = started + action.Timeout, lastProgress = started, lastGrounded = started;
             int index = 0; Vector3 segmentOrigin = origin, target = points[0];
             bool continuationChecked = false;
             float closest=(target-origin).XZ.Length();
@@ -28,15 +28,27 @@ namespace Game.Westworld {
             Vector2 previousLook = Vector2.Zero;
             double orderTime=double.NegativeInfinity;
             return StartRunning(action, () => {
-                if (!Grounded() || HasMovementDestination)
-                    return Failed(AtomicActionFailure.MovementInterrupted);
                 double now = m_time.GameTime;
                 if (now >= deadline || now - started >= 25) return Failed(AtomicActionFailure.TimedOut);
+                if (!Grounded() || HasMovementDestination) {
+                    // 高频物理帧可能只清空支撑标记，高度和速度尚未改变。短暂等待接触重建，此帧不写移动命令。
+                    bool contactGap = !m_body.StandingOnValue.HasValue && CanUseLocomotion && !HasMovementDestination
+                        && m_body.StandingOnBody == null && m_body.ImmersionDepth < .02f
+                        && !m_locomotion.LadderValue.HasValue && !m_locomotion.IsCreativeFlyEnabled
+                        && !ComponentLocomotion.IsCreativeFlyEnabledSet && MathF.Abs(m_body.Position.Y - origin.Y) < .02f
+                        && MathF.Abs(m_body.Velocity.Y) < .1f;
+                    if (contactGap && now - lastGrounded <= .12) return null;
+                    routeAction.Rejected?.Invoke(FormattableString.Invariant($"support: standing={m_body.StandingOnValue}, immersion={m_body.ImmersionFactor}, dy={m_body.Position.Y-origin.Y}, velocityY={m_body.Velocity.Y}"));
+                    return Failed(AtomicActionFailure.MovementInterrupted);
+                }
+                lastGrounded = now;
                 Vector2 route = (target-segmentOrigin).XZ, offset=(m_body.Position-segmentOrigin).XZ;
                 float length=route.Length(), along=Vector2.Dot(offset,route)/length;
                 float cross=MathF.Abs(offset.X*route.Y-offset.Y*route.X)/length;
-                if(cross > .25f || along < -.2f || along > length+.3f)
+                if(cross > .25f || along < -.2f || along > length+.3f) {
+                    routeAction.Rejected?.Invoke(FormattableString.Invariant($"corridor: along={along}, cross={cross}, length={length}, from={segmentOrigin}, to={target}, at={m_body.Position}"));
                     return Failed(AtomicActionFailure.MovementInterrupted);
+                }
                 float distance=(m_body.Position-target).XZ.Length();
                 // 到达末段前从实际脚下取得下一段。接续成功时当帧继续写原生行走指令。
                 if (index == points.Length - 1 && distance <= .65f && !continuationChecked && action.Continue is { } getNext) {

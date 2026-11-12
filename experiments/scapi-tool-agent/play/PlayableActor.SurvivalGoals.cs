@@ -25,6 +25,20 @@ internal sealed partial class PlayableActor
     private double nextHuntRead;
     private PlaySurvivalFood.Food[] explorationFood = [];
 
+    public string WatchActivity => Died ? "角色已死亡"
+        : player.ComponentSleep.IsSleeping ? "睡眠恢复"
+        : travel is { Evading: true } ? "避开当前危险"
+        : production is { Task: PlaySurvivalProduction.WoodReserve } ? $"备料：原木 {PlaySurvivalProduction.Stock(player, PlaySurvivalProduction.Wood)}/8"
+        : production is { } supply ? supply.ActivityDescription
+        : exploration is { } search ? $"{(search.HuntBirds ? "定向巡猎" : "探索新资源")}：第 {search.Sections}/3 段"
+        : survivalGoal?.Choice.Activity switch
+        {
+            GoalKind.Collect => "采集已选食物", GoalKind.Build => "搭建临时庇护",
+            GoalKind.Eat => "进食补充体力", GoalKind.Rest => "准备安全休息",
+            GoalKind.Leave => "检查出口并离开掩体", GoalKind.Shore => "寻找已见上岸点",
+            GoalKind.Wait => "短暂等待并复查变化", _ => "评估环境与下一步"
+        };
+
     private bool InOwnCamp() => campSite?.Built == true && campSite.Contains(player.ComponentBody);
     private bool InOwnShelter() => earthSite?.Contains(player.ComponentBody) == true || InOwnCamp();
 
@@ -181,9 +195,16 @@ internal sealed partial class PlayableActor
     {
         var at = player.ComponentBody.Position;
         refusedCourses.RemoveAll(blocked => now >= blocked.Until);
+        var panorama = owner.Queries.ReadPanorama(26);
         return PlaySurvivalExploration.Courses(ReadDryWindow(), end => PermitSurvivalLeg(end, now), survivalMemory.VisitsTo,
             heading => refusedCourses.Any(blocked => (blocked.Origin - at).XZ.LengthSquared() < 16f
-                && Vector2.Dot(blocked.Heading, heading) > 0.72f), forward);
+                && Vector2.Dot(blocked.Heading, heading) > 0.72f), forward)
+            .Select(course => (Course: course, Frontier: PlayObservedPath.FindFrontier(panorama, at, course.Heading,
+                PlaySurvivalExploration.SectionDistance, end => PermitSurvivalLeg(end, now), survivalMemory.VisitsTo)))
+            .Where(entry => entry.Frontier is not null).Select(entry => entry.Course with
+            {
+                Opening = entry.Frontier!.Destination, OpeningLength = entry.Frontier.ForwardGain, Path = entry.Frontier.Path
+            }).OrderByDescending(course => course.OpeningLength - Math.Min(6, course.Visits) * .9f).ToArray();
     }
 
     private bool NeedsDuskFood(SubsystemTimeOfDay calendar)
@@ -296,7 +317,9 @@ internal sealed partial class PlayableActor
                 return;
             case GoalKind.Explore when dry && !inShelter && choice.Course is { } course && PermitSurvivalLeg(course.Opening, now)
                 && (!night || !PlaySurvivalRest.HasSecureCover(player)):
-                exploration = new(body.Position, course, now);
+                exploration = new(body.Position, course, now,
+                    ObserveSurvival().Foods.Concat(surroundings?.FoodTargets ?? []),
+                    PlaySurvivalProduction.Stock(player, PlaySurvivalProduction.Hunt));
                 StartExplorationSection(now);
                 return;
             case GoalKind.Supply when dry && earthSite?.Contains(body) != true && now >= nextProduction
@@ -373,13 +396,15 @@ internal sealed partial class PlayableActor
 
     private (JsonElement Observation, PlaySurvivalFood.Food[] Foods) ObserveExplorationFood()
     {
+        // 巡猎的完成条件是取得肉，不让路边旧蛋或普通资源抢走模型已经选定的目标。
+        if (exploration is { HuntBirds: true }) return (default, []);
         if (IsOnWater(player.ComponentBody)) return ObserveSurvival();
         double now = player.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         if (now >= nextExplorationFoodRead)
         {
             nextExplorationFoodRead = now + 1.2;
             explorationFood = ObserveSurvival().Foods.Where(food => PlaySurvivalFood.CanSeek(player, food)
-                && PermitSurvivalLeg(food.Point, now)).ToArray();
+                && exploration?.IsNewFood(food) == true && PermitSurvivalLeg(food.Point, now)).ToArray();
         }
         return (default, explorationFood);
     }
@@ -390,10 +415,10 @@ internal sealed partial class PlayableActor
         search.RecordSection(route.Legs);
         var body = player.ComponentBody;
         var movement = (body.Position - route.Origin).XZ;
-        if (movement.LengthSquared() < 9f && route.Reason != "food_within_reach")
+        if ((movement.LengthSquared() < 9f || route.Status != "succeeded") && route.Reason != "food_within_reach")
         {
             if (refusedCourses.Count >= 6) refusedCourses.RemoveAt(0);
-            refusedCourses.Add((route.Origin, search.Heading, now + 75));
+            refusedCourses.Add((body.Position, search.Heading, now + 75));
         }
         log(new { kind = "play_survival_exploration_section", actor = Name, section = search.Sections,
             meters = movement.Length(), route.Status, route.Reason, gameTime = now });
@@ -401,17 +426,17 @@ internal sealed partial class PlayableActor
         bool night = PlaySurvivalRest.NightCoverDue(calendar);
         if (!night && PlaySurvivalSenses.OnDryGround(body) && ThreatInRange(body, false) is null)
         {
-            if (route.Reason == "food_within_reach" || search.CanContinue(now) && movement.LengthSquared() >= 9f)
+            if (route.Reason == "food_within_reach" || route.Status == "succeeded" && search.CanContinue(now) && movement.LengthSquared() >= 9f)
             {
                 RefreshSurroundings(now);
                 var food = FoodChoices(ObserveSurvival().Foods, now);
-                if (food.Length > 0)
+                if (!search.HuntBirds && food.Any(choice => choice.Food is { } found && search.IsNewFood(found)))
                 {
                     // 搜索发现新食物后交回模型判断，不把“探索”擅自改为采集。
                     EndExploration(search, "succeeded", "observed_food_found", now);
                     return;
                 }
-                if (search.CanContinue(now) && movement.LengthSquared() >= 9f
+                if (route.Status == "succeeded" && search.CanContinue(now) && movement.LengthSquared() >= 9f
                     && ReadCourses(now, search.Heading).Length > 0)
                 {
                     search.Extend();
@@ -420,7 +445,8 @@ internal sealed partial class PlayableActor
                 }
             }
         }
-        EndExploration(search, route.Status!, route.Reason, now);
+        EndExploration(search, search.HuntBirds ? "failed" : route.Status!,
+            search.HuntBirds && route.Status == "succeeded" ? "hunt_route_no_food" : route.Reason, now);
     }
 
     private void EndExploration(PlaySurvivalExploration search, string status, string? reason, double now)

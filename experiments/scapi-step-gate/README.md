@@ -155,3 +155,28 @@ Windows 构建时传 `-p:WestworldWindows=true`。`continuous` 验证侧面有�
 - `quarry-hidden-sample` 先核对采样选项，再用非石料墙遮住石层。执行时只按最新观察，须在没有当前材料前置的情况下停止，零圆石且没有移动，不能用旧选项穿墙取石。
 
 这组夹具的工作台和原木是初态材料，圆石与石斧必须来自正式原生动作；不代表自然 AI 已完成稳定供食。
+
+### 目标持续、路线续接和木材储备
+
+- `survival-goal-explore-known-food` 从已见旧蛋旁出发，一次固定回复须完成三段、约六十格探索，不自动取蛋。`survival-goal-hunt-known-food` 同样保持巡猎，未获得肉须报告 `hunt_route_no_food`，不把走到旧蛋附近算作获食。
+- `survival-goal-explore-new-food` 在探索开始后才加入新蛋，须报告真实新发现，仍由模型决定是否采集。
+- `navigate-renew-boundary` 记录路线续接间隔，检查没有每帧重建短段且保持真实移动。它是通用转弯回归；自然场的所有末端卡点仍须按实际日志判断。
+- `survival-goal-wood-reserve` 不给工具或木材，从两棵四格高的树取得八块原木，一次正常角色决策完成，核对第一棵树的四块实际移除。`survival-goal-wood-stocked` 已持八块时不再提供补库目标，选择等待后库存与位置保持不变。
+
+正式提示先校验协议长度，过长即明确失败，避免整场等待但没有发出请求。上述场景为固定本地回复、隐藏静音的原生回归；云模型的环境取舍和长期供食另按可见自然场观察。
+
+### 水边寻路与猎获交接
+
+新增 `shore-low-bank`、`shore-high-bank`、`shore-blocked-bank`、`shore-hunt`、`shore-hunt-drift`、`shore-hunt-hidden`、`shore-no-exit`、`shore-hunt-threat`，说明与参考源码见[水边导航与猎获回收](../../docs/development/水边导航与猎获回收.md)。高岸场检查改走可证明的低岸，不证明能跳上未知高墙。狩猎正例须原生杀死鸭子、同一份肉实际入包并稳定上岸；漂移正例还须真的涉水且发生连续水路接续。无出口、遮挡和危险分别核对失败边界，不能把这些预期失败当成正例采肉成功。
+
+`explore-water-bay` 验证整片水湾的干地绕行，`navigate-coast-loop` 和 `navigate-terrace-loop` 回放可见场自然坐标，`navigate-momentum-loop` 验证横向惯性下仍走向可达终点。`contact-flicker` 单帧清除原生接触标记，地面和身体位置不变，须保持同一个平地动作完成；`contact-persistent` 持续清除标记，须及时停止且零位移。这是明确标记的接触故障注入，不算自然生存成绩。
+
+### 分层工作站和连续上阶
+
+- `worksite-pit-up` 在四格深坑内起步，楼梯先朝远离工作台的方向上行；须返至同层并原生制出木矛。
+- `worksite-table-down` 从地下工作台上方的完整地板起步，须找到旁侧入口，下到同层并通过原生存储交互后制矛。
+- `worksite-pit-blocked` 封住入口，须零绕行并报告没有已观察路线。
+- `contact-step-flicker` 清除恰好一帧接触标记，下一帧恢复原值；须真正上阶。`contact-step-persistent` 持续缺失，须在恢复窗口后停止且零位移。
+- `contact-step-corner` 使用明确的夹具初始侧向速度与垂直朝向，核对先制动转向、再原生跳上一级。
+
+夹具预置地形、制作材料和接触故障，不改变正式世界的支撑、速度或位置。完整加工链和长距离返炉另外复测，不能仅凭一次上阶通过就宣称连续返程可靠。字段与边界详见[三维导航与分层感知](../../docs/development/三维导航与分层感知.md)。

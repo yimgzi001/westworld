@@ -22,6 +22,10 @@ internal static class PlaySurvivalSenses
     public static ComponentBody? BoatDeck(ComponentBody body) => body.StandingOnBody is { } support
         && support.Entity.FindComponent<ComponentBoat>() is not null ? support : null;
 
+    // 水面路线只选择完整方块的上表面；接触岸沿不等于已经完成上岸。
+    public static bool OnStableDryGround(ComponentBody body) => OnDryGround(body)
+        && MathF.Abs(body.Velocity.Y) < .4f && MathF.Abs(body.Position.Y - MathF.Round(body.Position.Y)) < .04f;
+
     public static Threat[] Threats(ComponentPlayer player, AtomicActions.ActorQueries queries, float radius = 24f)
     {
         var visible = queries.FindVisibleObjectsAround(radius).Entities;

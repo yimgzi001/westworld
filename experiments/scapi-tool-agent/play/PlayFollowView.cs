@@ -10,12 +10,14 @@ internal sealed class PlayFollowView : GameWidget
     private readonly GamesWidget surface;
     private readonly LabelWidget status;
     private readonly Action<object> log;
+    private readonly Func<string>? activity;
     private double nextRefresh;
 
-    public PlayFollowView(ComponentPlayer player, Action<object> log) : base(player.PlayerData, 0)
+    public PlayFollowView(ComponentPlayer player, Action<object> log, Func<string>? activity = null) : base(player.PlayerData, 0)
     {
         this.player = player;
         this.log = log;
+        this.activity = activity;
         surface = player.PlayerData.SubsystemGameWidgets.GamesWidget;
         Target = player;
         IsHitTestVisible = false;
@@ -51,7 +53,7 @@ internal sealed class PlayFollowView : GameWidget
         var vitals = player.ComponentVitalStats;
         var health = player.ComponentHealth;
         status.Text = ViewWidget.IsVisible
-            ? $"{player.PlayerData.Name}  生存跟拍   F8 隐藏\n生命 {health.Health:P0}   饱食 {vitals.Food:P0}   精力 {vitals.Sleep:P0}   体温 {vitals.Temperature:F1}"
+            ? $"{player.PlayerData.Name}  生存跟拍   F8 隐藏\n生命 {health.Health:P0}   饱食 {vitals.Food:P0}   精力 {vitals.Sleep:P0}   体温 {vitals.Temperature:F1}\n当前：{activity?.Invoke() ?? "观察环境"}"
             : "跟拍画面已隐藏   F8 显示";
     }
 

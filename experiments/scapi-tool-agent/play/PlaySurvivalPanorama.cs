@@ -20,6 +20,12 @@ internal static class PlaySurvivalPanorama
             radius = Panorama.Radius,
             secondsAgo = Math.Round(gameTime - CompletedAt, 1),
             Panorama.UnloadedColumns,
+            standingLevels = Panorama.Blocks.Where(block => block.BareTop && PlaySurvivalSenses.IsDryTerrain(block.Value)
+                    && (block.Point - at).XZ.LengthSquared() <= 64f)
+                .GroupBy(block => block.Cell.Y + 1).OrderBy(group => Math.Abs(group.Key - at.Y)).Take(6)
+                .Select(group => new { feetHeight = group.Key, heightDifference = Math.Round(group.Key - at.Y, 1),
+                    nearestHorizontalDistance = Math.Round(group.Min(block => (block.Point - at).XZ.Length()), 1),
+                    visibleSurfaces = group.Count(), routeConfirmed = false }).ToArray(),
             sectors = Sectors.Select(sector => new
             {
                 bearing = Bearing(facing, sector.Direction),

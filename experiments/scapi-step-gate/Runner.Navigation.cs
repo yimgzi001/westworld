@@ -12,6 +12,8 @@ sealed partial class Runner
     private float slowestContinuation = float.PositiveInfinity;
     private float biggestContinuousTurn;
     private bool insetAtStart, passedThroughPlant;
+    private int microRenewals;
+    private double lastRenewalAt = double.NegativeInfinity;
     private ComponentBody? pursuingBear;
     private Vector3 bearOrigin;
     private bool recoveredGround;
@@ -132,7 +134,8 @@ sealed partial class Runner
         var body = p.ComponentBody;
         double now = p.Project.FindSubsystem<SubsystemTime>(true).GameTime;
         bool cliff = mode == "navigate-drop";
-        bool turn = mode == "navigate-turn";
+        bool renewal = mode == "navigate-renew-boundary";
+        bool turn = mode == "navigate-turn" || renewal;
         bool edge = mode == "navigate-edge";
         bool inset = mode == "navigate-inset";
         bool vegetation = mode == "navigate-vegetation";
@@ -221,10 +224,11 @@ sealed partial class Runner
             && (cliff || turn || edge || body.Position.Y >= navigationOrigin.Y + 0.95f) && (!vegetation || passedThroughPlant);
         if (cold) Passed = travel.Status == "succeeded" && error <= 0.45f && stationaryLooks == 0
             && PlaySurvivalSenses.OnDryGround(body) && p.ComponentHealth.Health >= 0.99f;
+        if (renewal) Passed &= microRenewals == 0 && continuations <= 18;
         Done = true;
         Gate.Log(new { kind = "rolling_navigation_result", Passed, cliff, turn, edge, insetAtStart, travel.Status, travel.Reason, travel.Legs,
             continuations, slowestContinuation = float.IsFinite(slowestContinuation) ? (float?)slowestContinuation : null,
-            biggestContinuousTurn, stationaryLooks, jumped, moved, error, vegetation, passedThroughPlant, cold,
+            biggestContinuousTurn, stationaryLooks, jumped, moved, error, vegetation, passedThroughPlant, cold, microRenewals,
             frozen = coldFixtureGround?.Length, end = body.Position.ToString() });
     }
 
@@ -433,6 +437,9 @@ sealed partial class Runner
         switch (entry.GetProperty("kind").GetString())
         {
             case "play_scout_continue":
+                double at = entry.GetProperty("gameTime").GetDouble();
+                if (at - lastRenewalAt < 0.08) microRenewals++;
+                lastRenewalAt = at;
                 continuations++;
                 slowestContinuation = MathF.Min(slowestContinuation, entry.GetProperty("speed").GetSingle());
                 biggestContinuousTurn = MathF.Max(biggestContinuousTurn, MathF.Abs(entry.GetProperty("turn").GetSingle()));

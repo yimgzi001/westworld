@@ -32,13 +32,17 @@ internal sealed class PlaySurvivalTravel
     private readonly Vector3 surveyTarget;
     private readonly Func<Vector2>? escapeFrom;
     private readonly Func<Vector3, double, bool>? permitLandLeg;
-    private readonly Vector3[] waypoints;
+    private Vector3[] waypoints;
     private readonly Func<Vector3?>? readMovingTarget;
     private readonly float movingTargetReach;
     private readonly Func<bool>? arrived;
     private readonly float goalRange;
     private readonly bool finishStepAtDeadline;
+    private readonly bool settleAtArrival;
+    private readonly bool noExplorationFrontier;
+    private readonly bool hasExplorationFrontier;
     private bool deadlineStepLogged;
+    private Vector3? arrivalBrakePosition;
     private Vector3? movingTarget;
     private double nextMovingTargetRead, lastMovingTargetSeen;
     private bool movingTargetVisible;
@@ -46,12 +50,13 @@ internal sealed class PlaySurvivalTravel
     private Vector2 direction;
     private Vector3 legOrigin;
     private AtomicActionRun? leg;
+    private PlaySurfaceTravel? surfaceTravel;
     private PlayDryRoutes.Leg? dryProof;
     private Vector3? escapeOutlet;
     private long proofStarted;
     private int scans, legs;
     private readonly HashSet<(int X, int Y, int Z)> visitedGoalCells = new();
-    private readonly HashSet<Vector3> refusedDryEndpoints = new();
+    private readonly HashSet<(int X, int Y, int Z)> refusedDryEndpoints = new();
     private int goalDetours;
     private int nextWaypoint;
     private float traveled;
@@ -69,7 +74,7 @@ internal sealed class PlaySurvivalTravel
         Func<Vector2>? escapeFrom = null, Func<Vector3, double, bool>? permitLandLeg = null,
         float escapeClearance = 0f, bool allowEscapeTurn = false, PlayObservedPath.Plan? observedPath = null,
         Func<Vector3?>? readMovingTarget = null, float movingTargetReach = 0f, Func<bool>? arrived = null,
-        float goalRange = 0.45f, bool finishStepAtDeadline = false)
+        float goalRange = 0.45f, bool finishStepAtDeadline = false, bool settleAtArrival = false)
     {
         this.player = player;
         this.owner = owner;
@@ -101,6 +106,7 @@ internal sealed class PlaySurvivalTravel
         this.arrived = arrived;
         this.goalRange = goalRange;
         this.finishStepAtDeadline = finishStepAtDeadline;
+        this.settleAtArrival = settleAtArrival;
         Evading = evading;
         Origin = player.ComponentBody.Position;
         initialHealth = player.ComponentHealth.Health;
@@ -108,6 +114,24 @@ internal sealed class PlaySurvivalTravel
         direction = Rotate((BoatBody ?? player.ComponentBody).Matrix.Forward.XZ, bearing);
         var offset = distance * new Vector3(direction.X, 0, direction.Y);
         surveyTarget = Origin + offset;
+        if (seek == "search" && !evading && foodTarget is null && readMovingTarget is null)
+        {
+            var frontier = observedPath is { Waypoints.Length: > 0 } known
+                ? new PlayObservedPath.Frontier(known.Waypoints[^1], known, Vector2.Dot((known.Waypoints[^1] - Origin).XZ, direction))
+                : PlayObservedPath.FindFrontier(owner.Queries.ReadPanorama(26), Origin, direction, distance,
+                    end => permitLandLeg?.Invoke(end, gameTime) != false, visits);
+            if (frontier is null) noExplorationFrontier = true;
+            else
+            {
+                hasExplorationFrontier = true;
+                surveyTarget = frontier.Destination;
+                offset = surveyTarget - Origin;
+                waypoints = frontier.Path.Waypoints;
+                observedPath = frontier.Path;
+                log(new { kind = "play_scout_frontier", actor = player.PlayerData.Name, gameTime,
+                    target = surveyTarget.ToString(), frontier.ForwardGain, cells = frontier.Path.Cells });
+            }
+        }
         // 连续走廊可能沿两条轴绕行。以实际轴向距离留出余量，避免斜向目标还没到就用完步程。
         var destinationOffset = foodTarget is not null ? foodTarget.Point - Origin : shelterTarget is { } target ? target - Origin : offset;
         bool hasLandTarget = seek is "survey" or "camp" or "work" or "search" || foodTarget is not null || shelterTarget is not null;
@@ -134,8 +158,33 @@ internal sealed class PlaySurvivalTravel
     public void Update(double gameTime)
     {
         if (status is not null) return;
+        if (noExplorationFrontier) { Finish("failed", "no_reachable_dry_frontier"); return; }
+        if (surfaceTravel is { } surface)
+        {
+            surface.Update(gameTime);
+            if (surface.Status is { } result) Finish(result, surface.Reason ?? "surface_route_finished");
+            return;
+        }
+        if (arrivalBrakePosition is { } brakePosition)
+        {
+            // 已到中继台阶后保持刹车，不能因惯性移出到达半径又发起下一跳。
+            if (MathF.Abs(player.ComponentBody.Position.Y - brakePosition.Y) > .2f
+                || (player.ComponentBody.Position - brakePosition).XZ.Length() > .4f)
+            { Finish("failed", "arrival_braking_left_landing"); return; }
+            if (SettledOnLand() && player.ComponentBody.Velocity.XZ.Length() <= .35f)
+                Finish("succeeded", "native_goal_reconfirmed");
+            return;
+        }
         if (SettledOnLand() && arrived?.Invoke() == true)
         {
+            if (settleAtArrival && player.ComponentBody.Velocity.XZ.Length() > .35f)
+            {
+                // 楼层中继点先停稳，避免沿上一段的惯性越过下一跳所需的对齐位置。
+                if (leg?.Result.Status == AtomicActionStatus.Running) owner.Cancel(leg);
+                leg = null; dryProof = null;
+                arrivalBrakePosition = player.ComponentBody.Position;
+                return;
+            }
             Finish("succeeded", "native_goal_reconfirmed");
             return;
         }
@@ -188,10 +237,11 @@ internal sealed class PlaySurvivalTravel
         }
 
         var previous = leg;
-        if ((previous?.Result.Failure == AtomicActionFailure.InvalidArgument || stepLeftEnvelope) && dryProof is { } refused
-            && (body.Position - legOrigin).XZ.LengthSquared() < 0.04f)
+        if ((previous?.Result.Failure is AtomicActionFailure.InvalidArgument or AtomicActionFailure.MovementInterrupted
+                or AtomicActionFailure.Blocked || stepLeftEnvelope) && dryProof is { } refused
+            && (body.Position - legOrigin).XZ.LengthSquared() < 0.32f * 0.32f)
         {
-            refusedDryEndpoints.Add(refused.End);
+            refusedDryEndpoints.Add(CellXYZ(refused.End));
             log(new { kind = "play_scout_route_rejected", actor = player.PlayerData.Name, seek,
                 target = refused.End.ToString(), gameTime });
         }
@@ -202,7 +252,8 @@ internal sealed class PlaySurvivalTravel
         if (previous is not null)
             log(new { kind = "play_scout_leg", actor = player.PlayerData.Name, seek, gameTime,
                 action = previous.Action.GetType().Name, nativeStatus = previous.Result.Status.ToString(),
-                failure = previous.Result.Failure.ToString(), displacement = (body.Position - legOrigin).XZ.Length() });
+                failure = previous.Result.Failure.ToString(), displacement = (body.Position - legOrigin).XZ.Length(),
+                position = body.Position.ToString(), velocityY = body.Velocity.Y, body.ImmersionDepth });
         if (previous?.Action is MoveTo or MoveAlongObservedRoute or StepTo or Steer { Throttle: not 0f })
         {
             float progress = (body.Position - legOrigin).XZ.Length();
@@ -239,6 +290,13 @@ internal sealed class PlaySurvivalTravel
         if (seek == "dry_land" && dry)
         {
             Finish("succeeded", "dry_ground_reached");
+            return;
+        }
+        if (seek == "dry_land" && BoatBody is null && PlaySurvivalSenses.BoatDeck(body) is null
+            && body.ImmersionDepth >= .04f)
+        {
+            surfaceTravel = new(player, owner, gameTime, readDryWindow, log, permitLandLeg);
+            surfaceTravel.Update(gameTime);
             return;
         }
         if (dry)
@@ -397,6 +455,8 @@ internal sealed class PlaySurvivalTravel
 
     public void Stop()
     {
+        surfaceTravel?.Stop();
+        surfaceTravel = null;
         if (tracksFood)
         {
             NativeAcquisitionAudit.Recorded -= TrackFoodPickup;
@@ -471,7 +531,24 @@ internal sealed class PlaySurvivalTravel
 
     private void AdvanceOnLand(bool blocked, float remaining, bool towardLowerDrop, double gameTime)
     {
+        // 原生支撑值在落地、贴岸或台阶接触时可能短暂保留。先落稳，再发平地动作，避免每帧失败重发。
+        if (MathF.Abs(player.ComponentBody.Velocity.Y) > .6f) return;
         dryLeg = true;
+        if (blocked && KeepsTarget && goalDetours < 3)
+        {
+            var target = foodTarget?.Point ?? movingTarget ?? shelterTarget ?? surveyTarget;
+            var path = PlayObservedPath.Find(owner.Queries.ReadPanorama(26), player.ComponentBody.Position, target,
+                (_, end) => CanUseLandLeg(end, gameTime), goalReach: foodTarget is null ? .5f : .9f,
+                maximumAboveTarget: foodTarget is null ? 1.25f : .2f);
+            if (path is { Waypoints.Length: > 0 })
+            {
+                waypoints = path.Waypoints; nextWaypoint = 0; goalDetours++;
+                ReadLandGoal(player.ComponentBody);
+                blocked = false;
+                log(new { kind = "play_scout_blocked_repath", actor = player.PlayerData.Name, seek, gameTime,
+                    path.Cells, waypoints = path.Waypoints.Length, refused = refusedDryEndpoints.Count });
+            }
+        }
         if (blocked) direction = Rotate(direction, 50);
         var window = readDryWindow();
         if (KeepsTarget) visitedGoalCells.Add(CellXYZ(player.ComponentBody.Position));
@@ -538,7 +615,7 @@ internal sealed class PlaySurvivalTravel
             if (!detouring && !targetedDetour && !approachingEscapeTurn && action is MoveAlongObservedRoute flat)
             {
                 flat = LimitFinalFlat(flat);
-                action = flat with { Continue = ContinueFlat };
+                action = flat with { Continue = ContinueFlat, Rejected = TraceFlatRejection };
             }
             Start(action, gameTime, route);
             return;
@@ -568,7 +645,7 @@ internal sealed class PlaySurvivalTravel
             escapeOutlet = null;
         }
         return PlayDryRoutes.Escape(window, threat, remaining, canAlign, end => Evading
-            ? !refusedDryEndpoints.Contains(end) : CanUseLandLeg(end, gameTime));
+            ? !refusedDryEndpoints.Contains(CellXYZ(end)) : CanUseLandLeg(end, gameTime));
     }
 
     private bool DepartingShelter => !Evading && escapeFrom is not null;
@@ -580,7 +657,7 @@ internal sealed class PlaySurvivalTravel
     private static (int X, int Y, int Z) CellXYZ(Vector3 point) =>
         (Terrain.ToCell(point.X), Terrain.ToCell(point.Y + 0.05f), Terrain.ToCell(point.Z));
 
-    private bool CanUseLandLeg(Vector3 end, double gameTime) => !refusedDryEndpoints.Contains(end)
+    private bool CanUseLandLeg(Vector3 end, double gameTime) => !refusedDryEndpoints.Contains(CellXYZ(end))
         // 不同高度的同一列是不同落脚点，不能因走过下层就禁止跳回上层。
         && (!KeepsTarget || !visitedGoalCells.Contains(CellXYZ(end)))
         && permitLandLeg?.Invoke(end, gameTime) != false;
@@ -604,7 +681,10 @@ internal sealed class PlaySurvivalTravel
         if (towardLowerDrop && Vector2.Dot(Vector2.Normalize((route.End - body.Position).XZ), direction) < 0.9f)
             return null;
 
-        next = LimitFinalFlat(next);
+        next = LimitFinalFlat(next) with { Rejected = TraceFlatRejection };
+        // 末端投影可能只剩几十厘米。这样的段交给原生到达后再换轴，不能每帧把同一短段重新续上。
+        float renewalAdvance = (next.Points[^1] - body.Position).XZ.Length();
+        if (renewalAdvance < 1.1f) return null;
         return (next, () =>
         {
             var velocity = body.Velocity.XZ;
@@ -617,9 +697,12 @@ internal sealed class PlaySurvivalTravel
             proofStarted = Stopwatch.GetTimestamp();
             legs++;
             log(new { kind = "play_scout_continue", actor = player.PlayerData.Name, seek, gameTime,
-                legs, traveled, speed = velocity.Length(), turn });
+                legs, traveled, speed = velocity.Length(), turn, renewalAdvance });
         });
     }
+
+    private void TraceFlatRejection(string details) => log(new { kind = "play_scout_native_rejection",
+        actor = player.PlayerData.Name, seek, details });
 
     private MoveAlongObservedRoute LimitFinalFlat(MoveAlongObservedRoute route)
     {
@@ -655,7 +738,9 @@ internal sealed class PlaySurvivalTravel
         else if (seek is "survey" or "work" or "search")
         {
             // 带原生到达条件的任务还须核对楼层或交互状态，不能只靠平面距离提前完成。
-            if (arrived is null && (surveyTarget - body.Position).XZ.LengthSquared() <= goalRange * goalRange)
+            var landDestination = shelterTarget ?? surveyTarget;
+            if (arrived is null && (landDestination - body.Position).XZ.LengthSquared() <= goalRange * goalRange
+                && (!(hasExplorationFrontier || shelterTarget is not null) || MathF.Abs(landDestination.Y - body.Position.Y) < .2f))
                 return ("navigation_goal_reached", null);
             approach = shelterTarget ?? surveyTarget;
         }
@@ -705,7 +790,8 @@ internal sealed class PlaySurvivalTravel
         ? Math.Min(TravelLimit - used, (destination - body.Position).XZ.Length() + 0.2f) : TravelLimit - used;
 
     private bool TowardLowerDrop(ComponentBody body, Vector3? approach) =>
-        foodTarget?.Source == "pickup" && approach is { } point && point.Y < body.Position.Y - 0.45f;
+        approach is { } point && point.Y < body.Position.Y - 0.45f
+        && (foodTarget?.Source == "pickup" || shelterTarget is not null || nextWaypoint < waypoints.Length);
 
     internal static Vector2 Rotate(Vector2 source, float degrees)
     {

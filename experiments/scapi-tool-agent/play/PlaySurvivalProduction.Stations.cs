@@ -23,7 +23,8 @@ internal sealed partial class PlaySurvivalProduction
     {
         var entities = player.Project.FindSubsystem<SubsystemBlockEntities>(true);
         var workbench = SeenStation(panorama, stations, CraftingTableBlock.Index);
-        var table = workbench is not null ? entities.GetBlockEntity(workbench.Cell)?.Entity.FindComponent<ComponentCraftingTable>() : null;
+        var table = workbench is not null && MathF.Abs(workbench.Cell.Y - player.ComponentBody.Position.Y) < .1f
+            ? entities.GetBlockEntity(workbench.Cell)?.Entity.FindComponent<ComponentCraftingTable>() : null;
         int stagedStone = table is null ? 0 : Count(table, value => Terrain.ExtractContents(value) == CobblestoneBlock.Index,
             table.ResultSlotIndex);
         if ((table is not null || Stock(player, Workbench) > 0) && Stock(player, Stone) + stagedStone >= 8
@@ -31,7 +32,8 @@ internal sealed partial class PlaySurvivalProduction
             available.Add(Furnace);
 
         var furnace = SeenStation(panorama, stations, FurnaceBlock.Index);
-        var oven = furnace is not null ? entities.GetBlockEntity(furnace.Cell)?.Entity.FindComponent<ComponentFurnace>() : null;
+        var oven = furnace is not null && MathF.Abs(furnace.Cell.Y - player.ComponentBody.Position.Y) < .1f
+            ? entities.GetBlockEntity(furnace.Cell)?.Entity.FindComponent<ComponentFurnace>() : null;
         var carry = player.ComponentMiner.Inventory;
         bool hasRawMeat = Count(carry, PlaySurvivalFood.IsRawMeat) > 0;
         bool hasFuel = Count(carry, value => FuelSuitable(value, 1f, 6.67f)) > 0;
