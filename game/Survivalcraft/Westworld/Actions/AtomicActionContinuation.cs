@@ -11,18 +11,19 @@ namespace Game.Westworld {
     }
 
     [method: JsonConstructor]
-    internal sealed record MotionContinuation(float X, float Y, float Z, float Seconds, float? Range) : AtomicActionContinuation {
-        internal MotionContinuation(Vector3 point, float seconds, float? range = null)
-            : this(point.X, point.Y, point.Z, seconds, range) { }
+    internal sealed record MotionContinuation(float X, float Y, float Z, float Seconds, float? Range, bool AwaitRecovery = false) : AtomicActionContinuation {
+        internal MotionContinuation(Vector3 point, float seconds, float? range = null, bool awaitRecovery = false)
+            : this(point.X, point.Y, point.Z, seconds, range, awaitRecovery) { }
 
         internal AtomicAction Action => Range is float range
-            ? new MoveTo(new Vector3(X, Y, Z), range, Seconds)
+            ? new MoveTo(new Vector3(X, Y, Z), range, Seconds) { AwaitRecovery = AwaitRecovery }
             : new FaceTowards(new Vector3(X, Y, Z), Seconds);
 
         internal override bool Matches(string tool) =>
             tool == (Range.HasValue ? "act_MoveTo" : "act_FaceTowards")
             && float.IsFinite(X) && float.IsFinite(Y) && float.IsFinite(Z)
             && float.IsFinite(Seconds) && Seconds > 0f
+            && (!AwaitRecovery || Range.HasValue)
             && (!Range.HasValue || Range > 0f && float.IsFinite(Range.Value * Range.Value));
     }
 

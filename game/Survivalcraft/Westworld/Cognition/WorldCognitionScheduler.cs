@@ -69,12 +69,19 @@ namespace Game.Westworld {
 
         public string StatusJson() => ObservationStatusJson();
 
+        public static WorldCognitionScheduler ForWorld(Project project) => project != null
+            && m_worlds.TryGetValue(project, out WorldCognitionScheduler scheduler) ? scheduler : null;
+
         internal static bool PumpWorld(Project project) {
             if (!m_worlds.TryGetValue(project, out WorldCognitionScheduler scheduler)) {
                 return true;
             }
             try {
                 scheduler.PumpObservation();
+                if (scheduler.m_fault == null && scheduler.m_actors.Values.Any(actor => actor.Cognition.HasCognitionProtocolFault)) {
+                    scheduler.m_fault = "invalid_cognition_protocol";
+                    GameManager.SaveProject(true, false);
+                }
             }
             catch (Exception error) {
                 scheduler.m_fault = error is IOException or UnauthorizedAccessException ? "persistence_error" : "scheduler_error";

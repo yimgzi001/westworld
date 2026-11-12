@@ -22,6 +22,11 @@ namespace Game.Westworld {
         internal bool HasActorNutrition => m_actions.ActorNutrition != null;
         internal double CognitiveTime => m_actions.Queries.GameTime;
         internal SelfView CognitiveBody => m_actions.Queries.ReadSelf();
+        internal SomaticView CognitiveSomatic => m_actions.Queries.ReadSomatic();
+        internal string CognitiveProtocol => m_actions.BoundActor.Project.FindSubsystem<SubsystemGameInfo>(true).WorldSettings.WestworldCognitionProtocol;
+        internal bool DeliberativeMode { get; set; }
+        internal void BindInjurySense(Action<Injury> callback) => m_actions.BoundActor.FindComponent<ComponentHealth>(true).Injured += callback;
+        internal bool CancelCognitiveTask() => m_tasks.IsActive ? m_tasks.Cancel() : !m_actions.IsActionRunning;
         internal ActorTaskView CognitiveTask => m_tasks.Status;
         internal ActorTaskView CognitiveLastTerminal => m_tasks.LastTerminal;
 #if WINDOWS
@@ -32,12 +37,12 @@ namespace Game.Westworld {
         internal string[] CognitiveActions(bool checkpointable = false) => m_actions.GetCapabilities().Select(action => "act_" + action.Name)
             .Where(tool => !checkpointable || IsAvailableRestorableTool(tool)).ToArray();
 
-        bool IsAvailableRestorableTool(string tool) => HasActorNutrition
+        bool IsAvailableRestorableTool(string tool) => DeliberativeMode && IsRestorableTool(tool) || (HasActorNutrition
             ? IsProductionTool(tool) || tool is "act_MoveTo" or "act_FaceTowards" or "act_PickUp" or "act_Eat" or "act_Wait" or "act_Speak"
-            : IsRestorableTool(tool);
+            : IsRestorableTool(tool));
         internal ActorSocialView[] CognitiveInbox() => DrainSocialViews();
         internal JsonElement CognitiveObservation() {
-            ActorObservation observation = Observe(12f, 8f, 8);
+            ActorObservation observation = DeliberativeMode ? Observe(16f, 16f, 16) : Observe(12f, 8f, 8);
             if (HasActorNutrition && observation.Self is { } self) {
                 Vector2 forward = self.Facing.XZ;
                 Vector2 right = new(-forward.Y, forward.X);
@@ -56,13 +61,22 @@ namespace Game.Westworld {
                     var entities = observation.Entities.Select(entity => {
                         var direction = RelativeDirection(entity.Position, self);
                         var target = m_memory.ResolveEntity(entity.Reference);
+                        ComponentBody body = target?.FindComponent<ComponentBody>();
+                        Vector3 offset = entity.Position - self.Position;
+                        float? closingSpeed = body != null && offset.LengthSquared() > .001f
+                            ? -Vector3.Dot(body.Velocity - m_actions.BoundActor.FindComponent<ComponentBody>().Velocity, Vector3.Normalize(offset)) : null;
                         return new {
                             Reference = PersonReference(target), entity.Name, entity.Position, entity.Distance,
                             Bearing = direction.Bearing, HorizontalDistance = direction.Distance,
-                            SupportsItemOffers = m_actions.CanReceiveItemOffers(target)
+                            SupportsItemOffers = m_actions.CanReceiveItemOffers(target),
+                            ClosingSpeed = DeliberativeMode ? closingSpeed : null,
+                            VisibleAttackMotion = DeliberativeMode ? (bool?)(target?.FindComponent<ComponentCreatureModel>()?.AttackFactor > .1f) : null
                         };
                     }).Where(entity => entity.Reference != null).ToArray();
                     return ToJson(new { Focus = focus, Entities = entities, FoodReserve = self.Food, Food = food,
+                        Somatic = DeliberativeMode ? m_actions.Queries.ReadSomatic() : null,
+                        Self = DeliberativeMode ? self : null,
+                        Navigation = DeliberativeMode ? m_actions.Queries.ReadLocalTerrain() : null,
                         Production = ProductionObservation(observation, self) });
                 }
                 return ToJson(new { observation.Focus, observation.Entities, FoodReserve = self.Food, Food = food });
@@ -79,6 +93,7 @@ namespace Game.Westworld {
                 Number("bearing", HasProduction ? "Relative bearing in degrees from observed people, food, logs, or materials."
                     : "Relative bearing in degrees, from observation.food."),
                 Number("distance", HasProduction ? "Horizontal distance from 0.2 to 4 blocks." : "Horizontal distance from 1 to 4 blocks."),
+                .. (DeliberativeMode ? new[] { Number("vertical", "Optional vertical offset from -2 to 2 blocks. With a nonzero offset horizontal distance may be 0. Physics still decides reachability.", true) } : Array.Empty<Field>()),
                 Number("range", "Arrival radius in blocks. Use 0.25 to approach food.", true), Timeout(8)]),
             "act_FaceTowards" => Describe(tool.Name, "Look in a new direction to observe local surroundings.", [
                 Number("bearing", "Relative bearing from -180 to 180 degrees."), Timeout(5)]),
@@ -105,6 +120,19 @@ namespace Game.Westworld {
             _ => tool
         };
         internal InventoryView CognitiveInventory() => ReadInventory();
+        internal (string Fingerprint, PerceivedContact[] Contacts) CognitiveVisibleChange() {
+            var seen = m_actions.Queries.FindVisibleObjects(out GameEntitySystem.Entity[] entities, 16, 16);
+            SelfView self = CognitiveBody;
+            Vector3 velocity = m_actions.BoundActor.FindComponent<ComponentBody>().Velocity;
+            PerceivedContact[] contacts = seen.Entities.OrderBy(item => item.EntityId).Select(item => {
+                GameEntitySystem.Entity entity = entities.First(target => target.Id == item.EntityId);
+                Vector3 offset = item.Position - self.Position;
+                float closing = offset.LengthSquared() > .001f ? -Vector3.Dot(entity.FindComponent<ComponentBody>().Velocity - velocity, Vector3.Normalize(offset)) : 0;
+                return new PerceivedContact(PersonReference(entity), item.Name, item.Position.X, item.Position.Y, item.Position.Z,
+                    item.Distance, closing, entity.FindComponent<ComponentCreatureModel>()?.AttackFactor > .1f);
+            }).ToArray();
+            return (string.Join(";", contacts.Select(item => $"{item.Reference}:{(item.Distance < 2 ? 0 : item.Distance < 4 ? 1 : item.Distance < 8 ? 2 : 3)}:{item.ClosingSpeed > .5f}:{item.VisibleAttackMotion}")), contacts);
+        }
         internal EnvironmentView CognitiveEnvironment() => m_actions.Queries.ReadEnvironment();
 
         internal void BindCognition(Func<ActorSocialView[]> peekInbox) {
@@ -167,7 +195,7 @@ namespace Game.Westworld {
         static int PickupValue(JsonElement arguments) => (arguments.TryGetProperty("food_value", out JsonElement value)
             ? value : arguments.GetProperty("material_value")).GetInt32();
 
-        internal string ApplyCognitiveTask(string operation, JsonElement steps) {
+        internal string ApplyCognitiveTask(string operation, JsonElement steps, ObservationPose? anchor = null) {
             try {
                 switch (operation) {
                     case "keep":
@@ -189,6 +217,7 @@ namespace Game.Westworld {
                         break;
                 }
                 ActorTaskStep[] plan = CompileSubmittedPlan(steps);
+                if (anchor is { } pose) plan = AnchorCognitivePlan(plan, pose);
                 if (operation == "replace" && !m_tasks.Cancel()) {
                     return "no_active_task";
                 }

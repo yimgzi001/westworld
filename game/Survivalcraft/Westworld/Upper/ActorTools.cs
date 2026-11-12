@@ -56,7 +56,11 @@ namespace Game.Westworld {
         public IReadOnlyList<ActorToolDefinition> GetTools() {
             HashSet<string> supported = m_actions.GetCapabilities().Select(action => action.Name).ToHashSet(StringComparer.Ordinal);
             return QueryTools.Concat(ActionTools.Where(spec => supported.Contains(spec.Action)))
-                .Select(spec => spec.Definition)
+                .Select(spec => spec.Definition.Name == "submit_plan" && !DeliberativeMode
+                    ? Describe(spec.Definition.Name, spec.Definition.Description,
+                        [new Field("steps", "array", "One to twelve steps with zero-based indices.",
+                            Children: PlanFields.Where(field => field.Name is not ("interrupt_on" or "watch_seconds")).ToArray())])
+                    : spec.Definition)
                 .ToArray();
         }
 
@@ -228,8 +232,11 @@ namespace Game.Westworld {
             if (reference != null ? args.Has("bearing") || args.Has("distance") : !relative) {
                 throw new InvalidToolCall("invalid_arguments");
             }
-            Vector3 destination = reference == null ? RelativePoint(args.Number("bearing"), args.Number("distance")) : Position(reference);
-            return new MoveTo(destination, args.Number("range", reference == null ? 0.4f : 0.75f), args.Number("timeout", 15f));
+            float vertical = args.Number("vertical", 0);
+            if (!float.IsFinite(vertical) || vertical is < -2 or > 2 || reference != null && vertical != 0) throw new InvalidToolCall("invalid_arguments");
+            Vector3 destination = reference == null ? RelativePoint(args.Number("bearing"), args.Number("distance"), vertical != 0) : Position(reference);
+            destination += Vector3.UnitY * vertical;
+            return new MoveTo(destination, args.Number("range", reference == null ? 0.4f : 0.75f), args.Number("timeout", 15f)) { AwaitRecovery = DeliberativeMode };
         }
 
         FaceTowards TurnCommand(Args args) {
@@ -241,8 +248,8 @@ namespace Game.Westworld {
             return new FaceTowards(point, args.Number("timeout", 5f));
         }
 
-        Vector3 RelativePoint(float bearing, float distance) {
-            if (bearing is < -180f or > 180f || distance < (HasProduction ? .2f : 1f) || distance > 4f) {
+        Vector3 RelativePoint(float bearing, float distance, bool allowStationary = false) {
+            if (bearing is < -180f or > 180f || distance < (allowStationary ? 0 : HasProduction ? .2f : 1f) || distance > 4f) {
                 throw new InvalidToolCall("invalid_arguments");
             }
             SelfView self = m_actions.Queries.ReadSelf() ?? throw new InvalidToolCall("actor_unavailable");

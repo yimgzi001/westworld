@@ -14,7 +14,7 @@ namespace Game.Westworld {
         Task<ActorModelReply> RequestAsync(string contextJson, string toolsJson, CancellationToken cancellationToken);
     }
 
-    public sealed class ActorModelClient : IActorDecisionSource {
+    public sealed partial class ActorModelClient : IActorDecisionSource {
         internal const int MaxOutputTokens = 1536;
         const string Instructions = """
             Produce exactly one JSON object for the character's current decision. Use only the given character's
@@ -59,9 +59,12 @@ namespace Game.Westworld {
         readonly string m_apiKey;
         readonly string m_model;
         readonly bool m_responses;
+        string m_cognitionProtocol;
 
         internal string SourceIdentity => Convert.ToHexString(SHA256.HashData(
-            Encoding.UTF8.GetBytes($"{m_endpoint.AbsoluteUri}\n{m_model}\n{m_responses}")));
+            Encoding.UTF8.GetBytes($"{m_endpoint.AbsoluteUri}\n{m_model}\n{m_responses}" +
+                (string.IsNullOrEmpty(m_cognitionProtocol) ? "" : "\n" + m_cognitionProtocol + "\n" +
+                    Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CycleInstructions)))))));
 
         public ActorModelClient(string endpoint, string model, string protocol, string apiKey) {
             if (!Uri.TryCreate(endpoint, UriKind.Absolute, out m_endpoint) || m_endpoint.UserInfo.Length != 0
@@ -82,23 +85,30 @@ namespace Game.Westworld {
             m_responses = protocol == "responses";
         }
 
-        public static ActorModelClient FromEnvironment() {
+        public static ActorModelClient FromEnvironment() => FromEnvironment(null);
+
+        public static ActorModelClient FromEnvironment(string cognitionProtocol) {
             string protocol = Setting("WENMING_MODEL_PROTOCOL", "responses");
             string endpoint = Setting("WENMING_MODEL_ENDPOINT",
                 protocol == "responses" ? "https://api.openai.com/v1/responses" : null);
             return new ActorModelClient(endpoint, Setting("WENMING_MODEL", "gpt-6-luna"), protocol,
-                Setting("WENMING_MODEL_API_KEY", null));
+                Setting("WENMING_MODEL_API_KEY", null)) { m_cognitionProtocol = cognitionProtocol };
         }
 
         static string Setting(string name, string fallback) =>
             Environment.GetEnvironmentVariable(name)?.Trim() is { Length: > 0 } value ? value : fallback;
 
         public async Task<ActorModelReply> RequestAsync(string contextJson, string toolsJson, CancellationToken cancellationToken) {
+            using JsonDocument context = JsonDocument.Parse(contextJson);
+            bool cycle = context.RootElement.TryGetProperty("cognitionCycle", out _);
+            string instructions = cycle ? CycleInstructions : Instructions;
+            if (!string.IsNullOrEmpty(m_cognitionProtocol) && (!cycle || m_cognitionProtocol != ActorCognition.DeliberativeProtocol))
+                return new ActorModelReply(null, m_model, Error: "cognition_protocol_mismatch");
             string input = $"Character context JSON:\n{contextJson}\nAvailable action schemas JSON:\n{toolsJson}";
             object body = m_responses
-                ? new { model = m_model, instructions = Instructions, input, store = false, max_output_tokens = MaxOutputTokens,
+                ? new { model = m_model, instructions, input, store = false, max_output_tokens = MaxOutputTokens,
                     text = new { format = new { type = "json_object" } } }
-                : new { model = m_model, messages = new[] { new { role = "system", content = Instructions },
+                : new { model = m_model, messages = new[] { new { role = "system", content = instructions },
                     new { role = "user", content = input } }, max_completion_tokens = MaxOutputTokens };
             using HttpRequestMessage request = new(HttpMethod.Post, m_endpoint) { Content = JsonContent.Create(body) };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", m_apiKey);

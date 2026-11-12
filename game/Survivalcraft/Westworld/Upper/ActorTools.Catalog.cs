@@ -29,7 +29,7 @@ namespace Game.Westworld {
             Action<MoveTo>("Move to an observed or remembered location, or explore with bearing and distance.", (a, p) => a.MoveCommand(p),
                 Ref("destination", "An observed or remembered location reference.", true),
                 Number("bearing", "Relative bearing from -180 to 180 degrees. Positive turns right.", true),
-                Number("distance", "Exploration distance between 1 and 4 blocks.", true), Number("range", "Arrival radius.", true), Timeout(15)),
+                Number("distance", "Exploration distance between 1 and 4 blocks.", true), Number("vertical", "Vertical offset between -2 and 2 blocks, subject to physical movement capability.", true), Number("range", "Arrival radius.", true), Timeout(15)),
             Action<FaceTowards>("Turn towards a currently observed location or by a relative bearing.", (a, p) => a.TurnCommand(p),
                 Ref("destination", "A currently observed location reference.", true),
                 Number("bearing", "Relative bearing from -180 to 180 degrees. Positive turns right.", true), Timeout(5)),
@@ -137,6 +137,8 @@ namespace Game.Westworld {
             Int("minimum_affected", "Minimum actual affected count for this step.", true),
             Int("item_from_step", "For Eat, bind the item from an earlier PickUp step and pass only count in arguments.", true),
             Int("next", "On success, jump to a later zero-based step; step count ends the plan.", true),
+            Text("interrupt_on", "Optional body_worsened for Wait, MoveTo or FaceTowards: worsening since plan adoption takes the declared movement_interrupted fallback. Guarded motion includes a bounded watch after success while you think; see watch_seconds. No destination is invented.", true),
+            Number("watch_seconds", "For guarded MoveTo/FaceTowards only: continue monitoring after success for 0..120 seconds, default 30. Zero explicitly releases the guard immediately. Compiles to one extra guarded Wait; expanded plan limit remains twelve steps.", true),
             new Field("fallback", "object", "On a matching safe failure, jump to the specified later step.", true, Children: FallbackFields)
         ];
 

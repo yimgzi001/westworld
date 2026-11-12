@@ -62,7 +62,7 @@ namespace Game.Westworld {
                     ItemValue = offer.Item.ExpectedValue, offer.Count,
                     SecondsRemaining = Math.Max(0, offer.ExpiresAt - m_actions.Queries.GameTime)
                 }).ToArray(),
-                Hints = "Select the stone axe before digging a visible log. If no log is visible, look in another direction or explore a short distance. "
+                Hints = DeliberativeMode ? null : "Select the stone axe before digging a visible log. If no log is visible, look in another direction or explore a short distance. "
                     + "For dropped wood beyond reach, you can plan a move followed by a pickup. Use its observed bearing and horizontal distance, clamped to 0.2 to 4 blocks, with an arrival radius of 0.15. "
                     + "To make a known recipe from materials you already own, submit act_Craft with workspace=personal, the recipe's resultValue, and prepare=true as the only task step. "
                     + "The game arranges ingredients and crafts, preserving each completed step across saves. If arranging slots manually, transfer from carried to personal, then craft without prepare. "

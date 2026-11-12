@@ -112,7 +112,7 @@ namespace Game.Westworld {
 
 #if WINDOWS
         internal static WorldCognitionScheduler ForPanel(Project project) =>
-            m_worlds.TryGetValue(project, out WorldCognitionScheduler scheduler) ? scheduler : null;
+            ForWorld(project);
 
         internal IEnumerable<(ActorTools Tools, ActorCognition Cognition)> PanelActors =>
             m_actors.Values.Select(actor => (actor.Tools, actor.Cognition));
@@ -139,6 +139,9 @@ namespace Game.Westworld {
             long started = m_observationMetrics != null ? Stopwatch.GetTimestamp() : 0;
             try {
                 CheckQuota();
+                if (!m_userPaused && m_fault == null && m_quotaPause == null) {
+                    foreach (Actor actor in m_actors.Values) actor.Cognition.SampleSituation();
+                }
                 ProcessObservation();
                 if (m_fault == null) {
                     if (m_quotaPause == null) SaveObservationCheckpointWhenReady();
@@ -179,6 +182,7 @@ namespace Game.Westworld {
             // Keep idle requests from taking every slot while an actor's current task is still running.
             int lookAheadLimit = Math.Max(1, m_parallelism / 3);
             int idleLimit = Math.Max(1, m_parallelism - lookAheadLimit);
+            if (m_actors.Values.All(actor => actor.Cognition.UsesDeliberativeCycle)) idleLimit = m_parallelism;
             int lookAheadInFlight = m_observationRequests.Values.Count(request => request.Attempt.PrecedingTask != null);
             int idleInFlight = m_observationRequests.Count - lookAheadInFlight;
             if (idleInFlight >= idleLimit && m_observationLookAheadReady.Count == 0) {
@@ -188,19 +192,21 @@ namespace Game.Westworld {
             IEnumerable<int> candidates = idleInFlight < idleLimit ? m_actors.Keys : m_observationLookAheadReady;
             foreach (int actorId in candidates.OrderBy(id => id <= m_lastObservationActor).ToArray()) {
                 Actor actor = m_actors[actorId];
-                Guid? precedingTask = actor.Tools.CognitiveActiveTaskId;
+                Guid? precedingTask = actor.Cognition.UsesDeliberativeCycle ? null : actor.Tools.CognitiveActiveTaskId;
                 bool lookAhead = precedingTask != null;
                 if (m_observationUncertainActors.Contains(actorId) || m_observationRequests.ContainsKey(actorId)
                     || m_nextObservationRequest.GetValueOrDefault(actorId) > now
                     || m_observationFollowUps.ContainsKey(actorId) || !actor.Tools.CognitiveWorldIsCurrent
                     || (lookAhead ? lookAheadInFlight >= lookAheadLimit : idleInFlight >= idleLimit)
-                    || (lookAhead ? actor.Tools.HasProduction || !m_observationLookAheadReady.Contains(actorId) : actor.Tools.CognitiveActionRunning)
+                    || (lookAhead ? actor.Tools.HasProduction || !m_observationLookAheadReady.Contains(actorId)
+                        : !actor.Cognition.UsesDeliberativeCycle && actor.Tools.CognitiveActionRunning)
                     || actor.Cognition.PrepareTurn(checkpointable: true, lookAhead: lookAhead) is not string input) {
                     continue;
                 }
                 string turnId = actor.Cognition.PendingTurn.Context.Id;
                 string schema = actor.Tools.DescribeDecisionTools(checkpointable: true);
-                long estimate = checked((Encoding.UTF8.GetByteCount(input) + Encoding.UTF8.GetByteCount(schema) + 4096L)
+                long estimate = checked((Encoding.UTF8.GetByteCount(input) + Encoding.UTF8.GetByteCount(schema)
+                    + (actor.Cognition.UsesDeliberativeCycle ? ActorModelClient.CycleInstructionAllowance : 4096L))
                     * m_ledger.Data.InputPrice + OutputTokenLimit * m_ledger.Data.OutputPrice);
                 if (available < estimate) {
                     if (m_quota != null && m_observationRequests.Count == 0) {
@@ -250,9 +256,9 @@ namespace Game.Westworld {
                     () => m_observationRequests.Remove(actorId));
                 return;
             }
-            if (m_observationEnded || !actor.Tools.CognitiveWorldIsCurrent
-                || actor.Tools.CognitiveActiveTaskId != request.Attempt.PrecedingTask
-                || (request.Attempt.PrecedingTask == null && actor.Tools.CognitiveActionRunning) || rateLimited) {
+            if (m_observationEnded || m_fault != null || !actor.Tools.CognitiveWorldIsCurrent
+                || !actor.Cognition.UsesDeliberativeCycle && (actor.Tools.CognitiveActiveTaskId != request.Attempt.PrecedingTask
+                    || request.Attempt.PrecedingTask == null && actor.Tools.CognitiveActionRunning) || rateLimited) {
                 actor.Cognition.AbandonTurn(request.TurnId);
                 if (rateLimited && request.Attempt.PrecedingTask is Guid taskId && actor.Tools.CognitiveActiveTaskId == taskId) {
                     m_observationLookAheadReady.Add(actorId);

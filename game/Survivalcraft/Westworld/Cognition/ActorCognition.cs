@@ -13,7 +13,9 @@ namespace Game.Westworld {
         sealed record Decision(string Reason, string Task, JsonElement Steps, string Goal, double? ReviewAfter,
             NoteProposal Remember, NoteProposal Commitment, string ResolveCommitment, string[] Handled,
             PlanProposal Plan, WaitProposal Wait, PlanProposal PersonalPlan);
-        internal sealed record Pending(CognitiveContext Context, string Input, int DroppedMessages);
+        internal sealed record Pending(CognitiveContext Context, string Input, int DroppedMessages) {
+            public CycleReadSet Cycle { get; init; }
+        }
 
         static readonly JsonSerializerOptions m_json = new(JsonSerializerDefaults.Web) {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -66,6 +68,7 @@ namespace Game.Westworld {
             memories = m_memory.Select(note => note.View()).ToArray(),
             commitments = m_commitments.Select(note => note.View()).ToArray(),
             personalPlan = m_plan, waitingFor = m_wait, recentProcess = m_recentProcess,
+            cognitionCycle = m_cycle,
             decision = LastDecisionJson is { Length: <= 32768 } ? LastDecisionJson : null,
             decisionTruncated = LastDecisionJson is { Length: > 32768 }
         };
@@ -83,11 +86,20 @@ namespace Game.Westworld {
             WorldPanel.Register(m_tools.PanelActor, m_tools, this);
 #endif
             m_profile = profile.Trim();
+            if (!string.IsNullOrEmpty(tools.CognitiveProtocol) && tools.CognitiveProtocol != DeliberativeProtocol)
+                throw new InvalidDataException("Unsupported cognitive protocol.");
+            if (tools.CognitiveProtocol == DeliberativeProtocol) {
+                m_cycle = new CycleState();
+                tools.DeliberativeMode = true;
+                tools.CognitiveStepFinished += RecordCycleStep;
+                tools.BindInjurySense(RecordCycleInjury);
+            }
         }
 
         public string PrepareTurn() => PrepareTurn(checkpointable: false);
 
         internal string PrepareTurn(bool checkpointable, bool lookAhead = false) {
+            if (UsesDeliberativeCycle) return PrepareCycleTurn(checkpointable);
             CollectInbox();
             if (m_pending != null) {
                 return m_pending.Input;
@@ -162,6 +174,7 @@ namespace Game.Westworld {
         internal void RestorePendingTurn(Pending pending) => m_pending = pending;
 
         internal string CommitObservation(string id, string response, ObservationPose observedBody, Guid? precedingTask) {
+            if (UsesDeliberativeCycle) return CommitCycleTurn(id, response, observedBody);
             if (m_pending?.Context is not { } context || context.Id != id) {
                 return Result("unknown_turn");
             }
@@ -197,7 +210,8 @@ namespace Game.Westworld {
             return error != null ? Result(error) : InstallTurn(id, response, continuation: precedingTask != null);
         }
 
-        public string CommitTurn(string id, string response) => InstallTurn(id, response);
+        public string CommitTurn(string id, string response) => UsesDeliberativeCycle
+            ? CommitCycleTurn(id, response, m_pending?.Cycle?.Pose) : InstallTurn(id, response);
 
         string InstallTurn(string id, string response, bool continuation = false) {
             if (m_pending == null || id != m_pending.Context.Id) {

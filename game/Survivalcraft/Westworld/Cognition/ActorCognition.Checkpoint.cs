@@ -8,6 +8,7 @@ namespace Game.Westworld {
             public PersonalPlan PersonalPlan { get; init; }
             public EventWait WaitingFor { get; init; }
             public RecentProcess[] RecentProcess { get; init; }
+            public CycleState CognitionCycle { get; init; }
         }
 
         double m_timeOffset;
@@ -31,7 +32,7 @@ namespace Game.Westworld {
             return new Snapshot(1, m_tools.CognitiveActorId, now, m_version, m_profile, m_goal, m_body, m_seenTask, lastTask,
                 Math.Max(0, m_reviewAt - now), Math.Max(0, m_nextTurnAt - now), m_droppedMessages, inbox,
                 m_memory.ToArray(), m_commitments.ToArray()) {
-                PersonalPlan = m_plan, WaitingFor = m_wait, RecentProcess = m_recentProcess.ToArray()
+                PersonalPlan = m_plan, WaitingFor = m_wait, RecentProcess = m_recentProcess.ToArray(), CognitionCycle = m_cycle
             };
         }
 
@@ -77,6 +78,8 @@ namespace Game.Westworld {
             m_memory.AddRange(snapshot.Memory);
             m_commitments.AddRange(snapshot.Commitments);
             m_plan = snapshot.PersonalPlan;
+            if ((m_cycle != null) != (snapshot.CognitionCycle != null)) throw new InvalidDataException("Cognition protocol does not match this world.");
+            m_cycle = snapshot.CognitionCycle;
             m_wait = snapshot.WaitingFor;
             m_recentProcess.Clear();
             m_recentProcess.AddRange(snapshot.RecentProcess ?? []);
@@ -97,7 +100,8 @@ namespace Game.Westworld {
                 && message.Value.Text is not { Length: > 320 })
             && snapshot.Inbox.Select(message => message.Id).Distinct(StringComparer.Ordinal).Count() == snapshot.Inbox.Length
             && ValidNotes(snapshot.Memory, MemoryLimit) && ValidNotes(snapshot.Commitments, CommitmentLimit)
-            && ValidPersonalState(snapshot.PersonalPlan, snapshot.WaitingFor, snapshot.RecentProcess);
+            && ValidPersonalState(snapshot.PersonalPlan, snapshot.WaitingFor, snapshot.RecentProcess)
+            && ValidCycleState(snapshot.CognitionCycle);
 
         static bool TryPersonReference(string value) => value.StartsWith("person:", StringComparison.Ordinal)
             && int.TryParse(value.AsSpan(7), out int id) && id > 0;

@@ -9,6 +9,7 @@ namespace Game.Westworld {
     public sealed class FoundingWorld {
         const int Version = 1;
         const int SoloVersion = 2;
+        const int OpenVersion = 3;
         const int FounderCount = 50;
         const int CampLocation = int.MinValue;
         const int CampRadius = 80;
@@ -32,6 +33,8 @@ namespace Game.Westworld {
         readonly SubsystemTerrain m_terrain;
         readonly SubsystemTime m_time;
         readonly bool m_solo;
+        readonly bool m_open;
+        readonly int m_population;
         readonly HashSet<int> m_actorLocations = [];
         Vector2? m_camp;
         InitialState m_state;
@@ -48,11 +51,14 @@ namespace Game.Westworld {
             m_terrain = project.FindSubsystem<SubsystemTerrain>(true);
             m_time = project.FindSubsystem<SubsystemTime>(true);
             WorldSettings settings = m_info.WorldSettings;
-            if (settings.WestworldFoundingVersion is not (Version or SoloVersion)) {
+            if (settings.WestworldFoundingVersion is not (Version or SoloVersion or OpenVersion)) {
                 throw new InvalidDataException("Unsupported Westworld founding version.");
             }
             m_solo = settings.WestworldFoundingVersion == SoloVersion;
-            int population = m_solo ? 1 : FounderCount;
+            m_open = settings.WestworldFoundingVersion == OpenVersion;
+            m_population = m_open ? settings.WestworldPopulation : m_solo ? 1 : FounderCount;
+            if (m_population is < 1 or > FounderCount) throw new InvalidDataException("Invalid Westworld population.");
+            int population = m_population;
             if (settings.WestworldInitialArchive || string.IsNullOrEmpty(settings.WestworldRunId)) {
                 settings.WestworldRunId = Guid.NewGuid().ToString("N");
             }
@@ -66,7 +72,7 @@ namespace Game.Westworld {
                 m_founders = m_state.Founders.Select(member => project.FindEntity(member.Id)).ToArray();
                 m_startFromInitial = settings.WestworldInitialArchive;
                 if (m_startFromInitial && m_founders.Any(entity => entity == null || !IsFounder(entity)
-                    || (entity.ValuesDictionary.DatabaseObject.Name == ProducerTemplate) != m_solo)) {
+                    || (entity.ValuesDictionary.DatabaseObject.Name == ProducerTemplate) != (m_solo || m_open))) {
                     throw new InvalidDataException("The initial archive is missing founder entities.");
                 }
                 if (m_startFromInitial) {
@@ -95,6 +101,14 @@ namespace Game.Westworld {
         public static WorldInfo Create(WorldSettings settings) => Create(settings, Version);
 
         public static WorldInfo CreateSolo(WorldSettings settings) => Create(settings, SoloVersion);
+
+        public static WorldInfo CreateOpen(WorldSettings settings, int population) {
+            ArgumentNullException.ThrowIfNull(settings);
+            if (population is < 1 or > FounderCount) throw new ArgumentOutOfRangeException(nameof(population));
+            settings.WestworldPopulation = population;
+            settings.WestworldCognitionProtocol = ActorCognition.DeliberativeProtocol;
+            return Create(settings, OpenVersion);
+        }
 
         static WorldInfo Create(WorldSettings settings, int version) {
             ArgumentNullException.ThrowIfNull(settings);
@@ -126,7 +140,7 @@ namespace Game.Westworld {
                 observation == null ? null : new XElement(WorldCognitionScheduler.ObservationElement, observation));
         }
 
-        internal static bool CanFly(WorldSettings settings, int playerIndex) => (settings.WestworldFoundingVersion is Version or SoloVersion)
+        internal static bool CanFly(WorldSettings settings, int playerIndex) => (settings.WestworldFoundingVersion is Version or SoloVersion or OpenVersion)
             && settings.GameMode == GameMode.Survival && playerIndex > 0 && playerIndex == settings.WestworldPlayerIndex;
 
         internal static bool IsFounder(Entity entity) => entity.ValuesDictionary.DatabaseObject.Name is MaleTemplate or FemaleTemplate or ProducerTemplate;
@@ -241,7 +255,7 @@ namespace Game.Westworld {
                     }
                 }
             }
-            int population = m_solo ? 1 : FounderCount;
+            int population = m_population;
             Vector3[] ordered = sites.OrderBy(position => Vector2.DistanceSquared(position.XZ, camp)).ToArray();
             Vector3[] positions = ordered.Take(population).ToArray();
             if (positions.Length != population) {
@@ -269,26 +283,29 @@ namespace Game.Westworld {
             SubsystemPickables pickables = m_project.FindSubsystem<SubsystemPickables>(true);
             for (int i = 0; i < population; i++) {
                 bool female = (i & 1) != 0;
-                Entity entity = DatabaseManager.CreateEntity(m_project, m_solo ? ProducerTemplate : female ? FemaleTemplate : MaleTemplate, true);
+                Entity entity = DatabaseManager.CreateEntity(m_project, m_solo || m_open ? ProducerTemplate : female ? FemaleTemplate : MaleTemplate, true);
                 ComponentBody body = entity.FindComponent<ComponentBody>(true);
                 body.Position = positions[i];
                 float yaw = soloFacing is Vector2 facing ? MathF.Atan2(-facing.X, -facing.Y) : random.NextSingle() * MathF.Tau;
                 body.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
-                entity.FindComponent<ComponentActorNutrition>(true).Food = .3f + .3f * random.NextSingle();
+                if (!m_open) entity.FindComponent<ComponentActorNutrition>(true).Food = .3f + .3f * random.NextSingle();
                 ComponentInventory inventory = entity.FindComponent<ComponentInventory>(true);
-                inventory.AddSlotItems(0, bread, 1);
-                if (i % 10 == 0) inventory.AddSlotItems(1, axe, 1);
+                if (!m_open) {
+                    inventory.AddSlotItems(0, bread, 1);
+                    if (i % 10 == 0) inventory.AddSlotItems(1, axe, 1);
+                }
                 m_project.AddEntity(entity);
                 m_founders[i] = entity;
                 string name = $"{Names[i % Names.Length]}{i / Names.Length + 1}";
                 string profile = $"你叫{name}，是部落成员，{(female ? "女性" : "男性")}。{Preferences[random.Next(Preferences.Length)]}"
                     + "部落带来了一些食物和简单工具。根据自己的感知、经历和需要决定现在做什么。";
+                if (m_open) profile = $"你叫{name}，生活在这里。依据自己的身体感受、局部观察、经历和实际收到的交流，自行决定现在做什么。";
                 if (m_solo) {
                     profile = "你叫杉，是一位独自在野外生活的部落成员。你会用石斧取木，并知道随身的两格乘两格制造配方。"
                         + "你现在想做一张工作台，饿了先照顾自己。每次行动后看实际结果，再决定下一步。";
                 }
                 founders[i] = new Founder(entity.Id, profile);
-                if (!m_solo && i % 5 == 0) {
+                if (!m_solo && !m_open && i % 5 == 0) {
                     pickables.AddPickable(meat, 4, body.Position + new Vector3(.5f, .1f, 0f), Vector3.Zero, null);
                 }
             }
@@ -340,7 +357,7 @@ namespace Game.Westworld {
                 return;
             }
             string ledgerDirectory = Path.Combine(RunDirectory(m_info.WorldSettings), "cognition");
-            ActorModelClient model = ActorModelClient.FromEnvironment();
+            ActorModelClient model = ActorModelClient.FromEnvironment(m_info.WorldSettings.WestworldCognitionProtocol);
             long feeLimit = RequiredAmount("WENMING_FOUNDING_BUDGET_NANO_USD");
             const string storageLimitVariable = "WENMING_FOUNDING_STORAGE_LIMIT_BYTES";
             long? storageLimit = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(storageLimitVariable))

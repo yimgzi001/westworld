@@ -5,7 +5,9 @@ using GameEntitySystem;
 namespace Game.Westworld {
     public abstract record AtomicAction;
 
-    public sealed record MoveTo(Vector3 Destination, float Range = 0.75f, float Timeout = 15f) : AtomicAction;
+    public sealed record MoveTo(Vector3 Destination, float Range = 0.75f, float Timeout = 15f) : AtomicAction {
+        public bool AwaitRecovery { get; init; }
+    }
     public sealed record FaceTowards(Vector3 Point, float Timeout = 5f) : AtomicAction;
     public sealed record SetPosture(BodyPosture Posture) : AtomicAction;
     public sealed record Jump : AtomicAction;

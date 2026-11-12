@@ -4,7 +4,11 @@ namespace Game.Westworld {
     internal sealed record ActorTaskFallback(int Step, AtomicActionFailure Failure);
 
     internal sealed record ActorPlanStep(string Tool, JsonElement Arguments, int Retries, int MinimumAffected,
-        int? ItemFromStep, int? Next, ActorTaskFallback Fallback);
+        int? ItemFromStep, int? Next, ActorTaskFallback Fallback) {
+        public PlanMotion Motion { get; init; }
+        public string InterruptOn { get; init; }
+        public float? WatchSeconds { get; init; }
+    }
 
     internal sealed class ActorTaskStepUnavailable(AtomicActionFailure failure) : Exception {
         internal AtomicActionFailure Failure { get; } = failure;
@@ -46,13 +50,18 @@ namespace Game.Westworld {
                     fallback = new ActorTaskFallback(branch.Int("step"), reason);
                 }
                 plan.Add(new ActorPlanStep(entry.String("tool"), entry.Json("arguments").Clone(), entry.Int("retries"),
-                    entry.Int("minimum_affected"), entry.OptionalInt("item_from_step"), entry.OptionalInt("next"), fallback));
+                    entry.Int("minimum_affected"), entry.OptionalInt("item_from_step"), entry.OptionalInt("next"), fallback) {
+                        InterruptOn = entry.Has("interrupt_on") ? entry.String("interrupt_on") : null,
+                        WatchSeconds = entry.Has("watch_seconds") ? entry.Number("watch_seconds") : null
+                    });
             }
+            // Validate authorization fields before any convenience compiler can rewrite the plan.
+            if (plan.Any(step => !ValidInterrupt(step))) throw new InvalidToolCall("invalid_arguments");
             if (plan.Any(step => step.Tool == "act_Craft" && step.Arguments.TryGetProperty("prepare", out JsonElement prepare)
                 && prepare.ValueKind == JsonValueKind.True)) {
                 return PrepareProductionCraft(plan);
             }
-            return CompilePlan(plan, firstPendingStep: 0, restoring: false);
+            return CompilePlan(ExpandGuardedMotion(plan), firstPendingStep: 0, restoring: false);
         }
 
         ActorTaskStep[] CompilePlan(IReadOnlyList<ActorPlanStep> plan, int firstPendingStep, bool restoring, bool continuing = false) {
@@ -68,7 +77,9 @@ namespace Game.Westworld {
                 if (step.Retries is < 0 or > 2 || step.MinimumAffected < 0
                     || step.Next is int next && (next <= index || next > plan.Count)
                     || step.Fallback is { } branch && (branch.Step <= index || branch.Step >= plan.Count
-                        || !CanRecover(tool.Action, branch.Failure))) {
+                        || !CanRecover(tool.Action, branch.Failure)
+                            && !(step.InterruptOn == "body_worsened" && branch.Failure == AtomicActionFailure.MovementInterrupted))
+                    || !ValidInterrupt(step) || step.WatchSeconds != null) {
                     throw new InvalidToolCall("invalid_arguments");
                 }
 
@@ -95,12 +106,20 @@ namespace Game.Westworld {
                             tool.Create(this, args);
                         }
                     }
-                    create = () => ResolveStep(tool, args);
+                    if (step.Motion is { } anchor && (step.Tool is not ("act_MoveTo" or "act_FaceTowards")
+                        || !float.IsFinite(anchor.X + anchor.Y + anchor.Z))) throw new InvalidToolCall("invalid_motion_anchor");
+                    create = () => ResolveAnchoredStep(step, tool, args);
                 }
                 steps[index] = new ActorTaskStep(tool.Action, create, step.Retries, step.MinimumAffected) { Plan = step };
             }
             return steps;
         }
+
+        bool ValidInterrupt(ActorPlanStep step) => step.InterruptOn == null ? step.WatchSeconds == null : DeliberativeMode
+            && step.InterruptOn == "body_worsened" && step.Tool is "act_Wait" or "act_MoveTo" or "act_FaceTowards"
+            && step.Fallback?.Failure == AtomicActionFailure.MovementInterrupted
+            && (step.WatchSeconds == null || step.Tool != "act_Wait" && float.IsFinite(step.WatchSeconds.Value)
+                && step.WatchSeconds is >= 0 and <= 120);
 
         // These actions have an established resource-effect boundary for the listed failures.
         static bool CanRecover(string action, AtomicActionFailure failure) => action switch {

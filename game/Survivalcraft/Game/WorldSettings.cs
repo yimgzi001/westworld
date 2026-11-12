@@ -12,6 +12,8 @@ namespace Game {
         public GameMode GameMode = GameMode.Survival;
 
         internal int WestworldFoundingVersion { get; set; }
+        internal int WestworldPopulation { get; set; }
+        internal string WestworldCognitionProtocol { get; set; } = string.Empty;
         internal string WestworldRunId { get; set; }
         internal int WestworldPlayerIndex { get; set; }
         internal string WestworldFoundingState { get; set; }
@@ -112,6 +114,8 @@ namespace Game {
             Seed = valuesDictionary.GetValue("WorldSeedString", string.Empty);
             GameMode = valuesDictionary.GetValue("GameMode", GameMode.Challenging);
             WestworldFoundingVersion = valuesDictionary.GetValue("WestworldFoundingVersion", 0);
+            WestworldPopulation = valuesDictionary.GetValue("WestworldPopulation", 0);
+            WestworldCognitionProtocol = valuesDictionary.GetValue("WestworldCognitionProtocol", string.Empty);
             WestworldRunId = valuesDictionary.GetValue("WestworldRunId", string.Empty);
             WestworldPlayerIndex = valuesDictionary.GetValue("WestworldPlayerIndex", 0);
             WestworldFoundingState = valuesDictionary.GetValue("WestworldFoundingState", string.Empty);
@@ -159,6 +163,8 @@ namespace Game {
             if (!liveModifiableParametersOnly) {
                 if (WestworldFoundingVersion != 0) {
                     valuesDictionary.SetValue("WestworldFoundingVersion", WestworldFoundingVersion);
+                    valuesDictionary.SetValue("WestworldPopulation", WestworldPopulation);
+                    valuesDictionary.SetValue("WestworldCognitionProtocol", WestworldCognitionProtocol);
                     valuesDictionary.SetValue("WestworldRunId", WestworldRunId ?? string.Empty);
                     valuesDictionary.SetValue("WestworldPlayerIndex", WestworldPlayerIndex);
                     valuesDictionary.SetValue("WestworldFoundingState", WestworldFoundingState ?? string.Empty);

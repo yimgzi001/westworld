@@ -73,6 +73,10 @@
                     tools.push(new W.ActorTools(new W.AtomicActions(actor), false));
                 }
                 bags[0].AddSlotItems(0, planks, 4);
+                var legacyFields = JSON.parse(tools[0].DescribeToolsJson()).find(t => t.name === "submit_plan")
+                    .parameters.properties.steps.items.properties;
+                check(!legacyFields.interrupt_on && !legacyFields.watch_seconds,
+                    "legacy worlds do not advertise a new-protocol-only interruption guard");
                 read(1, "act_Speak", { text: "我在这里", mode: "normal" });
                 phase = "hear";
                 return;
@@ -186,6 +190,10 @@
                 if (["waiting", "running", "blocked"].includes(read(0, "task_status").status)) return;
                 check(count(0, planks) === 0 && count(1, planks) === 4, "the resource check rejects a new empty-handed offer without any transfer");
                 var args = { workspace: "personal", result_value: workbench, prepare: true };
+                var guarded = JSON.parse(tools[1].InvokeJson("submit_plan", JSON.stringify({ steps: [
+                    { tool: "act_Craft", arguments: args, interrupt_on: "body_worsened" }
+                ] })));
+                check(!guarded.ok && guarded.error === "invalid_arguments", "prepared crafting rejects an unsupported interruption guard instead of silently dropping it");
                 var missing = call(0, "submit_plan", { steps: [{ tool: "act_Craft", arguments: args }] });
                 check(!missing.ok && missing.error === "plan_unavailable", "crafting without ingredients fails before changing inventories");
                 var plan = read(1, "submit_plan", { steps: [{ tool: "act_Craft", arguments: args }] });

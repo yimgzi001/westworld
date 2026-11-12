@@ -140,6 +140,7 @@ namespace Game.Westworld {
                     alive = health.Health > 0, health = healthPercent, food = foodPercent,
                     hunger = reserve.HasValue ? CognitiveBody.HungerBand(reserve) : null,
                     stamina = vital?.Stamina, sleep = vital?.Sleep, temperature = vital?.Temperature, wetness = vital?.Wetness,
+                    somatic = binding?.Tools.CognitiveSomatic,
                     sleeping = entity.FindComponent<ComponentSleep>()?.IsSleeping, inventory = inventory?.Take(96).ToArray(),
                     inventoryCount = inventory?.Length, task = binding?.Tools.CognitiveTask,
                     action = ActionView(binding?.Tools.PanelAction), request = scheduler?.PanelRequestState(entity.Id),
@@ -221,6 +222,15 @@ namespace Game.Westworld {
                 action = ActionView(run.Action), run.Result.Status, run.Result.Failure, run.Result.AffectedCount, run.Result.OfferId,
                 taskId = m_bindings.TryGetValue(actor, out Binding binding) ? binding.Tools.CognitiveActiveTaskId : null,
                 items = run.Result.ReceivedItems?.Take(16).Select(item => new { item.Slot, item.Count, item.Value, name = ItemName(item.Value) }).ToArray()
+            });
+        }
+
+        internal static void RecordInjury(Entity actor, Injury injury) {
+            if (m_project == null || actor.Project != m_project) return;
+            Add(actor, "injury", GameTime(actor), () => new {
+                injury.Amount, injury.Cause, healthBefore = injury.ComponentHealth.Health,
+                attackerId = injury.Attacker?.Entity.Id,
+                source = injury.GetType().Name
             });
         }
 

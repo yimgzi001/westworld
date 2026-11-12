@@ -326,6 +326,7 @@ namespace Game {
             m_componentRider = Entity.FindComponent<ComponentRider>();
             m_componentFactors = Entity.FindComponent<ComponentFactors>();
             IsCreativeFlyEnabled = valuesDictionary.GetValue<bool>("IsCreativeFlyEnabled");
+            if (PersistWestworldReadiness) StunTime = valuesDictionary.GetValue("WestworldStunTime", 0f);
             AccelerationFactor = valuesDictionary.GetValue<float>("AccelerationFactor");
             WalkSpeed = valuesDictionary.GetValue<float>("WalkSpeed");
             LadderSpeed = valuesDictionary.GetValue<float>("LadderSpeed");
@@ -372,7 +373,11 @@ namespace Game {
 
         public override void Save(ValuesDictionary valuesDictionary, EntityToIdMap entityToIdMap) {
             valuesDictionary.SetValue("IsCreativeFlyEnabled", IsCreativeFlyEnabled);
+            if (PersistWestworldReadiness) valuesDictionary.SetValue("WestworldStunTime", StunTime);
         }
+
+        bool PersistWestworldReadiness => Westworld.FoundingWorld.IsFounder(Entity)
+            && m_subsystemGameInfo.WorldSettings.WestworldCognitionProtocol == Westworld.ActorCognition.DeliberativeProtocol;
 
         public virtual void NormalMovement(float dt) {
             m_componentCreature.ComponentBody.IsGravityEnabled = true;

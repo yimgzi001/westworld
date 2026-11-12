@@ -147,7 +147,8 @@ namespace Game.Westworld {
                 || move.Timeout <= 0f || !float.IsFinite(move.Timeout)) {
                 return Reject(move, AtomicActionFailure.InvalidArgument);
             }
-            if (m_body.ParentBody != null || (m_locomotion != null && !CanUseLocomotion)) {
+            if (m_body.ParentBody != null || m_locomotion != null
+                && !(move.AwaitRecovery ? CanUseLocomotionAfterRecovery : CanUseLocomotion)) {
                 return Reject(move, AtomicActionFailure.PreconditionsNotMet);
             }
             if (m_pathfinding?.Destination != null || m_pilot?.Destination != null) {
@@ -162,16 +163,46 @@ namespace Game.Westworld {
             if (m_pathfinding == null || m_pilot == null) {
                 return StartDirectMove(move, deadline);
             }
-            m_pathfinding.SetDestination(move.Destination, 0.6f, move.Range, 0, false, false, false, null);
+            bool started = false;
+            void Begin() {
+                m_pathfinding.SetDestination(move.Destination, 0.6f, move.Range, 0, false, false, false, null);
+                started = true;
+            }
+            bool PilotTakenOver() => m_pilot.Destination is Vector3 target && target != move.Destination;
+            void Release() {
+                if (m_actor.IsAddedToProject && m_pathfinding.Destination == move.Destination) {
+                    if (!move.AwaitRecovery) m_pathfinding.Stop();
+                    else {
+                        bool stopOwnPilot = !PilotTakenOver();
+                        m_pathfinding.StopPreservingPilot();
+                        if (stopOwnPilot) m_pilot.Stop();
+                    }
+                }
+            }
+            if (!move.AwaitRecovery || m_locomotion.StunTime <= 0) Begin();
             return StartRunning(
                 move,
-                () => CheckMove(move, deadline),
                 () => {
-                    if (m_actor.IsAddedToProject && m_pathfinding.Destination == move.Destination) {
-                        m_pathfinding.Stop();
+                    if (move.AwaitRecovery && (started && (m_pathfinding.Destination is Vector3 requested && requested != move.Destination || PilotTakenOver())
+                        || !started && HasMovementDestination)) return Failed(AtomicActionFailure.MovementInterrupted);
+                    if (move.AwaitRecovery && m_locomotion.StunTime > 0) {
+                        if (!CanUseLocomotionAfterRecovery) return Failed(AtomicActionFailure.MovementInterrupted);
+                        if (started) {
+                            Release();
+                            started = false;
+                        }
+                        return m_time.GameTime >= deadline ? Failed(AtomicActionFailure.TimedOut) : null;
                     }
+                    if (!started) {
+                        if (m_time.GameTime >= deadline) return Failed(AtomicActionFailure.TimedOut);
+                        if (HasMovementDestination) return Failed(AtomicActionFailure.MovementInterrupted);
+                        if (!CanUseLocomotionAfterRecovery) return Failed(AtomicActionFailure.MovementInterrupted);
+                        Begin();
+                    }
+                    return CheckMove(move, deadline);
                 },
-                () => new MotionContinuation(move.Destination, Remaining(deadline), move.Range)
+                Release,
+                () => new MotionContinuation(move.Destination, Remaining(deadline), move.Range, move.AwaitRecovery)
             );
         }
 
@@ -179,7 +210,7 @@ namespace Game.Westworld {
             float closest = Vector3.Distance(m_body.Position, move.Destination);
             double lastProgress = m_time.GameTime;
             return StartRunning(move, () => {
-                if (!CanUseLocomotion || m_locomotion.LadderValue.HasValue) {
+                if (!(move.AwaitRecovery ? CanUseLocomotionAfterRecovery : CanUseLocomotion) || m_locomotion.LadderValue.HasValue) {
                     return Failed(AtomicActionFailure.MovementInterrupted);
                 }
                 Vector3 offset = move.Destination - m_body.Position;
@@ -189,6 +220,10 @@ namespace Game.Westworld {
                 }
                 if (m_time.GameTime >= deadline) {
                     return Failed(AtomicActionFailure.TimedOut);
+                }
+                if (move.AwaitRecovery && m_locomotion.StunTime > 0) {
+                    lastProgress = m_time.GameTime;
+                    return null;
                 }
                 if (distance + 0.08f < closest) {
                     closest = distance;
@@ -210,7 +245,7 @@ namespace Game.Westworld {
                     m_locomotion.TurnOrder = new Vector2(Math.Clamp(Vector2.Angle(forward, direction), -1f, 1f), 0f);
                 }
                 return null;
-            }, capture: () => new MotionContinuation(move.Destination, Remaining(deadline), move.Range));
+            }, capture: () => new MotionContinuation(move.Destination, Remaining(deadline), move.Range, move.AwaitRecovery));
         }
 
         AtomicActionResult? CheckMove(MoveTo move, double deadline) {

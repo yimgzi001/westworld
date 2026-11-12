@@ -23,8 +23,8 @@ namespace Game.Westworld {
 
         bool HasMovementDestination => m_pathfinding?.Destination != null || m_pilot?.Destination != null;
 
-        bool CanUseLocomotion => m_body.ParentBody == null && !m_body.IsEmbeddedInIce
-            && m_locomotion.StunTime <= 0f && !m_locomotion.DisableInputMovement;
+        bool CanUseLocomotionAfterRecovery => m_body.ParentBody == null && !m_body.IsEmbeddedInIce && !m_locomotion.DisableInputMovement;
+        bool CanUseLocomotion => CanUseLocomotionAfterRecovery && m_locomotion.StunTime <= 0f;
 
         AtomicActionRun StartFacing(FaceTowards action) {
             if (!IsFinite(action.Point) || !float.IsFinite(action.Timeout) || action.Timeout <= 0f) {

@@ -29,6 +29,7 @@ namespace Game {
         public int m_randomMoveCount;
 
         public bool m_destinationChanged;
+        bool m_preservePilotOnStop;
 
         public const float m_minPathfindingPeriod = 6f;
 
@@ -95,6 +96,18 @@ namespace Game {
             IsStuck = false;
         }
 
+        // Release this planner without clearing a pilot goal installed by another controller.
+        // Enter Stopped synchronously so a later state transition cannot clear that goal either.
+        internal void StopPreservingPilot() {
+            m_preservePilotOnStop = true;
+            try {
+                SetDestination(null, 0f, 0f, 0, false, false, false, null);
+                m_stateMachine.TransitionTo("Stopped");
+                IsStuck = false;
+            }
+            finally { m_preservePilotOnStop = false; }
+        }
+
         public virtual void Update(float dt) {
             if (m_subsystemTime.GameTime >= m_nextUpdateTime) {
                 float num = m_random.Float(0.08f, 0.12f);
@@ -112,7 +125,7 @@ namespace Game {
             m_stateMachine.AddState(
                 "Stopped",
                 delegate {
-                    Stop();
+                    if (!m_preservePilotOnStop) Stop();
                     m_randomMoveCount = 0;
                 },
                 delegate {

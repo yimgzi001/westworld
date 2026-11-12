@@ -145,6 +145,11 @@ namespace Game.Westworld {
                     || result.RetriesRemaining > step.Retries || result.AffectedCount < 0) {
                     return false;
                 }
+                if ((step.InterruptOn == "body_worsened") != (result.GuardBaseline != null)
+                    || result.GuardBaseline is { } baseline && (!float.IsFinite(baseline.Health + baseline.Air + baseline.Immersion + baseline.SwimSpeed)
+                        || baseline.Health is < 0 or > 1 || baseline.Air is < 0 or > 1)
+                    || result.InterruptedBy != null && (result.InterruptedBy != step.InterruptOn
+                        || result.AtomicFailure != AtomicActionFailure.MovementInterrupted || result.Status != ActorTaskStatus.Failed)) return false;
                 if (index == cursor && snapshot.Format == 2) {
                     if (result.Status != view.Status || result.Attempts == 0 || result.AffectedCount != 0 || result.ReceivedItems != null
                         || view.Status == ActorTaskStatus.Blocked && result.RetriesRemaining == 0) {

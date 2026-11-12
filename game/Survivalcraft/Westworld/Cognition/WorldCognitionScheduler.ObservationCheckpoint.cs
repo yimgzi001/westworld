@@ -24,6 +24,7 @@ namespace Game.Westworld {
         sealed record ObservationCheckpoint(int Format, string ExperimentId, double Time, int TaskOrderCursor,
             int RequestOrderCursor, int[] LookAheadReady, SavedObservationActor[] Actors, QuotaPause QuotaPause = null) {
             public AtomicActions.SavedItemOffer[] ItemOffers { get; init; }
+            public bool UserPaused { get; init; }
         }
 
         static readonly ConditionalWeakTable<Project, string> m_loadedObservations = new();
@@ -128,7 +129,10 @@ namespace Game.Westworld {
             }
             return new ObservationCheckpoint(1, m_ledger.Data.ExperimentId, m_time.GameTime,
                 ActorTaskScheduler.For(m_project).LastFirstActor, m_lastObservationActor, ready.Order().ToArray(), actors,
-                nativeSave ? m_quotaPause : null) { ItemOffers = AtomicActions.CaptureItemOffers(m_project, m_time.GameTime) };
+                nativeSave ? m_quotaPause : null) {
+                    ItemOffers = AtomicActions.CaptureItemOffers(m_project, m_time.GameTime),
+                    UserPaused = nativeSave && m_userPaused
+                };
         }
 
         internal void StartNativeObservation(string payload, long feeLimit, long? storageLimit) {
@@ -190,6 +194,7 @@ namespace Game.Westworld {
         void RestoreObservationState(Project project, ObservationCheckpoint saved) {
             AtomicActions.RestoreItemOffers(project, saved.Time, saved.ItemOffers);
             m_time.m_gameTime = saved.Time;
+            if (m_nativeObservation) m_userPaused = saved.UserPaused;
             ActorTaskScheduler.For(project).LastFirstActor = saved.TaskOrderCursor;
             m_lastObservationActor = saved.RequestOrderCursor;
             m_observationLookAheadReady.UnionWith(saved.LookAheadReady);

@@ -13,6 +13,8 @@ namespace Game.Westworld {
     public sealed record ActorTaskStepView(int Index, string Name, ActorTaskStatus Status, int Attempts,
         int RetriesRemaining, int MinimumAffectedCount, int AffectedCount, AtomicActionFailure AtomicFailure) {
         public IReadOnlyList<InventorySlotView> ReceivedItems { get; init; }
+        public SomaticView GuardBaseline { get; init; }
+        public string InterruptedBy { get; init; }
     }
 
     public sealed record ActorTaskView(int Version, ActorTaskStatus Status, int? CurrentStep, int CompletedSteps,
@@ -108,7 +110,9 @@ namespace Game.Westworld {
 
             m_steps = plan;
             m_stepViews = plan.Select((step, index) => new ActorTaskStepView(index, step.Name, ActorTaskStatus.Waiting,
-                0, step.Retries, step.MinimumAffectedCount, 0, AtomicActionFailure.None)).ToArray();
+                0, step.Retries, step.MinimumAffectedCount, 0, AtomicActionFailure.None) {
+                    GuardBaseline = step.Plan?.InterruptOn == "body_worsened" ? m_actions.Queries.ReadSomatic() : null
+                }).ToArray();
             m_status = ActorTaskStatus.Waiting;
             m_failure = ActorTaskFailure.None;
             m_version++;
@@ -144,7 +148,7 @@ namespace Game.Westworld {
                 throw new InvalidOperationException("The running action cannot be saved.");
             }
             if (m_retryMove is { } move && m_status == ActorTaskStatus.Blocked) {
-                continuation = new MotionContinuation(move.Destination, move.Timeout, move.Range);
+                continuation = new MotionContinuation(move.Destination, move.Timeout, move.Range, move.AwaitRecovery);
             }
             return new ActorTaskSnapshot(2, m_actor.Id, m_time.GameTime, m_steps.Select(step => step.Plan).ToArray(), Status, continuation);
         }
@@ -193,6 +197,18 @@ namespace Game.Westworld {
                 return false;
             }
             if (m_run != null) {
+                if (dt > 0 && m_run.Result.Status == AtomicActionStatus.Running
+                    && m_steps[m_current].Plan?.InterruptOn == "body_worsened"
+                    && BodyWorsened(m_stepViews[m_current].GuardBaseline, m_actions.Queries.ReadSomatic())) {
+                    // Only model-authored, effect-free locomotion/wait steps may have this guard.
+                    // The existing forward-only fallback owns every subsequent physical action.
+                    AtomicActionRun interrupted = m_run;
+                    m_actions.Cancel(interrupted);
+                    m_stepViews[m_current] = m_stepViews[m_current] with { InterruptedBy = "body_worsened" };
+                    m_lastStepTime = m_time.GameTime;
+                    CompleteAttempt(new AtomicActionResult(AtomicActionStatus.Failed, AtomicActionFailure.MovementInterrupted), interrupted.Action);
+                    return false;
+                }
                 if (m_run.Result.Status != AtomicActionStatus.Running) {
                     m_lastStepTime = m_time.GameTime;
                     CompleteAttempt(m_run.Result, m_run.Action);
@@ -205,6 +221,10 @@ namespace Game.Westworld {
             }
             return dt > 0f && m_time.GameTime > m_lastStepTime;
         }
+
+        static bool BodyWorsened(SomaticView baseline, SomaticView current) => baseline != null && current != null
+            && (current.Health < baseline.Health - .001f || current.Air < baseline.Air - .1f
+                || current.Burning && !baseline.Burning);
 
         internal void StartReadyStep() {
             if (IsActive && m_run == null && m_actions.IsTaskActorAvailable && m_time.GameTime > m_lastStepTime) {
